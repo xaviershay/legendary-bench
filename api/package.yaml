@@ -31,6 +31,9 @@ library:
     - transformers
     - text
     - vector
+    - unordered-containers
+    - hashable
+    - mtl
 
 executables:
   legendary-bench-exe:
