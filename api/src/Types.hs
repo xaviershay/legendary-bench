@@ -71,7 +71,7 @@ attackCard = PlayerCard
 
 mkGame :: Game
 mkGame = Game
-  { board = Board
+  { board = redact (PlayerId 0) $ draw 6 (PlayerId 0) $ Board
     { players = V.fromList [Player { attack = 0, money = 0}]
     , cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, map hideCard mkPlayerDeck)
@@ -79,4 +79,36 @@ mkGame = Game
     }
   }
 
+redact :: PlayerId -> Board -> Board
+redact id board = board { cards = M.mapWithKey f (cards board) }
+  where
+    f (PlayerLocation owner _) cards =
+      let desired = if owner == id then All else Hidden in
+
+      map (transformOwned desired) cards
+
+    f _ cards = cards
+
+    transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
+    transformOwned _ x = x
+
+draw :: Int -> PlayerId -> Board -> Board
+draw 0 _ board = board
+draw n id board = let
+  deckKey = PlayerLocation id PlayerDeck
+  handKey = PlayerLocation id Hand
+  deck = M.lookupDefault [] deckKey (cards board)
+  hand = M.lookupDefault [] handKey (cards board)
+  in
+
+  let newCards = case deck of
+                  [] -> undefined -- Need to shuffle in discard, lose game if still none
+                  (x:xs) -> M.insert deckKey xs $
+                            M.insert handKey (revealToOwner x:hand) $
+                            (cards board) in
+
+  draw (n - 1) id $ board { cards = newCards }
+
 hideCard card = CardInPlay card Hidden
+
+revealToOwner (CardInPlay card _) = (CardInPlay card Owner)
