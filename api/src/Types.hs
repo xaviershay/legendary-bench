@@ -77,7 +77,7 @@ data Effect =
   EffectNone |
   EffectMoney Int |
   EffectAttack Int |
-  EffectCustom T.Text (Board -> Board) |
+  EffectCustom T.Text (PlayerId -> Board -> Action) |
   EffectCombine Effect Effect
   deriving (Generic)
 
@@ -137,7 +137,7 @@ instance Eq Card where
 
 instance Eq CardInPlay
 
-mkPlayerDeck = S.replicate 8 moneyCard <> S.replicate 4 attackCard
+mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
 moneyCard = HeroCard
   { _heroName = "Money"
@@ -154,16 +154,33 @@ attackCard = HeroCard
 spideyCard = HeroCard
   { _heroName = "Spiderman"
   , _playEffect =    EffectMoney 1
-                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it" (\x -> x)
+                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it" spideyAction
   , _cost = 2
   }
+
+drawAction :: PlayerId -> Int -> Action
+drawAction id 1 = let location = (PlayerLocation id PlayerDeck, 0) in
+     RevealCard location All
+  <> MoveCard location (PlayerLocation id Hand) Front
+
+spideyAction :: PlayerId -> Board -> Action
+spideyAction id board =
+  let location = (PlayerLocation id PlayerDeck, 0) in
+
+  RevealCard location All <>
+    case lookupCard location board of
+       Nothing -> ActionLose "No cards left in deck" -- TODO: Shuffle in discard
+       Just c -> if cardCost c <= 2 then
+                   drawAction id 1
+                 else
+                   ActionNone
 
 mkGame :: Game
 mkGame = Game
   { board =
-    purchase (PlayerId 0) 0 $
-    play (PlayerId 0) 0 $
-    play (PlayerId 0) 0 $
+   -- purchase (PlayerId 0) 0 $
+   -- play (PlayerId 0) 0 $
+    play (PlayerId 0) 5 $
     draw 6 (PlayerId 0) $ Board
      { _players = S.fromList [Player { _resources = mempty }]
     , _gameState = Playing
@@ -179,6 +196,15 @@ cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
 
+playAction :: PlayerId -> CardInPlay -> Board -> Action
+playAction id (CardInPlay card _) board = effectAction id (view playEffect card) board
+
+effectAction id (EffectMoney n) board = ApplyResources id (set money n mempty)
+effectAction id (EffectAttack n) board = ApplyResources id (set attack n mempty)
+effectAction id (EffectNone) board = ActionNone
+effectAction id (EffectCustom _ f) board = f id board
+effectAction id (EffectCombine a b) board = effectAction id a board <> effectAction id b board
+
 translatePlayerAction :: PlayerId -> PlayerAction -> Board -> Action
 translatePlayerAction id (PlayCard i) board =
   let location = (PlayerLocation id Hand, i) in
@@ -188,7 +214,7 @@ translatePlayerAction id (PlayCard i) board =
     Just c ->
          RevealCard location All
       <> MoveCard location (PlayerLocation id Played) Front
-      <> ApplyResources id (resourcesFrom c board)
+      <> playAction id c board
 
 translatePlayerAction id (PurchaseCard i) board =
   let location = (HQ, i) in
@@ -207,25 +233,8 @@ play id i board = apply (translatePlayerAction id (PlayCard i) board) board
 purchase :: PlayerId -> Int -> Board -> Board
 purchase id i board = apply (translatePlayerAction id (PurchaseCard i) board) board
 
-resourcesFrom :: CardInPlay -> Board -> Resources
-resourcesFrom (CardInPlay card _) board =
-  Resources
-    { _attack = calculateAttack (view playEffect card) board
-    , _money = calculateMoney (view playEffect card) board
-    }
-
 lookupCard :: SpecificCard -> Board -> Maybe CardInPlay
 lookupCard (location, i) board = preview (cards . at location . _Just . ix i) board
-
-calculateAttack :: Effect -> Board -> Int
-calculateAttack (EffectAttack n) _ = n
-calculateAttack (EffectCombine a b) board = calculateAttack a board + calculateAttack b board
-calculateAttack _ _ = 0
-
-calculateMoney :: Effect -> Board -> Int
-calculateMoney (EffectMoney n) _ = n
-calculateMoney (EffectCombine a b) board = calculateMoney a board + calculateMoney b board
-calculateMoney _ _ = 0
 
 redact :: PlayerId -> Board -> Board
 redact id board = over cards (M.mapWithKey f) board
