@@ -39,11 +39,22 @@ data PlayerAction =
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
-data Card = PlayerCard
-  { name       :: T.Text
-  , playEffect :: Effect
+data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq)
+data Location = PlayerLocation PlayerId ScopedLocation | Boss deriving (Show, Generic, Eq)
+newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
+
+
+data Card = HeroCard
+  { _heroName       :: T.Text
+  , _playEffect :: Effect
+  } | EnemyCard
+  { _enemyName :: T.Text
+  , _baseHealth :: Int
   }
+
   deriving (Show, Generic, Eq)
+
+makeLenses ''Card
 
 data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic, Eq)
 
@@ -57,11 +68,6 @@ instance Monoid Resources where
   mappend (Resources { _attack = a1,      _money = m1 })
           (Resources { _attack = a2,      _money = m2 }) =
            Resources { _attack = a1 + a2, _money = m1 + m2 }
-
-newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
-
-data Location = PlayerLocation PlayerId ScopedLocation | Boss deriving (Show, Generic, Eq)
-data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq)
 
 instance Hashable PlayerId
 instance Hashable ScopedLocation
@@ -108,17 +114,16 @@ instance Monoid Action where
   mempty = ActionNone
   mappend a b = ActionSequence a (const b)
 
-
 mkPlayerDeck = S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
-moneyCard = PlayerCard
-  { name = "Money"
-  , playEffect = EffectMoney 1
+moneyCard = HeroCard
+  { _heroName = "Money"
+  , _playEffect = EffectMoney 1
   }
 
-attackCard = PlayerCard
-  { name = "Attack"
-  , playEffect = EffectAttack 1
+attackCard = HeroCard
+  { _heroName = "Attack"
+  , _playEffect = EffectAttack 1
   }
 
 mkGame :: Game
@@ -137,8 +142,8 @@ play id i board =
   case lookupCard location board of
     Nothing -> lose ("No card at: " <> showT location) board
     Just c -> apply
-                $ ActionSequence (revealAction <> moveAction) (resourcesAction c)
-                $ board
+                (ActionSequence (revealAction <> moveAction) (resourcesAction c))
+                board
   where
     location = (PlayerLocation id Hand, i)
     moveAction = MoveCard location (PlayerLocation id Played) Front
@@ -148,8 +153,8 @@ play id i board =
 resourcesFrom :: CardInPlay -> Board -> Resources
 resourcesFrom (CardInPlay card _) board =
   Resources
-    { _attack = calculateAttack (playEffect card) board
-    , _money = calculateMoney (playEffect card) board
+    { _attack = calculateAttack (view playEffect card) board
+    , _money = calculateMoney (view playEffect card) board
     }
 
 lookupCard :: SpecificCard -> Board -> Maybe CardInPlay
