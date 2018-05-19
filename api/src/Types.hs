@@ -16,6 +16,13 @@ import Control.Monad.Reader
 
 import Utils
 
+data GameMonadState = GameMonadState
+  { _activePlayer :: PlayerId
+  , _board        :: Board
+  }
+
+type GameMonad = Reader GameMonadState
+
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
@@ -78,7 +85,7 @@ data Effect =
   EffectNone |
   EffectMoney Int |
   EffectAttack Int |
-  EffectCustom T.Text (PlayerId -> Board -> Action) |
+  EffectCustom T.Text (GameMonad Action) |
   EffectCombine Effect Effect
   deriving (Generic)
 
@@ -111,7 +118,7 @@ instance Monoid Effect where
 data Action =
   ActionNone |
   ActionLose T.Text |
-  ActionSequence Action (Board -> Action) |
+  ActionSequence Action (GameMonad Action) |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources
@@ -120,10 +127,13 @@ data Action =
 
 instance Show Action where
   show ActionNone = "None"
+  show (ActionLose s) = "Lose: " <> T.unpack s
+  show (ActionSequence a f) = "Sequence"
+  show _ = "Some Action"
 
 instance Monoid Action where
   mempty = ActionNone
-  mappend a b = ActionSequence a (const b)
+  mappend a b = ActionSequence a (return b)
 
 makeLenses ''Player
 makeLenses ''Board
@@ -137,13 +147,6 @@ instance Eq Card where
   (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
 
 instance Eq CardInPlay
-
-data GameMonadState = GameMonadState
-  { _activePlayer :: PlayerId
-  , _board        :: Board
-  }
-
-type GameMonad = Reader GameMonadState
 
 mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
@@ -167,19 +170,26 @@ spideyCard = HeroCard
   }
 
 drawAction :: PlayerId -> Int -> Action
-drawAction id 1 = let location = (PlayerLocation id PlayerDeck, 0) in
-     RevealCard location All
-  <> MoveCard location (PlayerLocation id Hand) Front
+drawAction playerId n =
+   mconcat . replicate n $
+     revealAndMove
+       (PlayerLocation playerId PlayerDeck, 0)
+       (PlayerLocation playerId Hand)
+       Front
 
-spideyAction :: PlayerId -> Board -> Action
-spideyAction id board =
-  let location = (PlayerLocation id PlayerDeck, 0) in
+spideyAction :: GameMonad Action
+spideyAction = do
+  playerId <- currentPlayer
 
-  RevealCard location All <>
-    case lookupCard location board of
+  let location = (PlayerLocation playerId PlayerDeck, 0)
+
+  card <- lookupCard location
+
+  return $ RevealCard location All <>
+    case card of
        Nothing -> ActionLose "No cards left in deck" -- TODO: Shuffle in discard
        Just c -> if cardCost c <= 2 then
-                   drawAction id 1
+                   drawAction playerId 1
                  else
                    ActionNone
 
@@ -189,7 +199,7 @@ mkGame = Game
    -- purchase (PlayerId 0) 0 $
    -- play (PlayerId 0) 0 $
     play (PlayerId 0) 5 $
-    draw 6 (PlayerId 0) $ Board
+    draw (PlayerId 0) 6 $ Board
      { _players = S.fromList [Player { _resources = mempty }]
     , _boardState = Playing
     , _cards = M.fromList
@@ -216,13 +226,20 @@ currentBoard = do
 
   return $ _board state
 
+withBoard :: Board -> GameMonad a -> GameMonad a
+withBoard board m = do
+  playerId <- currentPlayer
+
+  let state = GameMonadState { _activePlayer = playerId, _board = board}
+
+  return $ runReader m state
+
 runGameMonad :: PlayerId -> Board -> GameMonad a -> a
 runGameMonad id board m = runReader m
   (GameMonadState { _activePlayer = id, _board = board })
 
-playAction :: PlayerId -> CardInPlay -> Board -> Action
-playAction id (CardInPlay card _) board = runGameMonad id board $
-  effectAction (view playEffect card)
+playAction :: CardInPlay -> GameMonad Action
+playAction (CardInPlay card _) = effectAction (view playEffect card)
 
 applyResourcesAction :: Resources -> GameMonad Action
 applyResourcesAction rs = do
@@ -233,50 +250,57 @@ applyResourcesAction rs = do
 effectAction :: Effect -> GameMonad Action
 effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
 effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
-
 effectAction (EffectNone) = return ActionNone
-effectAction (EffectCustom _ f) = do
-  player <- currentPlayer
-  b <- currentBoard
-
-  return $ f player b
-
+effectAction (EffectCustom _ f) = f
 effectAction (EffectCombine a b) = do
   x <- effectAction a
   y <- effectAction b
 
   return $ x <> y
 
-translatePlayerAction :: PlayerId -> PlayerAction -> Board -> Action
-translatePlayerAction id (PlayCard i) board =
-  let location = (PlayerLocation id Hand, i) in
+translatePlayerAction :: PlayerAction -> GameMonad Action
+translatePlayerAction (PlayCard i) = do
+  playerId <- currentPlayer
 
-  case lookupCard location board of
-    Nothing -> ActionLose ("No card at: " <> showT location)
-    Just c ->
-         RevealCard location All
-      <> MoveCard location (PlayerLocation id Played) Front
-      <> playAction id c board
+  let location = (PlayerLocation playerId Hand, i)
 
-translatePlayerAction id (PurchaseCard i) board =
-  let location = (HQ, i) in
+  card <- lookupCard location
 
-  case lookupCard location board of
+  case card of
+    Nothing -> return $ ActionLose ("No card at: " <> showT location)
+    Just c -> do
+      cardEffect <- playAction c
+
+      return $
+           revealAndMove location (PlayerLocation playerId Played) Front
+        <> cardEffect
+
+translatePlayerAction (PurchaseCard i) = do
+  let location = (HQ, i)
+
+  playerId <- currentPlayer
+  card <- lookupCard location
+
+  return $ case card of
     Nothing -> ActionLose ("No card to purchase: " <> showT location)
     Just c ->
-         MoveCard location (PlayerLocation id Discard) Front
-      <> ApplyResources id (mempty { _money = (-(cardCost c))})
-      <> RevealCard (HeroDeck, 0) All
-      <> MoveCard (HeroDeck, 0) HQ (LocationIndex i)
+         MoveCard location (PlayerLocation playerId Discard) Front
+      <> ApplyResources playerId (mempty { _money = (-(cardCost c))})
+      <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+
+revealAndMove source destination spot =
+     RevealCard source All
+  <> MoveCard source destination spot
 
 play :: PlayerId -> Int -> Board -> Board
-play id i board = apply (translatePlayerAction id (PlayCard i) board) board
+play id i board = (runGameMonad id board $ translatePlayerAction (PlayCard i) >>= apply)
 
 purchase :: PlayerId -> Int -> Board -> Board
-purchase id i board = apply (translatePlayerAction id (PurchaseCard i) board) board
+purchase id i board = (runGameMonad id board $ translatePlayerAction (PurchaseCard i) >>= apply)
 
-lookupCard :: SpecificCard -> Board -> Maybe CardInPlay
-lookupCard (location, i) board = preview (cards . at location . _Just . ix i) board
+lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
+lookupCard (location, i) =
+  preview (cards . at location . _Just . ix i) <$> currentBoard
 
 redact :: PlayerId -> Board -> Board
 redact id board = over cards (M.mapWithKey f) board
@@ -291,60 +315,48 @@ redact id board = over cards (M.mapWithKey f) board
     transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
     transformOwned _ x = x
 
-lose :: T.Text -> Board -> Board
-lose reason board = set boardState (Lost reason) board
+lose :: T.Text -> GameMonad Board
+lose reason = set boardState (Lost reason) <$> currentBoard
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)
 
-apply :: Action -> Board -> Board
-apply (MoveCard specificCard@(location, i) to dest) board =
+apply :: Action -> GameMonad Board
+apply (MoveCard specificCard@(location, i) to dest) = do
+  board <- currentBoard
   -- "Pop" card from source
   case preview (cards . at location . _Just . ix i) board of
-    Nothing -> (lose $ "Card does not exist: " <> showT specificCard) board
-    Just card ->
+    Nothing -> (lose $ "Card does not exist: " <> showT specificCard)
+    Just card -> return $
       over (cards . at location) (fmap (S.deleteAt i)) $
       over (cards . at to . non S.Empty) (card <|) $
       board
-apply (RevealCard (location, i) v) board =
-  over (cards . at location . _Just . ix i) (setVisibility v) board
-apply (ApplyResources (PlayerId id) rs) board =
-  let board' = over (players . ix id . resources) (rs <>) board in
+apply (RevealCard (location, i) v) =
+  over (cards . at location . _Just . ix i) (setVisibility v) <$> currentBoard
+apply (ApplyResources (PlayerId id) rs) = do
+  board <- currentBoard
+
+  let board' = over (players . ix id . resources) (rs <>) board
 
   if invalidResources (view (players . ix id . resources) board') then
-    lose "Not enough resources" board'
+    lose "Not enough resources"
   else
-    board'
+    return board'
 
-apply (ActionNone) board = board
-apply (ActionSequence a f) board =
-  let board' = apply a board in
+apply (ActionNone) = currentBoard
+apply (ActionSequence a m) = do
+  board' <- apply a
 
-  apply (f board') board'
+  withBoard board' $ m >>= apply
 
-apply action board = (lose $ "Don't know how to apply: " <> showT action) board
+apply action = lose $ "Don't know how to apply: " <> showT action
 
   -- Add card to destination
-draw :: Int -> PlayerId -> Board -> Board
-draw 0 _ board = board
-draw n id board = let
-  deckKey = PlayerLocation id PlayerDeck
-  handKey = PlayerLocation id Hand
-  deck = M.lookupDefault mempty deckKey $ view cards board
-  hand = M.lookupDefault mempty handKey $ view cards board
-  in
-
-  let newCards = case deck of
-                  S.Empty -> undefined -- Need to shuffle in discard, lose game if still none
-                  (x S.:<| xs) -> M.insert deckKey xs $
-                                  M.insert handKey (revealToOwner x <| hand) $
-                                  (view cards board) in
-
-  draw (n - 1) id $ set cards newCards board
+draw :: PlayerId -> Int -> Board -> Board
+draw playerId n board =
+  runGameMonad playerId board (apply $ drawAction playerId n)
 
 hideCard card = CardInPlay card Hidden
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
 setVisibility v (CardInPlay card _) = CardInPlay card v
-
-revealToOwner = setVisibility Owner
