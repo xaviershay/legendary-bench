@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Types where
 
@@ -9,6 +10,7 @@ import qualified Data.Text           as T
 import qualified Data.Vector         as V
 import           GHC.Generics
 import Data.Hashable (Hashable)
+import Control.Lens
 
 data Effect =
   EffectNone |
@@ -47,10 +49,12 @@ instance Hashable ScopedLocation
 instance Hashable Location
 
 data Board = Board
-  { players :: V.Vector Player
-  , cards   :: M.HashMap Location [CardInPlay]
+  { _players :: V.Vector Player
+  , _cards   :: M.HashMap Location [CardInPlay]
   }
   deriving (Show, Generic)
+
+makeLenses ''Board
 
 data Game = Game
   { board :: Board
@@ -72,22 +76,22 @@ attackCard = PlayerCard
 mkGame :: Game
 mkGame = Game
   { board = redact (PlayerId 0) $ draw 6 (PlayerId 0) $ Board
-    { players = V.fromList [Player { attack = 0, money = 0}]
-    , cards = M.fromList
+    { _players = V.fromList [Player { attack = 0, money = 0}]
+    , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, map hideCard mkPlayerDeck)
         ]
     }
   }
 
 redact :: PlayerId -> Board -> Board
-redact id board = board { cards = M.mapWithKey f (cards board) }
+redact id board = over cards (M.mapWithKey f) board
   where
-    f (PlayerLocation owner _) cards =
+    f (PlayerLocation owner _) cs =
       let desired = if owner == id then All else Hidden in
 
-      map (transformOwned desired) cards
+      map (transformOwned desired) cs
 
-    f _ cards = cards
+    f _ cs = cs
 
     transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
     transformOwned _ x = x
@@ -97,17 +101,17 @@ draw 0 _ board = board
 draw n id board = let
   deckKey = PlayerLocation id PlayerDeck
   handKey = PlayerLocation id Hand
-  deck = M.lookupDefault [] deckKey (cards board)
-  hand = M.lookupDefault [] handKey (cards board)
+  deck = M.lookupDefault [] deckKey $ view cards board
+  hand = M.lookupDefault [] handKey $ view cards board
   in
 
   let newCards = case deck of
                   [] -> undefined -- Need to shuffle in discard, lose game if still none
                   (x:xs) -> M.insert deckKey xs $
                             M.insert handKey (revealToOwner x:hand) $
-                            (cards board) in
+                            (view cards board) in
 
-  draw (n - 1) id $ board { cards = newCards }
+  draw (n - 1) id $ set cards newCards board
 
 hideCard card = CardInPlay card Hidden
 
