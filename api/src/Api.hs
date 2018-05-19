@@ -42,6 +42,7 @@ instance ToJSONKey Location where
     case x of
       Boss -> "boss"
       HQ -> "hq"
+      HeroDeck -> "hero-deck"
       PlayerLocation id location ->   "player-"
                                     <> showT id
                                     <> "-"

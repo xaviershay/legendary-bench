@@ -16,12 +16,11 @@ import Control.Lens
 import Utils
 
 type SpecificCard = (Location, Int)
-data MoveDestination = Front | Back | Sorted deriving (Show, Generic)
+data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
 data PlayerAction =
-  PlayCard SpecificCard |
-  AttackCard SpecificCard |
-  PurchaseCard SpecificCard |
+  PlayCard Int |
+  PurchaseCard Int |
   FinishTurn
 
   deriving (Show, Generic)
@@ -29,7 +28,11 @@ data PlayerAction =
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq)
-data Location = PlayerLocation PlayerId ScopedLocation | HQ | Boss deriving (Show, Generic, Eq)
+data Location = PlayerLocation PlayerId ScopedLocation
+  | HQ
+  | HeroDeck
+  | Boss
+  deriving (Show, Generic, Eq)
 newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 
 
@@ -95,7 +98,6 @@ data Board = Board
   }
   deriving (Show, Generic)
 
-
 data Game = Game
   { board :: Board
   }
@@ -105,9 +107,9 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend a b = EffectCombine a b
 
-
 data Action =
   ActionNone |
+  ActionLose T.Text |
   ActionSequence Action (Board -> Action) |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
@@ -125,6 +127,7 @@ instance Monoid Action where
 makeLenses ''Player
 makeLenses ''Board
 makeLenses ''Card
+makeLenses ''Resources
 
 -- This instance is used for anything substantial, it's just needed for some
 -- lens derivation (which we ultimately don't rely on)
@@ -157,28 +160,52 @@ spideyCard = HeroCard
 
 mkGame :: Game
 mkGame = Game
-  { board = play (PlayerId 0) 0 $ draw 6 (PlayerId 0) $ Board
+  { board =
+    purchase (PlayerId 0) 0 $
+    play (PlayerId 0) 0 $
+    play (PlayerId 0) 0 $
+    draw 6 (PlayerId 0) $ Board
      { _players = S.fromList [Player { _resources = mempty }]
     , _gameState = Playing
     , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])
+        , (HeroDeck, S.fromList [CardInPlay spideyCard Hidden])
         ]
     }
   }
 
-play :: PlayerId -> Int -> Board -> Board
-play id i board =
+cardCost :: CardInPlay -> Int
+cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
+cardCost _ = 0
+
+translatePlayerAction :: PlayerId -> PlayerAction -> Board -> Action
+translatePlayerAction id (PlayCard i) board =
+  let location = (PlayerLocation id Hand, i) in
+
   case lookupCard location board of
-    Nothing -> lose ("No card at: " <> showT location) board
-    Just c -> apply
-                (ActionSequence (revealAction <> moveAction) (resourcesAction c))
-                board
-  where
-    location = (PlayerLocation id Hand, i)
-    moveAction = MoveCard location (PlayerLocation id Played) Front
-    revealAction = RevealCard location All
-    resourcesAction c board = ApplyResources id (resourcesFrom c board)
+    Nothing -> ActionLose ("No card at: " <> showT location)
+    Just c ->
+         RevealCard location All
+      <> MoveCard location (PlayerLocation id Played) Front
+      <> ApplyResources id (resourcesFrom c board)
+
+translatePlayerAction id (PurchaseCard i) board =
+  let location = (HQ, i) in
+
+  case lookupCard location board of
+    Nothing -> ActionLose ("No card to purchase: " <> showT location)
+    Just c ->
+         MoveCard location (PlayerLocation id Discard) Front
+      <> ApplyResources id (mempty { _money = (-(cardCost c))})
+      <> RevealCard (HeroDeck, 0) All
+      <> MoveCard (HeroDeck, 0) HQ (LocationIndex i)
+
+play :: PlayerId -> Int -> Board -> Board
+play id i board = apply (translatePlayerAction id (PlayCard i) board) board
+
+purchase :: PlayerId -> Int -> Board -> Board
+purchase id i board = apply (translatePlayerAction id (PurchaseCard i) board) board
 
 resourcesFrom :: CardInPlay -> Board -> Resources
 resourcesFrom (CardInPlay card _) board =
@@ -216,6 +243,9 @@ redact id board = over cards (M.mapWithKey f) board
 lose :: T.Text -> Board -> Board
 lose reason board = set gameState (Lost reason) board
 
+invalidResources :: Resources -> Bool
+invalidResources r = (view money r < 0) || (view attack r < 0)
+
 apply :: Action -> Board -> Board
 apply (MoveCard specificCard@(location, i) to dest) board =
   -- "Pop" card from source
@@ -228,7 +258,13 @@ apply (MoveCard specificCard@(location, i) to dest) board =
 apply (RevealCard (location, i) v) board =
   over (cards . at location . _Just . ix i) (setVisibility v) board
 apply (ApplyResources (PlayerId id) rs) board =
-  over (players . ix id . resources) (rs <>) board
+  let board' = over (players . ix id . resources) (rs <>) board in
+
+  if invalidResources (view (players . ix id . resources) board') then
+    lose "Not enough resources" board'
+  else
+    board'
+
 apply (ActionNone) board = board
 apply (ActionSequence a f) board =
   let board' = apply a board in
