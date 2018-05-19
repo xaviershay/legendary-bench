@@ -215,16 +215,10 @@ cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
 
 currentPlayer :: GameMonad PlayerId
-currentPlayer = do
-  state <- ask
-
-  return $ _activePlayer state
+currentPlayer = _activePlayer <$> ask
 
 currentBoard :: GameMonad Board
-currentBoard = do
-  state <- ask
-
-  return $ _board state
+currentBoard = _board <$> ask
 
 withBoard :: Board -> GameMonad a -> GameMonad a
 withBoard board m = do
