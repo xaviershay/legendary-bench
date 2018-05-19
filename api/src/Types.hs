@@ -22,20 +22,20 @@ data Effect =
   EffectCombine Effect Effect
   deriving (Show, Generic, Eq)
 
-type SpecificCard = (Location, Int)
-data MoveDestination = Front | Back | Sorted deriving (Show, Generic)
-
-data Action =
-  MoveCard SpecificCard Location MoveDestination |
-  RevealCard SpecificCard Visibility |
-  ApplyResources PlayerId Resources |
-  MultiAction [Action]
-
-  deriving (Show, Generic)
-
 instance Monoid Effect where
   mempty = EffectNone
   mappend a b = EffectCombine a b
+
+type SpecificCard = (Location, Int)
+data MoveDestination = Front | Back | Sorted deriving (Show, Generic)
+
+data PlayerAction =
+  PlayCard SpecificCard |
+  AttackCard SpecificCard |
+  PurchaseCard SpecificCard |
+  FinishTurn
+
+  deriving (Show, Generic)
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
@@ -92,6 +92,23 @@ data Game = Game
   }
   deriving (Show, Generic)
 
+data Action =
+  ActionNone |
+  ActionSequence Action (Board -> Action) |
+  MoveCard SpecificCard Location MoveDestination |
+  RevealCard SpecificCard Visibility |
+  ApplyResources PlayerId Resources
+
+  deriving (Generic)
+
+instance Show Action where
+  show ActionNone = "None"
+
+instance Monoid Action where
+  mempty = ActionNone
+  mappend a b = ActionSequence a (const b)
+
+
 mkPlayerDeck = S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
 moneyCard = PlayerCard
@@ -116,10 +133,12 @@ mkGame = Game
   }
 
 play :: PlayerId -> Int -> Board -> Board
-play id i board = case lookupCard location board of
-                    Nothing -> lose ("No card at: " <> showT location) board
-                    Just c -> let board' = apply moveAction $ apply revealAction $ board in
-                              apply (resourcesAction c board') board'
+play id i board =
+  case lookupCard location board of
+    Nothing -> lose ("No card at: " <> showT location) board
+    Just c -> apply
+                $ ActionSequence (revealAction <> moveAction) (resourcesAction c)
+                $ board
   where
     location = (PlayerLocation id Hand, i)
     moveAction = MoveCard location (PlayerLocation id Played) Front
@@ -175,6 +194,11 @@ apply (RevealCard (location, i) v) board =
   over (cards . at location . _Just . ix i) (setVisibility v) board
 apply (ApplyResources (PlayerId id) rs) board =
   over (players . ix id . resources) (rs <>) board
+apply (ActionNone) board = board
+apply (ActionSequence a f) board =
+  let board' = apply a board in
+
+  apply (f board') board'
 
 apply action board = (lose $ "Don't know how to apply: " <> showT action) board
 
