@@ -30,8 +30,8 @@ library:
     - stm
     - transformers
     - text
-    - vector
     - unordered-containers
+    - containers
     - hashable
     - mtl
     - lens

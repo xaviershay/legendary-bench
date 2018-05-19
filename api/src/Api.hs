@@ -23,6 +23,8 @@ import Control.Monad.Reader (Reader)
 
 import qualified Data.Text as T
 
+import Utils
+
 data State = State
   { game :: TVar Game -- TODO: Handle multiple games at once
   }
@@ -44,9 +46,6 @@ instance ToJSONKey Location where
                                     <> "-"
                                     <> showT location
 
-showT :: Show a => a -> T.Text
-showT = T.pack . show
-
 instance ToJSON Game
 instance ToJSON Player
 instance ToJSON Card
@@ -56,6 +55,8 @@ instance ToJSON Location
 instance ToJSON Visibility
 instance ToJSON PlayerId
 instance ToJSON Board
+instance ToJSON GameState
+instance ToJSON Resources
 
 instance ToJSON CardInPlay where
   toJSON (CardInPlay card Hidden) = object
@@ -64,7 +65,8 @@ instance ToJSON CardInPlay where
 
   -- Data should be pre-processed to remove all other visibility types before
   -- reaching here.
-  toJSON (CardInPlay _ _) = undefined
+  toJSON (CardInPlay _ Owner) =
+    error "Trying to convert Owner visibility to JSON"
 
 api :: Proxy MyAPI
 api = Proxy
@@ -80,5 +82,8 @@ server = getGame
 
 getGame :: Int -> AppM Game
 getGame id = do
-  State{game = g} <- ask
-  liftIO $ atomically $ readTVar g
+  State{game = gvar} <- ask
+  g <- liftIO $ atomically $ readTVar gvar
+
+  return $ g { board = redact (PlayerId 0) (board g) }
+  --return g
