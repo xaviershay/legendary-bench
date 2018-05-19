@@ -41,6 +41,7 @@ instance ToJSONKey Location where
   toJSONKey = toJSONKeyText $ \x ->
     case x of
       Boss -> "boss"
+      HQ -> "hq"
       PlayerLocation id location ->   "player-"
                                     <> showT id
                                     <> "-"
@@ -49,7 +50,6 @@ instance ToJSONKey Location where
 instance ToJSON Game
 instance ToJSON Player
 instance ToJSON Card
-instance ToJSON Effect
 instance ToJSON ScopedLocation
 instance ToJSON Location
 instance ToJSON Visibility
@@ -57,6 +57,9 @@ instance ToJSON PlayerId
 instance ToJSON Board
 instance ToJSON GameState
 instance ToJSON Resources
+
+instance ToJSON Effect where
+  toJSON = toJSON . show
 
 instance ToJSON CardInPlay where
   toJSON (CardInPlay card Hidden) = object

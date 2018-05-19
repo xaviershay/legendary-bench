@@ -15,17 +15,6 @@ import Control.Lens
 
 import Utils
 
-data Effect =
-  EffectNone |
-  EffectMoney Int |
-  EffectAttack Int |
-  EffectCombine Effect Effect
-  deriving (Show, Generic, Eq)
-
-instance Monoid Effect where
-  mempty = EffectNone
-  mappend a b = EffectCombine a b
-
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | Back | Sorted deriving (Show, Generic)
 
@@ -40,23 +29,22 @@ data PlayerAction =
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq)
-data Location = PlayerLocation PlayerId ScopedLocation | Boss deriving (Show, Generic, Eq)
+data Location = PlayerLocation PlayerId ScopedLocation | HQ | Boss deriving (Show, Generic, Eq)
 newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 
 
 data Card = HeroCard
-  { _heroName       :: T.Text
+  { _heroName   :: T.Text
   , _playEffect :: Effect
+  , _cost       :: Int
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: Int
   }
 
-  deriving (Show, Generic, Eq)
+  deriving (Show, Generic)
 
-makeLenses ''Card
-
-data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic, Eq)
+data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic)
 
 data Resources = Resources
   { _attack :: Int
@@ -82,7 +70,23 @@ data Player = Player
   }
   deriving (Show, Generic)
 
-makeLenses ''Player
+data Effect =
+  EffectNone |
+  EffectMoney Int |
+  EffectAttack Int |
+  EffectCustom T.Text (Board -> Board) |
+  EffectCombine Effect Effect
+  deriving (Generic)
+
+instance Show Effect where
+  show EffectNone = ""
+  show (EffectMoney n) = "Money +" <> show n
+  show (EffectAttack n) = "Attack +" <> show n
+  show (EffectCombine EffectNone EffectNone) = show ""
+  show (EffectCombine EffectNone b) = show b
+  show (EffectCombine a EffectNone) = show a
+  show (EffectCombine a b) = show a <> ", " <> show b
+  show (EffectCustom a _) = T.unpack a
 
 data Board = Board
   { _players :: S.Seq Player
@@ -91,12 +95,16 @@ data Board = Board
   }
   deriving (Show, Generic)
 
-makeLenses ''Board
 
 data Game = Game
   { board :: Board
   }
   deriving (Show, Generic)
+
+instance Monoid Effect where
+  mempty = EffectNone
+  mappend a b = EffectCombine a b
+
 
 data Action =
   ActionNone |
@@ -114,16 +122,37 @@ instance Monoid Action where
   mempty = ActionNone
   mappend a b = ActionSequence a (const b)
 
+makeLenses ''Player
+makeLenses ''Board
+makeLenses ''Card
+
+-- This instance is used for anything substantial, it's just needed for some
+-- lens derivation (which we ultimately don't rely on)
+instance Eq Card where
+  (a@HeroCard{}) == (b@HeroCard{}) = view heroName a == view heroName b
+  (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
+
+instance Eq CardInPlay
+
 mkPlayerDeck = S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
 moneyCard = HeroCard
   { _heroName = "Money"
   , _playEffect = EffectMoney 1
+  , _cost = 0
   }
 
 attackCard = HeroCard
   { _heroName = "Attack"
   , _playEffect = EffectAttack 1
+  , _cost = 0
+  }
+
+spideyCard = HeroCard
+  { _heroName = "Spiderman"
+  , _playEffect =    EffectMoney 1
+                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it" (\x -> x)
+  , _cost = 2
   }
 
 mkGame :: Game
@@ -133,6 +162,7 @@ mkGame = Game
     , _gameState = Playing
     , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
+        , (HQ, S.fromList [CardInPlay spideyCard All])
         ]
     }
   }
