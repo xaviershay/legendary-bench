@@ -315,18 +315,51 @@ lose reason = set boardState (Lost reason) <$> currentBoard
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)
 
-apply :: Action -> GameMonad Board
-apply (MoveCard specificCard@(location, i) to dest) = do
+playerDeck :: Location -> Maybe PlayerId
+playerDeck (PlayerLocation playerId PlayerDeck) = Just playerId
+playerDeck _ = Nothing
+
+tryShuffleDiscardToDeck :: Action -> GameMonad Board
+tryShuffleDiscardToDeck a@(MoveCard specificCard@(location, i) _ _) = do
   board <- currentBoard
-  -- "Pop" card from source
-  case preview (cards . at location . _Just . ix i) board of
-    Nothing -> (lose $ "Card does not exist: " <> showT specificCard)
-    Just card -> return $
-      over (cards . at location) (fmap (S.deleteAt i)) $
-      over (cards . at to . non S.Empty) (card <|) $
-      board
-apply (RevealCard (location, i) v) =
-  over (cards . at location . _Just . ix i) (setVisibility v) <$> currentBoard
+
+  case playerDeck location of
+    Nothing -> lose $ "Card does not exist: " <> showT specificCard
+    Just playerId -> do
+      let discardDeck = PlayerLocation playerId Discard
+
+      case view (cards . at discardDeck . non mempty) board of
+        S.Empty -> lose $ "No cards left to draw for " <> showT playerId
+        cs -> do
+          let board' =   set
+                           (cards . at location . _Just)
+                           (fmap (setVisibility Hidden) cs)
+                       $ set (cards . at discardDeck) mempty
+                       $ board
+
+          withBoard board' $ apply a
+
+overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
+overCard (location, i) f =
+     over (cards . at location . _Just . ix i) f <$> currentBoard
+
+apply :: Action -> GameMonad Board
+apply a@(MoveCard specificCard@(location, i) to dest) = do
+  maybeCard <- lookupCard specificCard
+
+  case maybeCard of
+    Nothing -> tryShuffleDiscardToDeck a
+    Just card ->    over (cards . at location) (fmap (S.deleteAt i))
+                <$> over (cards . at to . non S.Empty) (card <|)
+                <$> currentBoard
+
+apply a@(RevealCard location v) = do
+  maybeCard <- lookupCard location
+
+  case maybeCard of
+    Nothing -> tryShuffleDiscardToDeck a
+    Just card -> overCard location (setVisibility v)
+
 apply (ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
 
