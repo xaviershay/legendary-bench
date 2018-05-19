@@ -89,5 +89,5 @@ getGame id = do
   State{game = gvar} <- ask
   g <- liftIO $ atomically $ readTVar gvar
 
-  return $ g { board = redact (PlayerId 0) (board g) }
+  return $ g { _gameState = redact (PlayerId 0) (_gameState g) }
   --return g

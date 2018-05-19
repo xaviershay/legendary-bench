@@ -12,6 +12,7 @@ import qualified Data.Sequence       as S
 import           GHC.Generics
 import Data.Hashable (Hashable)
 import Control.Lens
+import Control.Monad.Reader
 
 import Utils
 
@@ -94,12 +95,12 @@ instance Show Effect where
 data Board = Board
   { _players :: S.Seq Player
   , _cards   :: CardMap
-  , _gameState   :: GameState
+  , _boardState   :: GameState
   }
   deriving (Show, Generic)
 
 data Game = Game
-  { board :: Board
+  { _gameState :: Board
   }
   deriving (Show, Generic)
 
@@ -136,6 +137,13 @@ instance Eq Card where
   (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
 
 instance Eq CardInPlay
+
+data GameMonadState = GameMonadState
+  { _activePlayer :: PlayerId
+  , _board        :: Board
+  }
+
+type GameMonad = Reader GameMonadState
 
 mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
@@ -177,13 +185,13 @@ spideyAction id board =
 
 mkGame :: Game
 mkGame = Game
-  { board =
+  { _gameState =
    -- purchase (PlayerId 0) 0 $
    -- play (PlayerId 0) 0 $
     play (PlayerId 0) 5 $
     draw 6 (PlayerId 0) $ Board
      { _players = S.fromList [Player { _resources = mempty }]
-    , _gameState = Playing
+    , _boardState = Playing
     , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])
@@ -196,14 +204,48 @@ cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
 
-playAction :: PlayerId -> CardInPlay -> Board -> Action
-playAction id (CardInPlay card _) board = effectAction id (view playEffect card) board
+currentPlayer :: GameMonad PlayerId
+currentPlayer = do
+  state <- ask
 
-effectAction id (EffectMoney n) board = ApplyResources id (set money n mempty)
-effectAction id (EffectAttack n) board = ApplyResources id (set attack n mempty)
-effectAction id (EffectNone) board = ActionNone
-effectAction id (EffectCustom _ f) board = f id board
-effectAction id (EffectCombine a b) board = effectAction id a board <> effectAction id b board
+  return $ _activePlayer state
+
+currentBoard :: GameMonad Board
+currentBoard = do
+  state <- ask
+
+  return $ _board state
+
+runGameMonad :: PlayerId -> Board -> GameMonad a -> a
+runGameMonad id board m = runReader m
+  (GameMonadState { _activePlayer = id, _board = board })
+
+playAction :: PlayerId -> CardInPlay -> Board -> Action
+playAction id (CardInPlay card _) board = runGameMonad id board $
+  effectAction (view playEffect card)
+
+applyResourcesAction :: Resources -> GameMonad Action
+applyResourcesAction rs = do
+  player <- currentPlayer
+
+  return $ ApplyResources player rs
+
+effectAction :: Effect -> GameMonad Action
+effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
+effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
+
+effectAction (EffectNone) = return ActionNone
+effectAction (EffectCustom _ f) = do
+  player <- currentPlayer
+  b <- currentBoard
+
+  return $ f player b
+
+effectAction (EffectCombine a b) = do
+  x <- effectAction a
+  y <- effectAction b
+
+  return $ x <> y
 
 translatePlayerAction :: PlayerId -> PlayerAction -> Board -> Action
 translatePlayerAction id (PlayCard i) board =
@@ -250,7 +292,7 @@ redact id board = over cards (M.mapWithKey f) board
     transformOwned _ x = x
 
 lose :: T.Text -> Board -> Board
-lose reason board = set gameState (Lost reason) board
+lose reason board = set boardState (Lost reason) board
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)
