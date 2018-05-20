@@ -63,5 +63,8 @@ tests:
     - tasty
     - tasty-discover
     - tasty-hunit
+    - tasty-quickcheck
+    - random
+    - random-shuffle
     - lens
     - containers

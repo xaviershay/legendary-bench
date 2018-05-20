@@ -4,15 +4,20 @@ module Spec where
 
 import Test.Tasty
 import Test.Tasty.HUnit
+--import Test.Tasty.QuickCheck (Small(..))
 
 import Control.Lens
 import qualified Data.Sequence as S
+import Data.Foldable (toList)
 
 import Types
 import Evaluator
 import GameMonad
 import Cards
 import Action
+import Utils
+
+import Debug.Trace
 
 genCards n = S.replicate n (CardInPlay moneyCard All)
 
