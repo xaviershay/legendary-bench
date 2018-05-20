@@ -150,55 +150,6 @@ instance Eq Card where
   (a@HeroCard{}) == (b@HeroCard{}) = view heroName a == view heroName b
   (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
 
-mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
-
-moneyCard = HeroCard
-  { _heroName = "Money"
-  , _playEffect = EffectMoney 1
-  , _cost = 0
-  }
-
-attackCard = HeroCard
-  { _heroName = "Attack"
-  , _playEffect = EffectAttack 1
-  , _cost = 0
-  }
-
-spideyCard = HeroCard
-  { _heroName = "Spiderman"
-  , _playEffect =    EffectMoney 1
-                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it" spideyAction
-  , _cost = 2
-  }
-
-drawAction :: PlayerId -> Int -> Action
-drawAction playerId n =
-   mconcat . replicate n $
-     revealAndMove
-       (PlayerLocation playerId PlayerDeck, 0)
-       (PlayerLocation playerId Hand)
-       Front
-
-spideyAction :: GameMonad Action
-spideyAction = do
-  playerId <- currentPlayer
-
-  let location = (PlayerLocation playerId PlayerDeck, 0)
-
-  card <- lookupCard location
-
-  return $ ActionSequence
-             (RevealCard location All)
-             (do
-               card <- lookupCard location
-               return $ case card of
-                  Nothing -> error "Should never happen"
-                  Just c -> if cardCost c <= 2 then
-                              drawAction playerId 1
-                            else
-                              ActionNone
-             )
-
 mkBoard :: Board
 mkBoard = Board
   { _players = mempty
@@ -211,81 +162,7 @@ cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
 
-currentPlayer :: GameMonad PlayerId
-currentPlayer = _activePlayer <$> ask
 
-currentBoard :: GameMonad Board
-currentBoard = _board <$> ask
-
-withBoard :: Board -> GameMonad a -> GameMonad a
-withBoard board m = do
-  playerId <- currentPlayer
-
-  let state = GameMonadState { _activePlayer = playerId, _board = board}
-
-  return $ runReader m state
-
-runGameMonad :: PlayerId -> Board -> GameMonad a -> a
-runGameMonad id board m = runReader m
-  (GameMonadState { _activePlayer = id, _board = board })
-
-playAction :: CardInPlay -> GameMonad Action
-playAction (CardInPlay card _) = effectAction (view playEffect card)
-
-applyResourcesAction :: Resources -> GameMonad Action
-applyResourcesAction rs = do
-  player <- currentPlayer
-
-  return $ ApplyResources player rs
-
-effectAction :: Effect -> GameMonad Action
-effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
-effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
-effectAction (EffectNone) = return ActionNone
-effectAction (EffectCustom _ f) = f
-effectAction (EffectCombine a b) = do
-  x <- effectAction a
-  y <- effectAction b
-
-  return $ x <> y
-
-translatePlayerAction :: PlayerAction -> GameMonad Action
-translatePlayerAction (PlayCard i) = do
-  playerId <- currentPlayer
-
-  let location = (PlayerLocation playerId Hand, i)
-
-  card <- lookupCard location
-
-  case card of
-    Nothing -> return $ ActionLose ("No card at: " <> showT location)
-    Just c -> do
-      cardEffect <- playAction c
-
-      return $
-           revealAndMove location (PlayerLocation playerId Played) Front
-        <> cardEffect
-
-translatePlayerAction (PurchaseCard i) = do
-  let location = (HQ, i)
-
-  playerId <- currentPlayer
-  card <- lookupCard location
-
-  return $ case card of
-    Nothing -> ActionLose ("No card to purchase: " <> showT location)
-    Just c ->
-         MoveCard location (PlayerLocation playerId Discard) Front
-      <> ApplyResources playerId (mempty { _money = (-(cardCost c))})
-      <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
-
-revealAndMove source destination spot =
-     RevealCard source All
-  <> MoveCard source destination spot
-
-lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
-lookupCard (location, i) =
-  preview (cardsAtLocation location . ix i) <$> currentBoard
 
 redact :: PlayerId -> Board -> Board
 redact id board = over cards (M.mapWithKey f) board
@@ -299,9 +176,6 @@ redact id board = over cards (M.mapWithKey f) board
 
     transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
     transformOwned _ x = x
-
-lose :: T.Text -> GameMonad Board
-lose reason = set boardState (Lost reason) <$> currentBoard
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)

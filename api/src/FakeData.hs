@@ -5,6 +5,10 @@ import qualified Data.HashMap.Strict as M
 
 import Types
 import Evaluator
+import Cards
+import Utils
+import GameMonad
+import Action
 
 mkGame :: Game
 mkGame = Game
@@ -22,6 +26,8 @@ mkGame = Game
         ]
     }
   }
+
+mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
 draw :: PlayerId -> Int -> Board -> Board
 draw playerId n board =

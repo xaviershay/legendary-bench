@@ -5,7 +5,9 @@ module Evaluator where
 import Control.Lens (view, over, set, ix, non, at)
 import Types
 import Utils
+import GameMonad
 import qualified Data.Sequence as S
+import qualified Data.Text as T
 
 -- Applies an action to the current board, returning the resulting one
 apply :: Action -> GameMonad Board
@@ -72,3 +74,6 @@ tryShuffleDiscardToDeck a specificCard = do
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =
      over (cardsAtLocation location . ix i) f <$> currentBoard
+
+lose :: T.Text -> GameMonad Board
+lose reason = set boardState (Lost reason) <$> currentBoard
