@@ -63,3 +63,5 @@ tests:
     - tasty
     - tasty-discover
     - tasty-hunit
+    - lens
+    - containers

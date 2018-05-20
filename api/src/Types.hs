@@ -6,7 +6,6 @@
 module Types where
 
 import qualified Data.HashMap.Strict as M
-import           Data.Monoid         (mempty, (<>))
 import qualified Data.Text           as T
 import qualified Data.Sequence       as S
 import           GHC.Generics
@@ -207,22 +206,6 @@ mkBoard = Board
   , _cards = mempty
   }
 
-mkGame :: Game
-mkGame = Game
-  { _gameState =
-   -- purchase (PlayerId 0) 0 $
-   -- play (PlayerId 0) 0 $
-    play (PlayerId 0) 5 $
-    draw (PlayerId 0) 6 $ Board
-     { _players = S.fromList [Player { _resources = mempty }]
-    , _boardState = Playing
-    , _cards = M.fromList
-        [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
-        , (HQ, S.fromList [CardInPlay spideyCard All])
-        , (HeroDeck, S.fromList [CardInPlay spideyCard Hidden])
-        ]
-    }
-  }
 
 cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
@@ -300,12 +283,6 @@ revealAndMove source destination spot =
      RevealCard source All
   <> MoveCard source destination spot
 
-play :: PlayerId -> Int -> Board -> Board
-play id i board = (runGameMonad id board $ translatePlayerAction (PlayCard i) >>= apply)
-
-purchase :: PlayerId -> Int -> Board -> Board
-purchase id i board = (runGameMonad id board $ translatePlayerAction (PurchaseCard i) >>= apply)
-
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
 lookupCard (location, i) =
   preview (cardsAtLocation location . ix i) <$> currentBoard
@@ -335,70 +312,6 @@ playerDeck _ = Nothing
 
 cardsAtLocation l = cards . at l . non mempty
 
-tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
-tryShuffleDiscardToDeck a specificCard = do
-  board <- currentBoard
-
-  let (location, _) = specificCard
-
-  case playerDeck location of
-    Nothing -> lose $ "Card does not exist: " <> showT specificCard
-    Just playerId -> do
-      let discardDeck = PlayerLocation playerId Discard
-
-      case view (cards . at discardDeck . non mempty) board of
-        S.Empty -> lose $ "No cards left to draw for " <> showT playerId
-        cs -> do
-          let board' =   set
-                           (cardsAtLocation location)
-                           (fmap (setVisibility Hidden) cs)
-                       $ set (cardsAtLocation discardDeck) mempty
-                       $ board
-
-          withBoard board' $ apply a
-
-overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
-overCard (location, i) f =
-     over (cardsAtLocation location . ix i) f <$> currentBoard
-
-apply :: Action -> GameMonad Board
-apply a@(MoveCard specificCard@(location, i) to dest) = do
-  maybeCard <- lookupCard specificCard
-
-  case maybeCard of
-    Nothing -> tryShuffleDiscardToDeck a specificCard
-    Just card ->    over (cardsAtLocation location) (S.deleteAt i)
-                <$> over (cardsAtLocation to) (card <|)
-                <$> currentBoard
-
-apply a@(RevealCard location v) = do
-  maybeCard <- lookupCard location
-
-  case maybeCard of
-    Nothing -> tryShuffleDiscardToDeck a location
-    Just card -> overCard location (setVisibility v)
-
-apply (ApplyResources (PlayerId id) rs) = do
-  board <- currentBoard
-
-  let board' = over (players . ix id . resources) (rs <>) board
-
-  if invalidResources (view (players . ix id . resources) board') then
-    lose "Not enough resources"
-  else
-    return board'
-
-apply (ActionNone) = currentBoard
-apply (ActionSequence a m) = do
-  board' <- apply a
-
-  if isPlaying board' then
-    withBoard board' $ m >>= apply
-  else
-    return board'
-
-apply action = lose $ "Don't know how to apply: " <> showT action
-
 isPlaying :: Board -> Bool
 isPlaying board = view boardState board == Playing
 
@@ -407,11 +320,6 @@ isLost board = f $ view boardState board
   where
     f (Lost _) = True
     f _        = False
-
-  -- Add card to destination
-draw :: PlayerId -> Int -> Board -> Board
-draw playerId n board =
-  runGameMonad playerId board (apply $ drawAction playerId n)
 
 hideCard card = CardInPlay card Hidden
 

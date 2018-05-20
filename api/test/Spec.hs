@@ -9,6 +9,7 @@ import Control.Lens
 import qualified Data.Sequence as S
 
 import Types
+import Evaluator
 
 genCards n = S.replicate n (CardInPlay moneyCard All)
 

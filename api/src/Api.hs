@@ -7,7 +7,6 @@
 
 module Api where
 
-import Data.Aeson
 import GHC.Generics
 import GHC.TypeLits
 import Servant
@@ -16,14 +15,15 @@ import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar,
                                               writeTVar)
 import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.STM           (atomically)
-import Types
 import Data.Monoid (mempty, (<>))
-import Data.Aeson.Types (toJSONKeyText)
 import Control.Monad.Reader (Reader)
 
 import qualified Data.Text as T
 
+import FakeData
 import Utils
+import Types
+import Json
 
 data State = State
   { game :: TVar Game -- TODO: Handle multiple games at once
@@ -37,40 +37,6 @@ mkState = do
 type AppM = ReaderT State Handler
 type MyAPI = "games" :> Capture "id" Int :> Get '[JSON] Game
 
-instance ToJSONKey Location where
-  toJSONKey = toJSONKeyText $ \x ->
-    case x of
-      Boss -> "boss"
-      HQ -> "hq"
-      HeroDeck -> "hero-deck"
-      PlayerLocation id location ->   "player-"
-                                    <> showT id
-                                    <> "-"
-                                    <> showT location
-
-instance ToJSON Game
-instance ToJSON Player
-instance ToJSON Card
-instance ToJSON ScopedLocation
-instance ToJSON Location
-instance ToJSON Visibility
-instance ToJSON PlayerId
-instance ToJSON Board
-instance ToJSON GameState
-instance ToJSON Resources
-
-instance ToJSON Effect where
-  toJSON = toJSON . show
-
-instance ToJSON CardInPlay where
-  toJSON (CardInPlay card Hidden) = object
-    [ "type" .= ("hidden" :: String)]
-  toJSON (CardInPlay card All) = toJSON card
-
-  -- Data should be pre-processed to remove all other visibility types before
-  -- reaching here.
-  toJSON (CardInPlay _ Owner) =
-    error "Trying to convert Owner visibility to JSON"
 
 api :: Proxy MyAPI
 api = Proxy
