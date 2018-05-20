@@ -14,6 +14,8 @@ import Data.Hashable (Hashable)
 import Control.Lens
 import Control.Monad.Reader
 
+import Debug.Trace
+
 import Utils
 
 data GameMonadState = GameMonadState
@@ -60,7 +62,7 @@ data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic)
 data Resources = Resources
   { _attack :: Int
   , _money  :: Int
-  } deriving (Show, Generic)
+  } deriving (Show, Generic, Eq)
 
 instance Monoid Resources where
   mempty = Resources { _attack = 0,       _money = 0 }
@@ -72,14 +74,17 @@ instance Hashable PlayerId
 instance Hashable ScopedLocation
 instance Hashable Location
 
+instance Eq CardInPlay where
+  (CardInPlay a b) == (CardInPlay c d) = a == c && b == d
+
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
-data GameState = Playing | Won | Lost T.Text deriving (Show, Generic)
+data GameState = Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
 data Player = Player
   { _resources :: Resources
   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq)
 
 data Effect =
   EffectNone |
@@ -104,7 +109,7 @@ data Board = Board
   , _cards   :: CardMap
   , _boardState   :: GameState
   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq)
 
 data Game = Game
   { _gameState :: Board
@@ -145,8 +150,6 @@ makeLenses ''Resources
 instance Eq Card where
   (a@HeroCard{}) == (b@HeroCard{}) = view heroName a == view heroName b
   (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
-
-instance Eq CardInPlay
 
 mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
@@ -192,6 +195,13 @@ spideyAction = do
                    drawAction playerId 1
                  else
                    ActionNone
+
+mkBoard :: Board
+mkBoard = Board
+  { _players = mempty
+  , _boardState = Playing
+  , _cards = mempty
+  }
 
 mkGame :: Game
 mkGame = Game
@@ -294,7 +304,7 @@ purchase id i board = (runGameMonad id board $ translatePlayerAction (PurchaseCa
 
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
 lookupCard (location, i) =
-  preview (cards . at location . _Just . ix i) <$> currentBoard
+  preview (cardsAtLocation location . ix i) <$> currentBoard
 
 redact :: PlayerId -> Board -> Board
 redact id board = over cards (M.mapWithKey f) board
@@ -319,9 +329,13 @@ playerDeck :: Location -> Maybe PlayerId
 playerDeck (PlayerLocation playerId PlayerDeck) = Just playerId
 playerDeck _ = Nothing
 
-tryShuffleDiscardToDeck :: Action -> GameMonad Board
-tryShuffleDiscardToDeck a@(MoveCard specificCard@(location, i) _ _) = do
+cardsAtLocation l = cards . at l . non mempty
+
+tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
+tryShuffleDiscardToDeck a specificCard = do
   board <- currentBoard
+
+  let (location, _) = specificCard
 
   case playerDeck location of
     Nothing -> lose $ "Card does not exist: " <> showT specificCard
@@ -332,32 +346,32 @@ tryShuffleDiscardToDeck a@(MoveCard specificCard@(location, i) _ _) = do
         S.Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> do
           let board' =   set
-                           (cards . at location . _Just)
+                           (cardsAtLocation location)
                            (fmap (setVisibility Hidden) cs)
-                       $ set (cards . at discardDeck) mempty
+                       $ set (cardsAtLocation discardDeck) mempty
                        $ board
 
           withBoard board' $ apply a
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =
-     over (cards . at location . _Just . ix i) f <$> currentBoard
+     over (cardsAtLocation location . ix i) f <$> currentBoard
 
 apply :: Action -> GameMonad Board
 apply a@(MoveCard specificCard@(location, i) to dest) = do
   maybeCard <- lookupCard specificCard
 
   case maybeCard of
-    Nothing -> tryShuffleDiscardToDeck a
-    Just card ->    over (cards . at location) (fmap (S.deleteAt i))
-                <$> over (cards . at to . non S.Empty) (card <|)
+    Nothing -> tryShuffleDiscardToDeck a specificCard
+    Just card ->    over (cardsAtLocation location) (S.deleteAt i)
+                <$> over (cardsAtLocation to) (card <|)
                 <$> currentBoard
 
 apply a@(RevealCard location v) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
-    Nothing -> tryShuffleDiscardToDeck a
+    Nothing -> tryShuffleDiscardToDeck a location
     Just card -> overCard location (setVisibility v)
 
 apply (ApplyResources (PlayerId id) rs) = do

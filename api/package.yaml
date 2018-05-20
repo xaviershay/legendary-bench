@@ -52,7 +52,7 @@ executables:
 
 tests:
   legendary-bench-test:
-    main:                Spec.hs
+    main:                Driver.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -60,3 +60,6 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - legendary-bench
+    - tasty
+    - tasty-discover
+    - tasty-hunit
