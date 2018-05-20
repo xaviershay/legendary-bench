@@ -188,13 +188,17 @@ spideyAction = do
 
   card <- lookupCard location
 
-  return $ RevealCard location All <>
-    case card of
-       Nothing -> ActionLose "No cards left in deck" -- TODO: Shuffle in discard
-       Just c -> if cardCost c <= 2 then
-                   drawAction playerId 1
-                 else
-                   ActionNone
+  return $ ActionSequence
+             (RevealCard location All)
+             (do
+               card <- lookupCard location
+               return $ case card of
+                  Nothing -> error "Should never happen"
+                  Just c -> if cardCost c <= 2 then
+                              drawAction playerId 1
+                            else
+                              ActionNone
+             )
 
 mkBoard :: Board
 mkBoard = Board
@@ -388,9 +392,21 @@ apply (ActionNone) = currentBoard
 apply (ActionSequence a m) = do
   board' <- apply a
 
-  withBoard board' $ m >>= apply
+  if isPlaying board' then
+    withBoard board' $ m >>= apply
+  else
+    return board'
 
 apply action = lose $ "Don't know how to apply: " <> showT action
+
+isPlaying :: Board -> Bool
+isPlaying board = view boardState board == Playing
+
+isLost :: Board -> Bool
+isLost board = f $ view boardState board
+  where
+    f (Lost _) = True
+    f _        = False
 
   -- Add card to destination
 draw :: PlayerId -> Int -> Board -> Board
