@@ -19,6 +19,9 @@ import Data.Monoid (mempty, (<>))
 import Control.Monad.Reader (Reader)
 
 import qualified Data.Text as T
+import qualified Data.HashMap.Strict as M
+
+import Control.Lens (over)
 
 import FakeData
 import Utils
@@ -57,3 +60,16 @@ getGame id = do
 
   return $ g { _gameState = redact (PlayerId 0) (_gameState g) }
   --return g
+
+redact :: PlayerId -> Board -> Board
+redact id board = over cards (M.mapWithKey f) board
+  where
+    f (PlayerLocation owner _) cs =
+      let desired = if owner == id then All else Hidden in
+
+      fmap (transformOwned desired) cs
+
+    f _ cs = cs
+
+    transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
+    transformOwned _ x = x

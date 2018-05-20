@@ -70,6 +70,13 @@ tryShuffleDiscardToDeck a specificCard = do
 
           withBoard board' $ apply a
 
+  where
+    -- Returns the relevant PlayerId if the given location is a player's deck.
+    -- This is oddly specific so there's probably a better way to structure the
+    -- above code.
+    playerDeck :: Location -> Maybe PlayerId
+    playerDeck (PlayerLocation playerId PlayerDeck) = Just playerId
+    playerDeck _ = Nothing
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =
@@ -77,3 +84,9 @@ overCard (location, i) f =
 
 lose :: T.Text -> GameMonad Board
 lose reason = set boardState (Lost reason) <$> currentBoard
+
+setVisibility :: Visibility -> CardInPlay -> CardInPlay
+setVisibility v (CardInPlay card _) = CardInPlay card v
+
+invalidResources :: Resources -> Bool
+invalidResources r = (view money r < 0) || (view attack r < 0)

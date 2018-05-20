@@ -157,32 +157,12 @@ mkBoard = Board
   , _cards = mempty
   }
 
-
+-- Can't rely on makeLenses'' here because we have different card types and Int
+-- doesn't implement Monoid so can't work by default with many of the lens.
+-- Could newtype it to fix but probably not worth it.
 cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
-
-
-
-redact :: PlayerId -> Board -> Board
-redact id board = over cards (M.mapWithKey f) board
-  where
-    f (PlayerLocation owner _) cs =
-      let desired = if owner == id then All else Hidden in
-
-      fmap (transformOwned desired) cs
-
-    f _ cs = cs
-
-    transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
-    transformOwned _ x = x
-
-invalidResources :: Resources -> Bool
-invalidResources r = (view money r < 0) || (view attack r < 0)
-
-playerDeck :: Location -> Maybe PlayerId
-playerDeck (PlayerLocation playerId PlayerDeck) = Just playerId
-playerDeck _ = Nothing
 
 cardsAtLocation l = cards . at l . non mempty
 
@@ -194,8 +174,3 @@ isLost board = f $ view boardState board
   where
     f (Lost _) = True
     f _        = False
-
-hideCard card = CardInPlay card Hidden
-
-setVisibility :: Visibility -> CardInPlay -> CardInPlay
-setVisibility v (CardInPlay card _) = CardInPlay card v

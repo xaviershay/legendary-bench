@@ -39,3 +39,4 @@ play id i board = (runGameMonad id board $ translatePlayerAction (PlayCard i) >>
 purchase :: PlayerId -> Int -> Board -> Board
 purchase id i board = (runGameMonad id board $ translatePlayerAction (PurchaseCard i) >>= apply)
 
+hideCard card = CardInPlay card Hidden
