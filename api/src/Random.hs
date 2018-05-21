@@ -1,9 +1,21 @@
-module Random where
+-- Fast, reversible perfect shuffling.
+--
+-- On my benchmarks this implementation was about 100x faster than
+-- System.Random.Shuffle
+module Random
+  ( shuffle
+  , unshuffle
+  ) where
 
 import           Data.Foldable (toList)
 import qualified Data.Sequence as S
 import           System.Random (RandomGen, mkStdGen, randomR)
 
+-- /O(nlog(n))/ Randomize the order of a list with a "perfect shuffle": each
+-- possible permuation is equally likely.
+-- See http://okmij.org/ftp/Haskell/perfect-shuffle.txt for a description of
+-- the algorithm. This implementation improves on it by using Data.Sequence
+-- (which uses 2-3 finger trees) rather than a binary tree.
 shuffle :: RandomGen gen => gen -> [a] -> ([a], gen)
 shuffle rng [] = ([], rng)
 shuffle rng xs =
@@ -15,15 +27,13 @@ shuffle rng xs =
 
     f :: S.Seq a -> [Int] -> [a]
     f accum [] = [accum `S.index` 0]
-    f accum (y:ys) = 
+    f accum (y:ys) =
       let accum' = S.deleteAt y accum in
 
       accum `S.index` y : f accum' ys
 
--- insertAt is O(log(min(i, n-i))), reverse and the traversal are O(n).
--- Intuition: pair up each element with the rseq value that placed it. Working
--- backwards, insert each element into an initially empty sequence at that
--- index.
+-- /O(nlog(n))/ Given a shuffled list and the RandomGen used to shuffle it,
+-- return the unshuffled list.
 unshuffle :: RandomGen gen => gen -> [a] -> ([a], gen)
 unshuffle rng [] = ([], rng)
 unshuffle rng xs =
