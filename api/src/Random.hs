@@ -1,16 +1,24 @@
 module Random where
 
-import qualified System.Random.Shuffle as RS
-import System.Random (mkStdGen, RandomGen, randomR)
+import           Data.Foldable (toList)
 import qualified Data.Sequence as S
-import Data.Foldable (toList)
+import           System.Random (RandomGen, mkStdGen, randomR)
 
 shuffle :: RandomGen gen => gen -> [a] -> ([a], gen)
 shuffle rng [] = ([], rng)
 shuffle rng xs =
-  let (sequence, rng') = (rseq (length xs) rng) in
+  let (sequence, rng') = rseq (length xs) rng in
 
-  (RS.shuffle xs sequence, rng')
+  (f (S.fromList xs) sequence, rng')
+
+  where
+
+    f :: S.Seq a -> [Int] -> [a]
+    f accum [] = [accum `S.index` 0]
+    f accum (y:ys) = 
+      let accum' = S.deleteAt y accum in
+
+      accum `S.index` y : f accum' ys
 
 -- insertAt is O(log(min(i, n-i))), reverse and the traversal are O(n).
 -- Intuition: pair up each element with the rseq value that placed it. Working
