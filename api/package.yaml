@@ -57,12 +57,14 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -O2
     dependencies:
     - legendary-bench
     - criterion
     - random-shuffle
     - random
     - containers
+    - deepseq
 
 tests:
   legendary-bench-test:
