@@ -15,16 +15,16 @@ class App extends Component {
       .then(results => results.json())
       .then(data => {
         console.log(data)
-        this.setState("gameData": data)
+        this.setState({"gameData": data})
       })
   }
 
   render() {
     return (
       <div className="App">
-        <p className="App-intro">
+        <pre style={{textAlign: "left"}}>
           {JSON.stringify(this.state.gameData, null, 2)}
-        </p>
+        </pre>
       </div>
     );
   }

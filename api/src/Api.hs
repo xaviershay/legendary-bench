@@ -7,21 +7,21 @@
 
 module Api where
 
-import GHC.Generics
-import GHC.TypeLits
-import Servant
-import           Control.Monad.Trans.Reader  (ReaderT, ask, runReaderT)
 import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar,
                                               writeTVar)
+import           Control.Lens                (over)
 import           Control.Monad.IO.Class      (liftIO)
+import           Control.Monad.Reader        (Reader)
 import           Control.Monad.STM           (atomically)
-import Data.Monoid (mempty, (<>))
-import Control.Monad.Reader (Reader)
-
-import qualified Data.Text as T
-import qualified Data.HashMap.Strict as M
-
-import Control.Lens (over)
+import           Control.Monad.Trans.Reader  (ReaderT, ask, runReaderT)
+import qualified Data.HashMap.Strict         as M
+import           Data.Monoid                 (mempty, (<>))
+import qualified Data.Text                   as T
+import           GHC.Generics
+import           GHC.TypeLits
+import           Network.Wai.Middleware.Cors (cors, corsRequestHeaders,
+                                              simpleCorsResourcePolicy)
+import           Servant
 
 import FakeData
 import Utils
@@ -48,8 +48,13 @@ nt :: State -> AppM a -> Handler a
 nt s x = runReaderT x s
 
 app :: State -> Application
-app s = serve api $
-  hoistServer api (nt s) server
+app s =   cors (const . Just $ corsPolicy)
+        $ serve api
+        $ hoistServer api (nt s) server
+  where
+    corsPolicy = simpleCorsResourcePolicy
+                   { corsRequestHeaders = [ "authorization", "content-type" ]
+                   }
 
 server = getGame
 

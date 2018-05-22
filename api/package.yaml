@@ -49,6 +49,7 @@ executables:
     - legendary-bench
     - servant-server
     - wai
+    - wai-cors
     - warp
   benchmarks-exe:
     main: Main.hs
