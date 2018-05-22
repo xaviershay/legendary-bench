@@ -1,7 +1,8 @@
 module FakeData where
 
-import qualified Data.Sequence       as S
 import qualified Data.HashMap.Strict as M
+import qualified Data.Sequence       as S
+import           System.Random       (mkStdGen)
 
 import Types
 import Evaluator
@@ -18,8 +19,9 @@ mkGame = Game
     play (PlayerId 0) 5 $
     draw (PlayerId 0) 6 $ Board
      { _players = S.fromList [Player { _resources = mempty }]
-    , _boardState = Playing
-    , _cards = M.fromList
+     , _rng = mkStdGen 0
+     , _boardState = Playing
+     , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])
         , (HeroDeck, S.fromList [CardInPlay spideyCard Hidden])

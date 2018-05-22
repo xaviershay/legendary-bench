@@ -5,14 +5,14 @@
 
 module Types where
 
-import qualified Data.HashMap.Strict as M
-import qualified Data.Text           as T
-import qualified Data.Sequence       as S
+import           Control.Lens
+import           Control.Monad.Reader
+import           Data.Hashable        (Hashable)
+import qualified Data.HashMap.Strict  as M
+import qualified Data.Sequence        as S
+import qualified Data.Text            as T
 import           GHC.Generics
-import Data.Hashable (Hashable)
-import Control.Lens
-import Control.Monad.Reader
-import System.Random (StdGen)
+import           System.Random        (StdGen, mkStdGen)
 
 import Debug.Trace
 
@@ -157,6 +157,7 @@ mkBoard = Board
   { _players = mempty
   , _boardState = Playing
   , _cards = mempty
+  , _rng = mkStdGen 0
   }
 
 -- Can't rely on makeLenses'' here because we have different card types and Int
