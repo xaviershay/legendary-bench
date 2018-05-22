@@ -2,6 +2,7 @@
 
 module Json where
 
+import Control.Lens (view)
 import Data.Aeson
 import Data.Aeson.Types (toJSONKeyText)
 
@@ -26,7 +27,6 @@ instance ToJSON ScopedLocation
 instance ToJSON Location
 instance ToJSON Visibility
 instance ToJSON PlayerId
-instance ToJSON Board
 instance ToJSON GameState
 instance ToJSON Resources
 
@@ -42,3 +42,10 @@ instance ToJSON CardInPlay where
   -- reaching here.
   toJSON (CardInPlay _ Owner) =
     error "Trying to convert Owner visibility to JSON"
+
+instance ToJSON Board where
+  toJSON b = object
+    [ "card"    .= toJSON (view cards b)
+    , "players" .= toJSON (view players b)
+    , "state"   .= toJSON (view boardState b)
+    ]

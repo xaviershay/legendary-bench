@@ -12,6 +12,7 @@ import           GHC.Generics
 import Data.Hashable (Hashable)
 import Control.Lens
 import Control.Monad.Reader
+import System.Random (StdGen)
 
 import Debug.Trace
 
@@ -107,8 +108,9 @@ data Board = Board
   { _players :: S.Seq Player
   , _cards   :: CardMap
   , _boardState   :: GameState
+  , _rng :: StdGen
   }
-  deriving (Show, Generic, Eq)
+  deriving (Show, Generic)
 
 data Game = Game
   { _gameState :: Board

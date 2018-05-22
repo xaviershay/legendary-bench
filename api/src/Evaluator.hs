@@ -2,12 +2,14 @@
 
 module Evaluator where
 
-import Control.Lens (view, over, set, ix, non, at)
-import Types
-import Utils
-import GameMonad
+import           Control.Lens  (at, ix, non, over, set, view)
 import qualified Data.Sequence as S
-import qualified Data.Text as T
+import qualified Data.Text     as T
+
+import           GameMonad
+import           Random
+import           Types
+import           Utils
 
 -- Applies an action to the current board, returning the resulting one
 apply :: Action -> GameMonad Board
@@ -62,10 +64,12 @@ tryShuffleDiscardToDeck a specificCard = do
       case view (cards . at discardDeck . non mempty) board of
         S.Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> do
+          let (shuffled, rng') = shuffle (view rng board) cs
           let board' =   set
                            (cardsAtLocation location)
-                           (fmap (setVisibility Hidden) cs)
+                           (fmap (setVisibility Hidden) shuffled)
                        $ set (cardsAtLocation discardDeck) mempty
+                       $ set rng rng'
                        $ board
 
           withBoard board' $ apply a
