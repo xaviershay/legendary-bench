@@ -8,6 +8,7 @@
 module Random
   ( shuffle
   , unshuffle
+  , shuffleSeq
   ) where
 
 import           Data.Foldable (toList)
@@ -36,21 +37,38 @@ instance SeqLike S.Seq a where
 -- See http://okmij.org/ftp/Haskell/perfect-shuffle.txt for a description of
 -- the algorithm. This implementation improves on it by using Data.Sequence
 -- (which uses 2-3 finger trees) rather than a binary tree.
-shuffle :: (Monoid (m a), SeqLike m a, RandomGen gen) => gen -> m a -> (m a, gen)
+shuffle :: RandomGen gen => gen -> [a] -> ([a], gen)
 shuffle rng xs =
-  let xs' = toSeq xs in
+  let (sequence, rng') = rseq (length xs) rng in
+
+  (f (S.fromList xs) sequence, rng')
+
+  where
+
+    f :: S.Seq a -> [Int] -> [a]
+    f accum [] = mempty
+    f accum (y:ys) =
+      let accum' = S.deleteAt y accum in
+
+      (accum `S.index` y) : f accum' ys
+
+-- This implementation has radically slower performance than `shuffle`. I don't
+-- know why.
+shuffleSeq :: RandomGen gen => gen -> S.Seq a -> (S.Seq a, gen)
+shuffleSeq rng xs =
+  let xs' = xs in
   let (sequence, rng') = rseq (S.length xs') rng in
 
   (f xs' sequence, rng')
 
   where
 
-    f :: (Monoid (m a), SeqLike m a) => S.Seq a -> [Int] -> m a
+    f :: S.Seq a -> [Int] -> S.Seq a
     f accum [] = mempty
     f accum (y:ys) =
       let accum' = S.deleteAt y accum in
 
-      (accum `S.index` y) `cons` f accum' ys
+      (accum `S.index` y) S.<| f accum' ys
 
 -- /O(nlog(n))/ Given a shuffled list and the RandomGen used to shuffle it,
 -- return the unshuffled list.

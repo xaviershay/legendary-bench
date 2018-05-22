@@ -38,18 +38,6 @@ library:
     - random
 
 executables:
-  benchmarks-exe:
-    main: Main.hs
-    source-dirs: benchmark
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - legendary-bench
-    - criterion
-    - random-shuffle
-    - random
   legendary-bench-exe:
     main:                Main.hs
     source-dirs:         app
@@ -62,6 +50,19 @@ executables:
     - servant-server
     - wai
     - warp
+  benchmarks-exe:
+    main: Main.hs
+    source-dirs: benchmark
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - legendary-bench
+    - criterion
+    - random-shuffle
+    - random
+    - containers
 
 tests:
   legendary-bench-test:

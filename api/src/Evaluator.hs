@@ -64,7 +64,7 @@ tryShuffleDiscardToDeck a specificCard = do
       case view (cards . at discardDeck . non mempty) board of
         S.Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> do
-          let (shuffled, rng') = shuffle (view rng board) cs
+          let (shuffled, rng') = shuffleSeq (view rng board) cs
           let board' =   set
                            (cardsAtLocation location)
                            (fmap (setVisibility Hidden) shuffled)
