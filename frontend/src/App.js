@@ -41,7 +41,7 @@ class Board extends Component {
     return (
       <div>
         <Location cards={board.cards["hq"]} title="HQ" />
-        <Player board={board} id={0} />
+        {board.players.map((p) => <Player board={board} id={p.id} />)}
       </div>
     )
   }
