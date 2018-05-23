@@ -14,9 +14,6 @@ import Action
 mkGame :: Game
 mkGame = Game
   { _gameState =
-   -- purchase (PlayerId 0) 0 $
-   -- play (PlayerId 0) 0 $
-    play (PlayerId 0) 5 $
     draw (PlayerId 0) 6 $ Board
      { _players = S.fromList [Player { _resources = mempty }]
      , _rng = mkStdGen 0

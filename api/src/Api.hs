@@ -8,7 +8,7 @@
 module Api where
 
 import           Control.Concurrent.STM.TVar          (TVar, newTVar, readTVar,
-                                                       writeTVar)
+                                                       writeTVar, modifyTVar)
 import           Control.Lens                         (over)
 import           Control.Monad.IO.Class               (liftIO)
 import           Control.Monad.Reader                 (Reader)
@@ -28,6 +28,9 @@ import FakeData
 import Utils
 import Types
 import Json
+import GameMonad
+import Evaluator
+import Action
 
 data State = State
   { game :: TVar Game -- TODO: Handle multiple games at once
@@ -70,7 +73,15 @@ server = getGame :<|> handleAction
 
 handleAction :: Int -> PlayerId -> PlayerAction -> AppM ()
 handleAction gameId playerId action = do
+  State{game = gvar} <- ask
+  liftIO . atomically . modifyTVar gvar $
+    over gameState (applyAction playerId action)
+
   return ()
+
+  where
+    applyAction playerId action board =
+      (runGameMonad playerId board $ translatePlayerAction action >>= apply)
 
 getGame :: Int -> AppM Game
 getGame id = do
