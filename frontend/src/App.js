@@ -10,12 +10,18 @@ class App extends Component {
   }
 
   componentDidMount() {
-    fetch('http://localhost:8080/games/1')
-      .then(results => results.json())
-      .then(data => {
-        console.log(data)
-        this.setState({"gameData": data})
-      })
+    let f = () => {
+      fetch('http://localhost:8080/games/1')
+        .then(results => results.json())
+        .then(data => {
+          console.log(data)
+          this.setState({"gameData": data})
+          setTimeout(f, 1000)
+          // TODO: Set up a long poll here
+        })
+    }
+
+    f()
   }
 
   render() {
@@ -51,10 +57,20 @@ function playerLocation(id, key) {
   return "player-" + id + "-" + key;
 }
 
-function playCard() {
+function playCard(playerId, i) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({action: "PlayCard", index: i})
+    })
+  }
 }
-function playCardActions(card, i) {
-  return <a href="#play" onClick={playCard(i)}>Play</a>
+
+function playCardActions(playerId) {
+  return (c, i) => <a href="#play" onClick={playCard(playerId, i)}>Play</a>
 }
 
 class Player extends Component {
@@ -67,7 +83,7 @@ class Player extends Component {
       <div>
         <h2>Player {id}</h2>
         <p>{resources.attack} Attack, {resources.money} Money</p>
-        <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions} />
+        <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
         <Location cards={cardsAt("played")} title="Played" />
         <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
         <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
