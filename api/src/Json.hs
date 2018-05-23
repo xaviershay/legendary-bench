@@ -36,6 +36,7 @@ instance FromJSON PlayerAction where
     case action of
       "PlayCard"     -> PlayCard     <$> v .: "index"
       "PurchaseCard" -> PurchaseCard <$> v .: "index"
+      "AttackCard"   -> AttackCard   <$> v .: "location"
       "EndTurn"      -> return EndTurn
       _ -> fail $ "Unknown action: " <> action
 

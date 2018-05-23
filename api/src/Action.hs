@@ -39,6 +39,18 @@ translatePlayerAction (PurchaseCard i) = do
       <> ApplyResources playerId (mempty { _money = -(cardCost c)})
       <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
+translatePlayerAction (AttackCard i) = do
+  let location = (City i, 0)
+
+  playerId <- currentPlayer
+  card <- lookupCard location
+
+  return $ case card of
+    Nothing -> ActionLose ("No card to attack: " <> showT location)
+    Just c ->
+         MoveCard location (PlayerLocation playerId Victory) Front
+      <> ApplyResources playerId (mempty { _attack = -(cardHealth c)})
+
 translatePlayerAction EndTurn = return (ActionEndTurn <> ActionStartTurn)
 
 -- Convert card effects to actions

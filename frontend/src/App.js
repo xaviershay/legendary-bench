@@ -51,6 +51,7 @@ function lostMessage(board) {
 class Board extends Component {
   render() {
     const board = this.props.board;
+    const currentPlayer = 0;
 
     if (!board)
       return null;
@@ -58,15 +59,15 @@ class Board extends Component {
     return (
       <div>
         {lostMessage(board)}
-        <a href='#end' onClick={endTurn(0)}>End Turn</a>
+        <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
         <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />
         <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
-        <Location cards={board.cards["city-0"]} title="Sewers" />
-        <Location cards={board.cards["city-1"]} title="Bank" />
-        <Location cards={board.cards["city-2"]} title="Rooftops" />
-        <Location cards={board.cards["city-3"]} title="Streets" />
-        <Location cards={board.cards["city-4"]} title="Bridge" />
-        <Location cards={board.cards["escaped"]} title="Escaped" />
+        <Location cards={board.cards["city-0"]} title="Sewers" actions={attackActions(currentPlayer, 0)} />
+        <Location cards={board.cards["city-1"]} title="Bank" actions={attackActions(currentPlayer, 1)}  />
+        <Location cards={board.cards["city-2"]} title="Rooftops" actions={attackActions(currentPlayer, 2)} />
+        <Location cards={board.cards["city-3"]} title="Streets" actions={attackActions(currentPlayer, 3)}  />
+        <Location cards={board.cards["city-4"]} title="Bridge" actions={attackActions(currentPlayer, 4)} />
+        <Location cards={board.cards["escaped"]} title="Escaped" layout="stacked" />
         <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
@@ -102,6 +103,18 @@ function purchaseCard(playerId, i) {
   }
 }
 
+function attackCard(playerId, i) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({action: "AttackCard", location: i})
+    })
+  }
+}
+
 function endTurn(playerId) {
   return () => {
     fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
@@ -119,7 +132,11 @@ function playCardActions(playerId) {
 }
 
 function purchaseCardActions(playerId) {
-  return (c, i) => <a href="#play" onClick={purchaseCard(playerId, i)}>Purchase</a>
+  return (c, i) => <a href="#purchase" onClick={purchaseCard(playerId, i)}>Purchase</a>
+}
+
+function attackActions(playerId, city) {
+  return (c, i) => <a href="#attack" onClick={attackCard(playerId, city)}>Attack</a>
 }
 
 class Player extends Component {
@@ -136,6 +153,7 @@ class Player extends Component {
         <Location cards={cardsAt("played")} title="Played" />
         <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
         <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
+        <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
       </div>
     )
   }

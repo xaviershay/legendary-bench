@@ -30,6 +30,7 @@ data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
 data PlayerAction =
   PlayCard Int |
+  AttackCard Int |
   PurchaseCard Int |
   EndTurn
 
@@ -181,6 +182,10 @@ cardName c@EnemyCard{} = view enemyName c
 cardType :: Card -> T.Text
 cardType c@HeroCard{} = "hero"
 cardType c@EnemyCard{} = "enemy"
+
+cardHealth :: CardInPlay -> Int
+cardHealth (CardInPlay EnemyCard { _baseHealth = x } _) = x
+cardHealth _ = 0
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
 cardsAtLocation l = cards . at l . non mempty
