@@ -109,6 +109,7 @@ data Board = Board
   , _cards   :: CardMap
   , _boardState   :: GameState
   , _rng :: StdGen
+  , _version :: Integer
   }
   deriving (Show, Generic)
 
@@ -158,6 +159,7 @@ mkBoard = Board
   , _boardState = Playing
   , _cards = mempty
   , _rng = mkStdGen 0
+  , _version = 1
   }
 
 -- Can't rely on makeLenses'' here because we have different card types and Int

@@ -1,20 +1,20 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Api where
 
-import           Control.Concurrent.STM.TVar          (TVar, newTVar, readTVar,
-                                                       writeTVar, modifyTVar)
-import           Control.Lens                         (over)
+import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
+                                                       newTVar, readTVar,
+                                                       writeTVar)
+import           Control.Lens                         (over, view)
 import           Control.Monad.IO.Class               (liftIO)
 import           Control.Monad.Reader                 (Reader)
-import           Control.Monad.STM                    (atomically)
+import           Control.Monad.STM                    (atomically, check)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
+import           Data.Maybe                           (fromMaybe)
 import           Data.Monoid                          (mempty, (<>))
 import qualified Data.Text                            as T
 import           GHC.Generics
@@ -23,6 +23,7 @@ import           Network.Wai.Middleware.Cors          (cors, corsRequestHeaders,
                                                        simpleCorsResourcePolicy)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant
+import           System.Timeout                       (timeout)
 
 import FakeData
 import Utils
@@ -32,7 +33,7 @@ import GameMonad
 import Evaluator
 import Action
 
-data State = State
+newtype State = State
   { game :: TVar Game -- TODO: Handle multiple games at once
   }
 
@@ -42,16 +43,12 @@ mkState = do
   return $ State { game = x }
 
 instance FromHttpApiData PlayerId where
-  parseUrlPiece x = do
-    parsed <- parseUrlPiece x
-
-    return $ PlayerId parsed
+  parseUrlPiece x = PlayerId <$> parseUrlPiece x
 
 type AppM = ReaderT State Handler
 type MyAPI =
-      "games" :> Capture "id" Int :> Get '[JSON] Game
+       "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "act" :> ReqBody '[JSON] PlayerAction :> Post '[JSON] ()
-
 
 api :: Proxy MyAPI
 api = Proxy
@@ -71,9 +68,31 @@ app s =   logStdoutDev
 
 server = getGame :<|> handleAction
 
+getGame :: Int -> Maybe Integer -> AppM Game
+getGame gameId maybeVersion = do
+  let currentVersion = fromMaybe 0 maybeVersion
+  State{game = gvar} <- ask
+
+  mres <- liftIO $ timeout (30 * 1000000) (waitForNewState gvar currentVersion)
+
+  g' <- case mres of
+          Nothing -> liftIO . atomically . readTVar $ gvar
+          Just g  -> return g
+
+  return $ over gameState (redact (PlayerId 0)) g'
+
+  where
+    waitForNewState :: TVar Game -> Integer -> IO Game
+    waitForNewState gvar v =
+      atomically $ do
+        x <- readTVar gvar
+        check $ view (gameState . version) x > v
+        return x
+
 handleAction :: Int -> PlayerId -> PlayerAction -> AppM ()
 handleAction gameId playerId action = do
   State{game = gvar} <- ask
+
   liftIO . atomically . modifyTVar gvar $
     over gameState (applyAction playerId action)
 
@@ -81,18 +100,11 @@ handleAction gameId playerId action = do
 
   where
     applyAction playerId action board =
-      (runGameMonad playerId board $ translatePlayerAction action >>= apply)
-
-getGame :: Int -> AppM Game
-getGame id = do
-  State{game = gvar} <- ask
-  g <- liftIO $ atomically $ readTVar gvar
-
-  return $ g { _gameState = redact (PlayerId 0) (_gameState g) }
-  --return g
+      runGameMonad playerId board $
+        translatePlayerAction action >>= applyWithVersionBump
 
 redact :: PlayerId -> Board -> Board
-redact id board = over cards (M.mapWithKey f) board
+redact id = over cards (M.mapWithKey f)
   where
     f (PlayerLocation owner _) cs =
       let desired = if owner == id then All else Hidden in

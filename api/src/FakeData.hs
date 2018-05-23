@@ -18,6 +18,7 @@ mkGame = Game
      { _players = S.fromList [Player { _resources = mempty }]
      , _rng = mkStdGen 0
      , _boardState = Playing
+     , _version = 1
      , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])

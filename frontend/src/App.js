@@ -10,13 +10,14 @@ class App extends Component {
   }
 
   componentDidMount() {
+    let version = 0;
     let f = () => {
-      fetch('http://localhost:8080/games/1')
+      fetch('http://localhost:8080/games/1?version=' + version)
         .then(results => results.json())
         .then(data => {
-          console.log(data)
           this.setState({"gameData": data})
-          setTimeout(f, 1000)
+          version = data.board.version;
+          f();
           // TODO: Set up a long poll here
         })
     }
@@ -47,7 +48,7 @@ class Board extends Component {
     return (
       <div>
         <Location cards={board.cards["hq"]} title="HQ" />
-        {board.players.map((p) => <Player board={board} id={p.id} />)}
+        {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
     )
   }
@@ -119,7 +120,7 @@ class Location extends Component {
     } else {
       cardRender = (
         <ul>
-          {cards.map((c, i) => <div><Card card={c} key={i} /> {actions(c, i)}</div>)}
+          {cards.map((c, i) => <div key={i}><Card card={c} /> {actions(c, i)}</div>)}
         </ul>
       )
     }

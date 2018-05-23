@@ -11,6 +11,12 @@ import           Random
 import           Types
 import           Utils
 
+applyWithVersionBump :: Action -> GameMonad Board
+applyWithVersionBump action = do
+  b <- apply action
+
+  return $ over version (+ 1) b
+
 -- Applies an action to the current board, returning the resulting one
 apply :: Action -> GameMonad Board
 apply a@(MoveCard specificCard@(location, i) to dest) = do

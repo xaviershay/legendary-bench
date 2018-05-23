@@ -87,4 +87,5 @@ instance ToJSON Board where
     [ "cards"   .= toJSON (view cards b)
     , "players" .= toJSON (map IndexedPlayer $ zip (toList $ view players b) [(0 :: Int)..])
     , "state"   .= toJSON (view boardState b)
+    , "version" .= toJSON (view version b)
     ]
