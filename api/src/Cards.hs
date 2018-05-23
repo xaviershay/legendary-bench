@@ -7,6 +7,11 @@ import Utils
 import Action
 import GameMonad
 
+villianCard = EnemyCard
+  { _enemyName = "Villian"
+  , _baseHealth = 3
+  }
+
 moneyCard = HeroCard
   { _heroName = "Money"
   , _playEffect = EffectMoney 1

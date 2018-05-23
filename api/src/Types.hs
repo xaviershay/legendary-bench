@@ -41,6 +41,9 @@ data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (S
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | HeroDeck
+  | VillianDeck
+  | City Int
+  | Escaped
   | Boss
   deriving (Show, Generic, Eq)
 newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
@@ -129,6 +132,7 @@ data Action =
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources |
+  ActionStartTurn |
   ActionEndTurn
 
   deriving (Generic)

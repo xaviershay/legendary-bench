@@ -59,8 +59,15 @@ class Board extends Component {
       <div>
         {lostMessage(board)}
         <a href='#end' onClick={endTurn(0)}>End Turn</a>
-        <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
+        <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />
         <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
+        <Location cards={board.cards["city-0"]} title="Sewers" />
+        <Location cards={board.cards["city-1"]} title="Bank" />
+        <Location cards={board.cards["city-2"]} title="Rooftops" />
+        <Location cards={board.cards["city-3"]} title="Streets" />
+        <Location cards={board.cards["city-4"]} title="Bridge" />
+        <Location cards={board.cards["escaped"]} title="Escaped" />
+        <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
     )

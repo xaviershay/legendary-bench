@@ -70,7 +70,37 @@ apply ActionEndTurn = do
   withBoard board $
     over players moveHeadToTail <$> apply (drawAction player 6)
 
+apply ActionStartTurn = do
+  -- make space for new villian
+  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until empty or escaped
+  player <- currentPlayer
+
+  board <- moveCity (City 0)
+
+  withBoard board (apply $ revealAndMove (VillianDeck, 0) (City 0) Front)
+
 apply action = lose $ "Don't know how to apply: " <> showT action
+
+moveCity :: Location -> GameMonad Board
+moveCity Escaped = currentBoard -- TODO: Apply penalty for villian escaping
+moveCity location@(City i) = do
+  recurse <- not . S.null . view (cardsAtLocation location) <$> currentBoard
+
+  let nextLocation = nextL location
+
+  board <- if recurse then
+             moveCity nextLocation
+           else
+             currentBoard
+
+  return $ moveAllFrom
+             (cardsAtLocation location)
+             (cardsAtLocation nextLocation)
+             board
+
+  where
+    nextL (City 4) = Escaped
+    nextL (City i) = City $ i + 1
 
 moveAllFrom :: Lens' Board (S.Seq CardInPlay)
             -> Lens' Board (S.Seq CardInPlay)

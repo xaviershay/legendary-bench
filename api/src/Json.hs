@@ -18,6 +18,9 @@ instance ToJSONKey Location where
       Boss -> "boss"
       HQ -> "hq"
       HeroDeck -> "hero-deck"
+      VillianDeck -> "villian-deck"
+      City i -> "city-" <> showT i
+      Escaped -> "escaped"
       PlayerLocation (PlayerId id) location -> "player-"
                                             <> showT id
                                             <> "-"

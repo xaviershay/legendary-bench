@@ -39,7 +39,7 @@ translatePlayerAction (PurchaseCard i) = do
       <> ApplyResources playerId (mempty { _money = -(cardCost c)})
       <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
-translatePlayerAction EndTurn = return ActionEndTurn
+translatePlayerAction EndTurn = return (ActionEndTurn <> ActionStartTurn)
 
 -- Convert card effects to actions
 -- ===============================
