@@ -25,6 +25,14 @@ instance ToJSONKey Location where
 instance ToJSON ScopedLocation
 instance ToJSON Location
 
+instance FromJSON PlayerAction where
+  parseJSON = withObject "PlayerAction" $ \v -> do
+    action <- v .: "action"
+
+    case action of
+      "PlayCard" -> PlayCard <$> v .: "index"
+      _ -> fail $ "Unknown action: " <> action
+
 instance ToJSON GameState where
   toJSON = toJSON . T.toLower . showT
 

@@ -50,6 +50,7 @@ executables:
     - servant-server
     - wai
     - wai-cors
+    - wai-extra
     - warp
   benchmarks-exe:
     main: Main.hs

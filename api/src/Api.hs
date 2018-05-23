@@ -7,20 +7,21 @@
 
 module Api where
 
-import           Control.Concurrent.STM.TVar (TVar, newTVar, readTVar,
-                                              writeTVar)
-import           Control.Lens                (over)
-import           Control.Monad.IO.Class      (liftIO)
-import           Control.Monad.Reader        (Reader)
-import           Control.Monad.STM           (atomically)
-import           Control.Monad.Trans.Reader  (ReaderT, ask, runReaderT)
-import qualified Data.HashMap.Strict         as M
-import           Data.Monoid                 (mempty, (<>))
-import qualified Data.Text                   as T
+import           Control.Concurrent.STM.TVar          (TVar, newTVar, readTVar,
+                                                       writeTVar)
+import           Control.Lens                         (over)
+import           Control.Monad.IO.Class               (liftIO)
+import           Control.Monad.Reader                 (Reader)
+import           Control.Monad.STM                    (atomically)
+import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
+import qualified Data.HashMap.Strict                  as M
+import           Data.Monoid                          (mempty, (<>))
+import qualified Data.Text                            as T
 import           GHC.Generics
 import           GHC.TypeLits
-import           Network.Wai.Middleware.Cors (cors, corsRequestHeaders,
-                                              simpleCorsResourcePolicy)
+import           Network.Wai.Middleware.Cors          (cors, corsRequestHeaders,
+                                                       simpleCorsResourcePolicy)
+import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant
 
 import FakeData
@@ -37,8 +38,16 @@ mkState = do
   x <- atomically . newTVar $ mkGame
   return $ State { game = x }
 
+instance FromHttpApiData PlayerId where
+  parseUrlPiece x = do
+    parsed <- parseUrlPiece x
+
+    return $ PlayerId parsed
+
 type AppM = ReaderT State Handler
-type MyAPI = "games" :> Capture "id" Int :> Get '[JSON] Game
+type MyAPI =
+      "games" :> Capture "id" Int :> Get '[JSON] Game
+  :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "act" :> ReqBody '[JSON] PlayerAction :> Post '[JSON] ()
 
 
 api :: Proxy MyAPI
@@ -48,7 +57,8 @@ nt :: State -> AppM a -> Handler a
 nt s x = runReaderT x s
 
 app :: State -> Application
-app s =   cors (const . Just $ corsPolicy)
+app s =   logStdoutDev
+        $ cors (const . Just $ corsPolicy)
         $ serve api
         $ hoistServer api (nt s) server
   where
@@ -56,7 +66,11 @@ app s =   cors (const . Just $ corsPolicy)
                    { corsRequestHeaders = [ "authorization", "content-type" ]
                    }
 
-server = getGame
+server = getGame :<|> handleAction
+
+handleAction :: Int -> PlayerId -> PlayerAction -> AppM ()
+handleAction gameId playerId action = do
+  return ()
 
 getGame :: Int -> AppM Game
 getGame id = do
