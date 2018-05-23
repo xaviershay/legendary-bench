@@ -9,6 +9,7 @@ import           Control.Lens
 import           Control.Monad.Reader
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
+import           Data.List            (nub)
 import qualified Data.Sequence        as S
 import qualified Data.Text            as T
 import           GHC.Generics
@@ -38,7 +39,7 @@ data PlayerAction =
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
-data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq)
+data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq, Enum, Bounded)
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | HeroDeck
@@ -168,11 +169,34 @@ mkBoard = Board
   , _version = 1
   }
 
+-- Return a unique list of all cards in use on the board
+cardDictionary :: Board -> [Card]
+cardDictionary board =
+    nub
+  . toList
+  . fmap extractCard
+  . mconcat
+  . fmap (\l -> view (cardsAtLocation l) board)
+  $ allLocations board
+
+  where
+    extractCard (CardInPlay c _) = c
+    allLocations board =
+      let playerIds = [0 .. (S.length . view players $ board) - 1] in
+
+         [HQ, HeroDeck, VillianDeck, Escaped, Boss]
+      <> allCityLocations
+      <> concatMap allPlayerLocations playerIds
+
+    allCityLocations = City <$> [0..4]
+    allPlayerLocations playerId =
+      PlayerLocation (PlayerId playerId) <$> [(minBound :: ScopedLocation)..]
+
 -- Can't rely on makeLenses'' here because we have different card types and Int
 -- doesn't implement Monoid so can't work by default with many of the lens.
 -- Could newtype it to fix but probably not worth it.
-cardCost :: CardInPlay -> Int
-cardCost (CardInPlay HeroCard { _cost = c } _) = c
+cardCost :: Card -> Int
+cardCost HeroCard { _cost = c } = c
 cardCost _ = 0
 
 cardName :: Card -> T.Text
@@ -183,8 +207,8 @@ cardType :: Card -> T.Text
 cardType c@HeroCard{} = "hero"
 cardType c@EnemyCard{} = "enemy"
 
-cardHealth :: CardInPlay -> Int
-cardHealth (CardInPlay EnemyCard { _baseHealth = x } _) = x
+cardHealth :: Card -> Int
+cardHealth EnemyCard { _baseHealth = x } = x
 cardHealth _ = 0
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
@@ -195,6 +219,17 @@ playerResources (PlayerId id) = players . ix id . resources
 
 isPlaying :: Board -> Bool
 isPlaying board = view boardState board == Playing
+
+extractMoney (EffectMoney n) = n
+extractMoney _ = 0
+
+extractAttack (EffectAttack n) = n
+extractAttack _ = 0
+
+baseResource f = walk . view playEffect
+  where
+    walk (EffectCombine a b) = walk a + walk b
+    walk x = f x
 
 isLost :: Board -> Bool
 isLost board = f $ view boardState board

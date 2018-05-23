@@ -34,7 +34,7 @@ translatePlayerAction (PurchaseCard i) = do
 
   return $ case card of
     Nothing -> ActionLose ("No card to purchase: " <> showT location)
-    Just c ->
+    Just (CardInPlay c _) ->
          MoveCard location (PlayerLocation playerId Discard) Front
       <> ApplyResources playerId (mempty { _money = -(cardCost c)})
       <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
@@ -47,7 +47,7 @@ translatePlayerAction (AttackCard i) = do
 
   return $ case card of
     Nothing -> ActionLose ("No card to attack: " <> showT location)
-    Just c ->
+    Just (CardInPlay c _) ->
          MoveCard location (PlayerLocation playerId Victory) Front
       <> ApplyResources playerId (mempty { _attack = -(cardHealth c)})
 

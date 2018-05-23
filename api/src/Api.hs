@@ -48,6 +48,7 @@ instance FromHttpApiData PlayerId where
 type AppM = ReaderT State Handler
 type MyAPI =
        "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
+  :<|> "games" :> Capture "id" Int :> "cards" :> Get '[JSON] (M.HashMap T.Text Card)
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "act" :> ReqBody '[JSON] PlayerAction :> Post '[JSON] ()
 
 api :: Proxy MyAPI
@@ -66,7 +67,7 @@ app s =   logStdoutDev
                    { corsRequestHeaders = [ "authorization", "content-type" ]
                    }
 
-server = getGame :<|> handleAction
+server = getGame :<|> getCards :<|> handleAction
 
 getGame :: Int -> Maybe Integer -> AppM Game
 getGame gameId maybeVersion = do
@@ -88,6 +89,14 @@ getGame gameId maybeVersion = do
         x <- readTVar gvar
         check $ view (gameState . version) x > v
         return x
+
+getCards :: Int -> AppM (M.HashMap T.Text Card)
+getCards gameId = do
+    State{game = gvar} <- ask
+    g <- liftIO . atomically . readTVar $ gvar
+
+    return . M.fromList . fmap (\c -> (cardName c, c)) $
+      (cardDictionary . view gameState $ g)
 
 handleAction :: Int -> PlayerId -> PlayerAction -> AppM ()
 handleAction gameId playerId action = do

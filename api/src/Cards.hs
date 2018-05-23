@@ -46,8 +46,8 @@ spideyCard = HeroCard
                    card <- lookupCard location
                    return $ case card of
                       Nothing -> error "Should never happen"
-                      Just c -> if cardCost c <= 2 then
-                                  drawAction playerId 1
-                                else
-                                  ActionNone
+                      Just (CardInPlay card _) -> if cardCost card <= 2 then
+                                                    drawAction playerId 1
+                                                  else
+                                                    ActionNone
                  )

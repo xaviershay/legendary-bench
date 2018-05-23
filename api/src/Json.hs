@@ -45,6 +45,20 @@ instance ToJSON GameState where
   toJSON Won = object ["tag" .= ("won" :: String)]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
+instance ToJSON Card where
+  toJSON c@HeroCard{} = object
+    [ "type" .= cardType c
+    , "name" .= cardName c
+    , "cost" .= cardCost c
+    , "baseMoney"  .= baseResource extractMoney c
+    , "baseAttack" .= baseResource extractAttack c
+    ]
+  toJSON c@EnemyCard{} = object
+    [ "type" .= cardType c
+    , "name" .= cardName c
+    , "health" .= cardHealth c
+    ]
+
 instance ToJSON Game where
   toJSON game = object
     [ "board" .= view gameState game
