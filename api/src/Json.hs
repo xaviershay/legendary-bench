@@ -30,11 +30,14 @@ instance FromJSON PlayerAction where
     action <- v .: "action"
 
     case action of
-      "PlayCard" -> PlayCard <$> v .: "index"
+      "PlayCard"     -> PlayCard     <$> v .: "index"
+      "PurchaseCard" -> PurchaseCard <$> v .: "index"
       _ -> fail $ "Unknown action: " <> action
 
 instance ToJSON GameState where
-  toJSON = toJSON . T.toLower . showT
+  toJSON Playing = object ["tag" .= ("playing" :: String)]
+  toJSON Won = object ["tag" .= ("won" :: String)]
+  toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
 instance ToJSON Game where
   toJSON game = object

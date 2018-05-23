@@ -16,6 +16,7 @@ class App extends Component {
         .then(results => results.json())
         .then(data => {
           this.setState({"gameData": data})
+          console.log(data);
           version = data.board.version;
           f();
           // TODO: Set up a long poll here
@@ -38,6 +39,15 @@ class App extends Component {
         */
   }
 }
+
+function lostMessage(board) {
+  if (board.state.tag === "lost") {
+    return <p className="lost">Game Lost: {board.state.status}</p>
+  } else {
+    return null;
+  }
+}
+
 class Board extends Component {
   render() {
     const board = this.props.board;
@@ -47,7 +57,9 @@ class Board extends Component {
 
     return (
       <div>
-        <Location cards={board.cards["hq"]} title="HQ" />
+        {lostMessage(board)}
+        <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
+        <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
     )
@@ -70,8 +82,24 @@ function playCard(playerId, i) {
   }
 }
 
+function purchaseCard(playerId, i) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({action: "PurchaseCard", index: i})
+    })
+  }
+}
+
 function playCardActions(playerId) {
   return (c, i) => <a href="#play" onClick={playCard(playerId, i)}>Play</a>
+}
+
+function purchaseCardActions(playerId) {
+  return (c, i) => <a href="#play" onClick={purchaseCard(playerId, i)}>Purchase</a>
 }
 
 class Player extends Component {
