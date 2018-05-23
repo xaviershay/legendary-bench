@@ -36,7 +36,7 @@ translatePlayerAction (PurchaseCard i) = do
     Nothing -> ActionLose ("No card to purchase: " <> showT location)
     Just c ->
          MoveCard location (PlayerLocation playerId Discard) Front
-      <> ApplyResources playerId (mempty { _money = (-(cardCost c))})
+      <> ApplyResources playerId (mempty { _money = -(cardCost c)})
       <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
 translatePlayerAction EndTurn = return ActionEndTurn
@@ -49,7 +49,7 @@ playAction (CardInPlay card _) = effectAction (view playEffect card)
 effectAction :: Effect -> GameMonad Action
 effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
 effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
-effectAction (EffectNone) = return ActionNone
+effectAction EffectNone = return ActionNone
 effectAction (EffectCustom _ f) = f
 effectAction (EffectCombine a b) = do
   x <- effectAction a

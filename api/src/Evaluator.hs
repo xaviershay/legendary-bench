@@ -14,10 +14,7 @@ import           Types
 import           Utils
 
 applyWithVersionBump :: Action -> GameMonad Board
-applyWithVersionBump action = do
-  b <- apply action
-
-  return $ over version (+ 1) b
+applyWithVersionBump action = over version (+ 1) <$> apply action
 
 -- Applies an action to the current board, returning the resulting one
 apply :: Action -> GameMonad Board
@@ -26,9 +23,9 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a specificCard
-    Just card ->    over (cardsAtLocation location) (S.deleteAt i)
-                <$> over (cardsAtLocation to) (card S.<|)
-                <$> currentBoard
+    Just card ->   over (cardsAtLocation location) (S.deleteAt i)
+                 . over (cardsAtLocation to) (card S.<|)
+                 <$> currentBoard
 
 apply a@(RevealCard location v) = do
   maybeCard <- lookupCard location
@@ -71,7 +68,7 @@ apply ActionEndTurn = do
             <$> currentBoard
 
   withBoard board $
-    over players moveHeadToTail <$> (apply $ drawAction player 6)
+    over players moveHeadToTail <$> apply (drawAction player 6)
 
 apply action = lose $ "Don't know how to apply: " <> showT action
 
@@ -82,7 +79,7 @@ moveAllFrom :: Lens' Board (S.Seq CardInPlay)
 moveAllFrom src dest board =
   let cs = view src board in
 
-  set src mempty $ over dest (cs S.><) $ board
+  set src mempty . over dest (cs S.><) $ board
 
 tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
 tryShuffleDiscardToDeck a specificCard = do
@@ -102,8 +99,8 @@ tryShuffleDiscardToDeck a specificCard = do
           let board' =   set
                            (cardsAtLocation location)
                            (fmap (setVisibility Hidden) shuffled)
-                       $ set (cardsAtLocation discardDeck) mempty
-                       $ set rng rng'
+                       . set (cardsAtLocation discardDeck) mempty
+                       . set rng rng'
                        $ board
 
           withBoard board' $ apply a

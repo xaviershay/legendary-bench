@@ -66,9 +66,9 @@ data Resources = Resources
 
 instance Monoid Resources where
   mempty = Resources { _attack = 0,       _money = 0 }
-  mappend (Resources { _attack = a1,      _money = m1 })
-          (Resources { _attack = a2,      _money = m2 }) =
-           Resources { _attack = a1 + a2, _money = m1 + m2 }
+  mappend Resources { _attack = a1,      _money = m1 }
+          Resources { _attack = a2,      _money = m2 } =
+          Resources { _attack = a1 + a2, _money = m1 + m2 }
 
 instance Hashable PlayerId
 instance Hashable ScopedLocation
@@ -81,7 +81,7 @@ type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
 data GameState = Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
-data Player = Player
+newtype Player = Player
   { _resources :: Resources
   }
   deriving (Show, Generic, Eq)
@@ -113,14 +113,14 @@ data Board = Board
   }
   deriving (Show, Generic)
 
-data Game = Game
+newtype Game = Game
   { _gameState :: Board
   }
   deriving (Show, Generic)
 
 instance Monoid Effect where
   mempty = EffectNone
-  mappend a b = EffectCombine a b
+  mappend = EffectCombine
 
 data Action =
   ActionNone |
@@ -167,16 +167,16 @@ mkBoard = Board
 -- doesn't implement Monoid so can't work by default with many of the lens.
 -- Could newtype it to fix but probably not worth it.
 cardCost :: CardInPlay -> Int
-cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
+cardCost (CardInPlay HeroCard { _cost = c } _) = c
 cardCost _ = 0
 
 cardName :: Card -> T.Text
-cardName (c@HeroCard{})  = view heroName c
-cardName (c@EnemyCard{}) = view enemyName c
+cardName c@HeroCard{}  = view heroName c
+cardName c@EnemyCard{} = view enemyName c
 
 cardType :: Card -> T.Text
-cardType (c@HeroCard{}) = "hero"
-cardType (c@EnemyCard{}) = "enemy"
+cardType c@HeroCard{} = "hero"
+cardType c@EnemyCard{} = "enemy"
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
 cardsAtLocation l = cards . at l . non mempty

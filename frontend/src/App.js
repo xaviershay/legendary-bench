@@ -58,6 +58,7 @@ class Board extends Component {
     return (
       <div>
         {lostMessage(board)}
+        <a href='#end' onClick={endTurn(0)}>End Turn</a>
         <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
         <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
@@ -90,6 +91,18 @@ function purchaseCard(playerId, i) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({action: "PurchaseCard", index: i})
+    })
+  }
+}
+
+function endTurn(playerId) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({action: "EndTurn"})
     })
   }
 }

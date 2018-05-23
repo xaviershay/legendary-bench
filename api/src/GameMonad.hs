@@ -10,10 +10,10 @@ runGameMonad id board m = runReader m
   (GameMonadState { _activePlayer = id, _board = board })
 
 currentPlayer :: GameMonad PlayerId
-currentPlayer = _activePlayer <$> ask
+currentPlayer = asks _activePlayer
 
 currentBoard :: GameMonad Board
-currentBoard = _board <$> ask
+currentBoard = asks _board
 
 withBoard :: Board -> GameMonad a -> GameMonad a
 withBoard board m = do

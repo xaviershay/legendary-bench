@@ -36,6 +36,8 @@ library:
     - mtl
     - lens
     - random
+    - wai-cors
+    - wai-extra
 
 executables:
   legendary-bench-exe:
@@ -49,8 +51,6 @@ executables:
     - legendary-bench
     - servant-server
     - wai
-    - wai-cors
-    - wai-extra
     - warp
   benchmarks-exe:
     main: Main.hs

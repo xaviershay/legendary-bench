@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Json where
 
@@ -12,15 +13,15 @@ import Types
 import Utils
 
 instance ToJSONKey Location where
-  toJSONKey = toJSONKeyText $ \x ->
-    case x of
+  toJSONKey = toJSONKeyText $
+    \case
       Boss -> "boss"
       HQ -> "hq"
       HeroDeck -> "hero-deck"
       PlayerLocation (PlayerId id) location -> "player-"
                                             <> showT id
                                             <> "-"
-                                            <> (T.toLower $ showT location)
+                                            <> T.toLower (showT location)
 
 instance ToJSON ScopedLocation
 instance ToJSON Location
