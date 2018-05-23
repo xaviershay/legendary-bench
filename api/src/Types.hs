@@ -145,12 +145,12 @@ makeLenses ''Player
 makeLenses ''Board
 makeLenses ''Card
 makeLenses ''Resources
+makeLenses ''Game
 
 -- This instance is used for anything substantial, it's just needed for some
 -- lens derivation (which we ultimately don't rely on)
 instance Eq Card where
-  (a@HeroCard{}) == (b@HeroCard{}) = view heroName a == view heroName b
-  (a@EnemyCard{}) == (b@EnemyCard{}) = view enemyName a == view enemyName b
+  a == b = cardType a == cardType b && cardName a == cardName b
 
 mkBoard :: Board
 mkBoard = Board
@@ -166,6 +166,14 @@ mkBoard = Board
 cardCost :: CardInPlay -> Int
 cardCost (CardInPlay (HeroCard { _cost = c }) _) = c
 cardCost _ = 0
+
+cardName :: Card -> T.Text
+cardName (c@HeroCard{})  = view heroName c
+cardName (c@EnemyCard{}) = view enemyName c
+
+cardType :: Card -> T.Text
+cardType (c@HeroCard{}) = "hero"
+cardType (c@EnemyCard{}) = "enemy"
 
 cardsAtLocation l = cards . at l . non mempty
 
