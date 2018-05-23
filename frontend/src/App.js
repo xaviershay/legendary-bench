@@ -60,15 +60,21 @@ class Board extends Component {
       <div>
         {lostMessage(board)}
         <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
-        <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />
-        <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
-        <Location cards={board.cards["city-0"]} title="Sewers" actions={attackActions(currentPlayer, 0)} />
-        <Location cards={board.cards["city-1"]} title="Bank" actions={attackActions(currentPlayer, 1)}  />
-        <Location cards={board.cards["city-2"]} title="Rooftops" actions={attackActions(currentPlayer, 2)} />
-        <Location cards={board.cards["city-3"]} title="Streets" actions={attackActions(currentPlayer, 3)}  />
-        <Location cards={board.cards["city-4"]} title="Bridge" actions={attackActions(currentPlayer, 4)} />
-        <Location cards={board.cards["escaped"]} title="Escaped" layout="stacked" />
-        <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
+        <div className='boardRow'>
+          <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />
+          <div className='city'>
+            <Location cards={board.cards["city-0"]} title="Sewers" actions={attackActions(currentPlayer, 0)} />
+            <Location cards={board.cards["city-1"]} title="Bank" actions={attackActions(currentPlayer, 1)}  />
+            <Location cards={board.cards["city-2"]} title="Rooftops" actions={attackActions(currentPlayer, 2)} />
+            <Location cards={board.cards["city-3"]} title="Streets" actions={attackActions(currentPlayer, 3)}  />
+            <Location cards={board.cards["city-4"]} title="Bridge" actions={attackActions(currentPlayer, 4)} />
+          </div>
+          <Location cards={board.cards["escaped"]} title="Escaped" layout="stacked" />
+        </div>
+        <div className='boardRow'>
+          <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
+          <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
+        </div>
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
     )
@@ -128,15 +134,15 @@ function endTurn(playerId) {
 }
 
 function playCardActions(playerId) {
-  return (c, i) => <a href="#play" onClick={playCard(playerId, i)}>Play</a>
+  return (c, i) => playCard(playerId, i)
 }
 
 function purchaseCardActions(playerId) {
-  return (c, i) => <a href="#purchase" onClick={purchaseCard(playerId, i)}>Purchase</a>
+  return (c, i) => purchaseCard(playerId, i)
 }
 
 function attackActions(playerId, city) {
-  return (c, i) => <a href="#attack" onClick={attackCard(playerId, city)}>Attack</a>
+  return (c, i) => attackCard(playerId, city)
 }
 
 class Player extends Component {
@@ -149,11 +155,15 @@ class Player extends Component {
       <div>
         <h2>Player {id}</h2>
         <p>{resources.attack} Attack, {resources.money} Money</p>
-        <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
-        <Location cards={cardsAt("played")} title="Played" />
-        <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
-        <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
-        <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
+        <div className="playerRow">
+          <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
+          <div className="workingArea">
+            <Location cards={cardsAt("played")} title="Played" />
+            <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
+          </div>
+          <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
+          <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
+        </div>
       </div>
     )
   }
@@ -163,6 +173,8 @@ class Location extends Component {
   render() {
     let {cards, title, layout, actions} = this.props;
 
+    if (!layout)
+      layout = "horizontal";
     if (!cards)
       cards = [];
 
@@ -185,14 +197,18 @@ class Location extends Component {
       }
     } else {
       cardRender = (
-        <ul>
-          {cards.map((c, i) => <div key={i}><Card card={c} /> {actions(c, i)}</div>)}
-        </ul>
+        <div className={"location-" + layout}>
+          {cards.map((c, i) => (
+            <a className="card" href='#x' onClick={actions(c, i)} key={i}>
+              <Card card={c} />
+            </a>
+          ))}
+        </div>
       )
     }
 
     return (
-      <div>
+      <div className='cardLocation'>
         <h3>{title}</h3>
         {cardRender}
       </div>

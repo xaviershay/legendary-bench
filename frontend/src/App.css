@@ -8,3 +8,50 @@
   font-weight: bold;
   padding: 1em;
 }
+
+.boardRow {
+  display: flex;
+  padding: 1em;
+}
+
+.city {
+  background-color: #eeeeff;
+  display: flex;
+}
+
+.playerRow {
+  display: flex;
+  padding: 1em;
+}
+
+.cardLocation {
+  margin-left: 1em;
+  margin-right: 1em;
+  margin-bottom: 0.5em;
+}
+
+.workingArea {
+  flex-grow: 1
+}
+
+.location-horizontal {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  height: 150px;
+}
+
+.card {
+  box-sizing: border-box;
+  margin-right: 0.5em;
+  display: block;
+  width: 100px;
+  height: 150px;
+  border: solid 1px black;
+  padding: 0.5em;
+  color: black;
+  text-decoration: none;
+  font-size: 10pt;
+  user-select: none;
+}
+
