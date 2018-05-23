@@ -32,6 +32,7 @@ instance FromJSON PlayerAction where
     case action of
       "PlayCard"     -> PlayCard     <$> v .: "index"
       "PurchaseCard" -> PurchaseCard <$> v .: "index"
+      "EndTurn"      -> return EndTurn
       _ -> fail $ "Unknown action: " <> action
 
 instance ToJSON GameState where

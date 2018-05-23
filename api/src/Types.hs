@@ -31,7 +31,7 @@ data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 data PlayerAction =
   PlayCard Int |
   PurchaseCard Int |
-  FinishTurn
+  EndTurn
 
   deriving (Show, Generic)
 
@@ -128,7 +128,8 @@ data Action =
   ActionSequence Action (GameMonad Action) |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
-  ApplyResources PlayerId Resources
+  ApplyResources PlayerId Resources |
+  ActionEndTurn
 
   deriving (Generic)
 
@@ -177,7 +178,11 @@ cardType :: Card -> T.Text
 cardType (c@HeroCard{}) = "hero"
 cardType (c@EnemyCard{}) = "enemy"
 
+cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
 cardsAtLocation l = cards . at l . non mempty
+
+playerResources :: PlayerId -> Traversal' Board Resources
+playerResources (PlayerId id) = players . ix id . resources
 
 isPlaying :: Board -> Bool
 isPlaying board = view boardState board == Playing

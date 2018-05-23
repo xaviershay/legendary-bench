@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Evaluator where
 
-import           Control.Lens  (at, ix, non, over, set, view)
+import           Control.Lens  (at, ix, non, over, set, view, Lens')
 import qualified Data.Sequence as S
 import qualified Data.Text     as T
 
+import           Action
 import           GameMonad
 import           Random
 import           Types
@@ -45,7 +47,8 @@ apply (ApplyResources (PlayerId id) rs) = do
   else
     return board'
 
-apply (ActionNone) = currentBoard
+apply ActionNone = currentBoard
+
 apply (ActionSequence a m) = do
   board' <- apply a
 
@@ -54,7 +57,32 @@ apply (ActionSequence a m) = do
   else
     return board'
 
+apply ActionEndTurn = do
+  player <- currentPlayer
+  board  <-   set
+                (playerResources player)
+                mempty
+            . moveAllFrom
+                (cardsAtLocation $ PlayerLocation player Played)
+                (cardsAtLocation $ PlayerLocation player Discard)
+            . moveAllFrom
+                (cardsAtLocation $ PlayerLocation player Hand)
+                (cardsAtLocation $ PlayerLocation player Discard)
+            <$> currentBoard
+
+  withBoard board $
+    over players moveHeadToTail <$> (apply $ drawAction player 6)
+
 apply action = lose $ "Don't know how to apply: " <> showT action
+
+moveAllFrom :: Lens' Board (S.Seq CardInPlay)
+            -> Lens' Board (S.Seq CardInPlay)
+            -> Board
+            -> Board
+moveAllFrom src dest board =
+  let cs = view src board in
+
+  set src mempty $ over dest (cs S.><) $ board
 
 tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
 tryShuffleDiscardToDeck a specificCard = do

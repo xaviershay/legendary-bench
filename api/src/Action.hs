@@ -39,6 +39,8 @@ translatePlayerAction (PurchaseCard i) = do
       <> ApplyResources playerId (mempty { _money = (-(cardCost c))})
       <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
+translatePlayerAction EndTurn = return ActionEndTurn
+
 -- Convert card effects to actions
 -- ===============================
 playAction :: CardInPlay -> GameMonad Action
