@@ -51,6 +51,12 @@ function playerLocation(id, key) {
   return "player-" + id + "-" + key;
 }
 
+function playCard() {
+}
+function playCardActions(card, i) {
+  return <a href="#play" onClick={playCard(i)}>Play</a>
+}
+
 class Player extends Component {
   render() {
     const {id, board} = this.props;
@@ -61,7 +67,7 @@ class Player extends Component {
       <div>
         <h2>Player {id}</h2>
         <p>{resources.attack} Attack, {resources.money} Money</p>
-        <Location cards={cardsAt("hand")} title="Hand" />
+        <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions} />
         <Location cards={cardsAt("played")} title="Played" />
         <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
         <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
@@ -72,10 +78,13 @@ class Player extends Component {
 
 class Location extends Component {
   render() {
-    let {cards, title, layout} = this.props;
+    let {cards, title, layout, actions} = this.props;
 
     if (!cards)
       cards = [];
+
+    if (!actions)
+      actions = (c, i) => null;
 
     let cardRender = null;
 
@@ -94,7 +103,7 @@ class Location extends Component {
     } else {
       cardRender = (
         <ul>
-          {cards.map((c, i) => <Card card={c} key={i} />)}
+          {cards.map((c, i) => <div><Card card={c} key={i} /> {actions(c, i)}</div>)}
         </ul>
       )
     }
