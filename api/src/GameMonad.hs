@@ -2,6 +2,7 @@ module GameMonad where
 
 import Types
 import Utils
+import qualified Data.Text as T
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
@@ -31,7 +32,3 @@ withBoard board m = do
   let state = GameMonadState { _activePlayer = playerId, _board = board }
 
   local (const state) m
-
-lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
-lookupCard (location, i) =
-  preview (cardsAtLocation location . ix i) <$> currentBoard

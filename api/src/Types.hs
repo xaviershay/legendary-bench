@@ -240,8 +240,8 @@ extractAttack (EffectAttack n) = n
 extractAttack _ = 0
 
 addChoice :: PlayerId -> PlayerChoice -> Board -> Board
-addChoice playerId choice board =
-  over (playerChoices . at playerId . non mempty) (choice S.<|) board
+addChoice playerId choice =
+  over (playerChoices . at playerId . non mempty) (choice S.<|)
 
 baseResource f = walk . view playEffect
   where

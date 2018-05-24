@@ -4,10 +4,11 @@
 
 module Evaluator where
 
-import           Control.Lens  (at, ix, non, over, set, view, Lens')
-import qualified Data.Sequence as S
-import qualified Data.Text     as T
-import           Control.Monad.Except (throwError, catchError)
+import           Control.Lens         (Lens', at, ix, non, over, preview, set,
+                                       view)
+import           Control.Monad.Except (catchError, throwError)
+import qualified Data.Sequence        as S
+import qualified Data.Text            as T
 
 import           Action
 import           GameMonad
@@ -91,44 +92,34 @@ apply a@(ActionPlayerTurn playerId) = do
   where
     f :: S.Seq PlayerChoice -> GameMonad Board
     f (ChooseCard location@(PlayerLocation playerId Hand, i) S.:<| _) = do
-      card <- lookupCard location
+      card       <- requireCard location
+      cardEffect <- playAction card
 
-      case card of
-        Nothing -> lose ("No card at: " <> showT location)
-        Just c -> do
-          cardEffect <- playAction c
+      apply $
+           revealAndMove location (PlayerLocation playerId Played) Front
+        <> cardEffect
 
-          apply $
-               revealAndMove location (PlayerLocation playerId Played) Front
-            <> cardEffect
     f (ChooseCard location@(HQ, i) S.:<| _) = do
-      card <- lookupCard location
+      (CardInPlay card _) <- requireCard location
 
-      case card of
-        Nothing -> lose ("No card to purchase: " <> showT location)
-        Just (CardInPlay c _) -> apply $
-             MoveCard location (PlayerLocation playerId Discard) Front
-          <> ApplyResources playerId (mempty { _money = -(cardCost c)})
-          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+      apply $
+           MoveCard location (PlayerLocation playerId Discard) Front
+        <> ApplyResources playerId (mempty { _money = -(cardCost card)})
+        <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
     f (ChooseCard location@(City n, i) S.:<| _) = do
-      card <- lookupCard location
+      (CardInPlay card _) <- requireCard location
 
-      case card of
-        Nothing -> lose ("No card at: " <> showT location)
-        Just (CardInPlay c _) -> apply $
-             MoveCard location (PlayerLocation playerId Victory) Front
-          <> ApplyResources playerId (mempty { _attack = -(cardHealth c)})
+      apply $
+           MoveCard location (PlayerLocation playerId Victory) Front
+        <> ApplyResources playerId (mempty { _attack = -(cardHealth card)})
 
     f (ChooseEndTurn S.:<| _) =
       apply $ ActionEndTurn <> ActionStartTurn
     f _ = halt a
 
 
-apply a@(ActionLose reason) = do
-  board <- set boardState (Lost reason) <$> currentBoard
-
-  throwError (board, a)
+apply a@(ActionLose reason) = lose reason
 
 moveCity :: Location -> GameMonad Board
 moveCity Escaped = currentBoard -- TODO: Apply penalty for villian escaping
@@ -196,8 +187,6 @@ overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =
      over (cardsAtLocation location . ix i) f <$> currentBoard
 
-lose :: T.Text -> GameMonad Board
-lose reason = apply (ActionLose reason)
 
 halt a = do
   b <- currentBoard
@@ -209,3 +198,22 @@ setVisibility v (CardInPlay card _) = CardInPlay card v
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)
+
+lose :: T.Text -> GameMonad a
+lose reason = do
+  b <- currentBoard
+
+  throwError (set boardState (Lost reason) $ b, ActionLose reason)
+
+lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
+lookupCard (location, i) =
+  preview (cardsAtLocation location . ix i) <$> currentBoard
+
+requireCard :: SpecificCard -> GameMonad CardInPlay
+requireCard location = do
+  b <- currentBoard
+  maybeCard <- lookupCard location
+
+  case maybeCard of
+    Just c -> return c
+    Nothing -> lose "No card at location"
