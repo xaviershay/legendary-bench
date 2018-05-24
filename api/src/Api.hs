@@ -8,7 +8,7 @@ module Api where
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
                                                        newTVar, readTVar,
                                                        writeTVar)
-import           Control.Lens                         (over, view)
+import           Control.Lens                         (at, non, over, view)
 import           Control.Monad.IO.Class               (liftIO)
 import           Control.Monad.Reader                 (Reader)
 import           Control.Monad.STM                    (atomically, check)
@@ -16,6 +16,7 @@ import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
 import           Data.Maybe                           (fromMaybe)
 import           Data.Monoid                          (mempty, (<>))
+import qualified Data.Sequence                        as S
 import qualified Data.Text                            as T
 import           GHC.Generics
 import           GHC.TypeLits
@@ -50,6 +51,7 @@ type MyAPI =
        "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
   :<|> "games" :> Capture "id" Int :> "cards" :> Get '[JSON] (M.HashMap T.Text Card)
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "act" :> ReqBody '[JSON] PlayerAction :> Post '[JSON] ()
+  :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "choose" :> ReqBody '[JSON] PlayerChoice :> Post '[JSON] ()
 
 api :: Proxy MyAPI
 api = Proxy
@@ -67,7 +69,7 @@ app s =   logStdoutDev
                    { corsRequestHeaders = [ "authorization", "content-type" ]
                    }
 
-server = getGame :<|> getCards :<|> handleAction
+server = getGame :<|> getCards :<|> handleAction :<|> handleChoice
 
 getGame :: Int -> Maybe Integer -> AppM Game
 getGame gameId maybeVersion = do
@@ -111,6 +113,22 @@ handleAction gameId playerId action = do
     applyAction playerId action board =
       runGameMonad playerId board $
         translatePlayerAction action >>= applyWithVersionBump
+
+handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
+handleChoice gameId playerId choice = do
+  State{game = gvar} <- ask
+
+  liftIO . atomically . modifyTVar gvar $
+    over gameState (applyChoice playerId choice)
+
+  return ()
+
+  where
+    applyChoice playerId choice board =
+      let board' = over (playerChoices . at playerId . non mempty) (choice S.<|) board in
+
+      runGameMonad playerId board' $
+        applyWithVersionBump (view currentAction board')
 
 redact :: PlayerId -> Board -> Board
 redact id = over cards (M.mapWithKey f)

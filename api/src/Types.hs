@@ -41,7 +41,9 @@ data PlayerAction =
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
-data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq, Enum, Bounded)
+data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
+  deriving (Show, Generic, Eq, Enum, Bounded)
+
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | HeroDeck
