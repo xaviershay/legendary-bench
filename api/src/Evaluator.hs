@@ -72,7 +72,8 @@ apply ActionEndTurn = do
 
 apply ActionStartTurn = do
   -- make space for new villian
-  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until empty or escaped
+  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until
+  -- empty or escaped
   player <- currentPlayer
 
   board <- moveCity (City 0)

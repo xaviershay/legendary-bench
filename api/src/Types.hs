@@ -7,6 +7,7 @@ module Types where
 
 import           Control.Lens
 import           Control.Monad.Reader
+import           Control.Monad.Except
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
@@ -24,7 +25,8 @@ data GameMonadState = GameMonadState
   , _board        :: Board
   }
 
-type GameMonad = Reader GameMonadState
+type GameHalt = (Board, Action)
+type GameMonad a = ExceptT GameHalt (ReaderT GameMonadState Identity) a
 
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)

@@ -4,10 +4,15 @@ import Types
 import Utils
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.Except (runExceptT)
 
 runGameMonad :: PlayerId -> Board -> GameMonad a -> a
-runGameMonad id board m = runReader m
-  (GameMonadState { _activePlayer = id, _board = board })
+runGameMonad id board m =
+  let result = runIdentity $ runReaderT (runExceptT m) (GameMonadState { _activePlayer = id, _board = board }) in
+
+  case result of
+    Left _ -> undefined
+    Right x -> x
 
 currentPlayer :: GameMonad PlayerId
 currentPlayer = asks _activePlayer
@@ -19,9 +24,7 @@ withBoard :: Board -> GameMonad a -> GameMonad a
 withBoard board m = do
   playerId <- currentPlayer
 
-  let state = GameMonadState { _activePlayer = playerId, _board = board}
-
-  return $ runReader m state
+  return $ runGameMonad playerId board m
 
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
 lookupCard (location, i) =
