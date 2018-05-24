@@ -32,7 +32,7 @@ test_DrawFromEmpty =
               $ mkBoard
     action = drawAction player 1
     player = PlayerId 0
-    result = runGameMonad player board $ apply action
+    result = runGameMonad board $ apply action
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
 
 test_SpiderMan =
@@ -42,16 +42,18 @@ test_SpiderMan =
     ]
 
   where
+    choice = ChooseCard (PlayerLocation player Hand, 0)
+    player = PlayerId 0
     board =   set
                 (cardsAtLocation (PlayerLocation player Discard))
                 (genCards 1)
-            $ set
+            . set
                 (cardsAtLocation (PlayerLocation player Hand))
                 (S.fromList [CardInPlay spideyCard Owner])
+            . addPlayer player
+            . addChoice player choice
             $ mkBoard
-    action = PlayCard 0
-    player = PlayerId 0
-    result = runGameMonad player board $ translatePlayerAction action >>= apply
+    result = runGameMonad board $ apply (ActionPlayerTurn player)
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
 
 test_SpiderManLose =
@@ -59,11 +61,15 @@ test_SpiderManLose =
     True @=? (isLost result)
 
   where
+    choice = ChooseCard (PlayerLocation player Hand, 0)
+    player = PlayerId 0
     board =
               set
                 (cardsAtLocation (PlayerLocation player Hand))
                 (S.fromList [CardInPlay spideyCard Owner])
+            . addPlayer player
+            . addChoice player choice
             $ mkBoard
-    action = PlayCard 0
-    player = PlayerId 0
-    result = runGameMonad player board $ translatePlayerAction action >>= apply
+    result = runGameMonad board $ apply (ActionPlayerTurn player)
+
+addPlayer player = over players (mkPlayer player S.<|)

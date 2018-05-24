@@ -6,15 +6,20 @@ module Json where
 import Control.Lens (view)
 import qualified Data.Sequence as S
 import Data.Aeson
-import Data.Aeson.Types (toJSONKeyText)
+import Data.Aeson.Types (toJSONKeyText, Parser)
 import qualified Data.Text as T
-
+import Text.Read (readMaybe)
 import Types
 import Utils
 
 instance ToJSONKey Location where
-  toJSONKey = toJSONKeyText $
-    \case
+  toJSONKey = toJSONKeyText showLocation
+
+instance ToJSON ScopedLocation where
+  toJSON = toJSON . T.toLower . showT
+
+showLocation :: Location -> T.Text
+showLocation = \case
       Boss -> "boss"
       HQ -> "hq"
       HeroDeck -> "hero-deck"
@@ -26,19 +31,52 @@ instance ToJSONKey Location where
                                             <> "-"
                                             <> T.toLower (showT location)
 
-instance ToJSON ScopedLocation
-instance ToJSON Location
+readScopedLocation :: T.Text -> Maybe ScopedLocation
+readScopedLocation x = lookup x candidates
+  where
+    ls = [(minBound :: ScopedLocation)..]
+    candidates = zip
+                   (fmap (T.toLower . showT) ls)
+                   ls
 
-instance FromJSON PlayerAction where
-  parseJSON = withObject "PlayerAction" $ \v -> do
-    action <- v .: "action"
+instance FromJSON ScopedLocation where
+  parseJSON = withText "ScopedLocation" $ \v ->
+    case readScopedLocation v of
+      Just x -> return x
+      Nothing -> fail "No parse"
+
+
+instance ToJSON Location where
+  toJSON = toJSON . showLocation
+
+instance FromJSON Location where
+  parseJSON = withText "Location" $ \v ->
+    let tokens = T.splitOn "-" v in
+
+    case tokens of
+      ["hq"] -> return HQ
+      ["city", i] -> City <$> readError i
+
+      ["player", i, location] -> do
+        i' <- readError i
+        location' <- parseJSON (Data.Aeson.String location)
+
+        return $ PlayerLocation (PlayerId i') location'
+      _ -> fail $ "Unknown location" <> T.unpack v
+
+readError :: Read a => T.Text -> Parser a
+readError x = case readMaybe . T.unpack $ x of
+                Just x' -> return x'
+                Nothing -> fail "Could not parse"
+
+instance FromJSON PlayerChoice where
+  parseJSON = withObject "PlayerChoice" $ \v -> do
+    action <- v .: "type"
 
     case action of
-      "PlayCard"     -> PlayCard     <$> v .: "index"
-      "PurchaseCard" -> PurchaseCard <$> v .: "index"
-      "AttackCard"   -> AttackCard   <$> v .: "location"
-      "EndTurn"      -> return EndTurn
-      _ -> fail $ "Unknown action: " <> action
+      "ChooseCard"    -> ChooseCard <$> v .: "card"
+      "ChooseEndTurn" -> return ChooseEndTurn
+      _ -> fail $ "Unknown choice: " <> action
 
 instance ToJSON GameState where
   toJSON Playing = object ["tag" .= ("playing" :: String)]

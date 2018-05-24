@@ -7,6 +7,7 @@ module Types where
 
 import           Control.Lens
 import           Control.Monad.Reader
+import           Control.Monad.Except
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
@@ -24,22 +25,17 @@ data GameMonadState = GameMonadState
   , _board        :: Board
   }
 
-type GameMonad = Reader GameMonadState
+type GameHalt = (Board, Action)
+type GameMonad a = ExceptT GameHalt (ReaderT GameMonadState Identity) a
 
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
-data PlayerAction =
-  PlayCard Int |
-  AttackCard Int |
-  PurchaseCard Int |
-  EndTurn
-
-  deriving (Show, Generic)
-
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
-data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory deriving (Show, Generic, Eq, Enum, Bounded)
+data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
+  deriving (Show, Generic, Eq, Enum, Bounded)
+
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | HeroDeck
@@ -86,8 +82,9 @@ type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
 data GameState = Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
-newtype Player = Player
+data Player = Player
   { _resources :: Resources
+  , _playerId :: PlayerId
   }
   deriving (Show, Generic, Eq)
 
@@ -110,11 +107,13 @@ instance Show Effect where
   show (EffectCustom a _) = T.unpack a
 
 data Board = Board
-  { _players :: S.Seq Player
-  , _cards   :: CardMap
-  , _boardState   :: GameState
-  , _rng :: StdGen
-  , _version :: Integer
+  { _players       :: S.Seq Player
+  , _cards         :: CardMap
+  , _boardState    :: GameState
+  , _rng           :: StdGen
+  , _version       :: Integer
+  , _currentAction :: Action
+  , _playerChoices :: M.HashMap PlayerId (S.Seq PlayerChoice)
   }
   deriving (Show, Generic)
 
@@ -127,6 +126,11 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend = EffectCombine
 
+data PlayerChoice =
+  ChooseCard SpecificCard |
+  ChooseEndTurn
+  deriving (Show, Generic, Eq)
+
 data Action =
   ActionNone |
   ActionLose T.Text |
@@ -134,6 +138,7 @@ data Action =
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources |
+  ActionPlayerTurn PlayerId |
   ActionStartTurn |
   ActionEndTurn
 
@@ -165,8 +170,16 @@ mkBoard = Board
   { _players = mempty
   , _boardState = Playing
   , _cards = mempty
+  , _currentAction = mempty
   , _rng = mkStdGen 0
   , _version = 1
+  , _playerChoices = mempty
+  }
+
+mkPlayer :: PlayerId -> Player
+mkPlayer pid = Player
+  { _resources = mempty
+  , _playerId  = pid
   }
 
 -- Return a unique list of all cards in use on the board
@@ -225,6 +238,10 @@ extractMoney _ = 0
 
 extractAttack (EffectAttack n) = n
 extractAttack _ = 0
+
+addChoice :: PlayerId -> PlayerChoice -> Board -> Board
+addChoice playerId choice =
+  over (playerChoices . at playerId . non mempty) (choice S.<|)
 
 baseResource f = walk . view playEffect
   where

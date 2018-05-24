@@ -6,6 +6,7 @@ import Types
 import Utils
 import Action
 import GameMonad
+import Evaluator
 
 villianCard = EnemyCard
   { _enemyName = "Villian"
@@ -43,11 +44,10 @@ spideyCard = HeroCard
       return $ ActionSequence
                  (RevealCard location All)
                  (do
-                   card <- lookupCard location
-                   return $ case card of
-                      Nothing -> error "Should never happen"
-                      Just (CardInPlay card _) -> if cardCost card <= 2 then
-                                                    drawAction playerId 1
-                                                  else
-                                                    ActionNone
+                   (CardInPlay card _) <- requireCard location
+
+                   return $ if cardCost card <= 2 then
+                              drawAction playerId 1
+                            else
+                              ActionNone
                  )

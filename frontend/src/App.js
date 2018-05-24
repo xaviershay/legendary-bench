@@ -85,64 +85,41 @@ function playerLocation(id, key) {
   return "player-" + id + "-" + key;
 }
 
-function playCard(playerId, i) {
-  return () => {
-    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({action: "PlayCard", index: i})
-    })
-  }
-}
-
-function purchaseCard(playerId, i) {
-  return () => {
-    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({action: "PurchaseCard", index: i})
-    })
-  }
-}
-
-function attackCard(playerId, i) {
-  return () => {
-    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({action: "AttackCard", location: i})
-    })
-  }
-}
-
 function endTurn(playerId) {
   return () => {
-    fetch('http://localhost:8080/games/1/players/' + playerId + '/act', {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({action: "EndTurn"})
+      body: JSON.stringify({type: "ChooseEndTurn"})
     })
   }
 }
 
+function chooseCard(playerId, specificCard) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({type: "ChooseCard", card: specificCard})
+    })
+  }
+}
+
+
 function playCardActions(playerId) {
-  return (c, i) => playCard(playerId, i)
+  return (c, i) => chooseCard(playerId, ["player-" + playerId + "-hand", i])
 }
 
 function purchaseCardActions(playerId) {
-  return (c, i) => purchaseCard(playerId, i)
+  return (c, i) => chooseCard(playerId, ["hq", i])
 }
 
 function attackActions(playerId, city) {
-  return (c, i) => attackCard(playerId, city)
+  return (c, i) => chooseCard(playerId, ["city-" + city, i])
 }
 
 class Player extends Component {

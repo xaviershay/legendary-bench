@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Evaluator where
 
-import           Control.Lens  (at, ix, non, over, set, view, Lens')
-import qualified Data.Sequence as S
-import qualified Data.Text     as T
+import           Control.Lens         (Lens', at, ix, non, over, preview, set,
+                                       view)
+import           Control.Monad.Except (catchError, throwError)
+import qualified Data.Sequence        as S
+import qualified Data.Text            as T
 
 import           Action
 import           GameMonad
@@ -13,10 +16,7 @@ import           Random
 import           Types
 import           Utils
 
-applyWithVersionBump :: Action -> GameMonad Board
-applyWithVersionBump action = over version (+ 1) <$> apply action
-
--- Applies an action to the current board, returning the resulting one
+-- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
 apply a@(MoveCard specificCard@(location, i) to dest) = do
   maybeCard <- lookupCard specificCard
@@ -47,12 +47,12 @@ apply (ApplyResources (PlayerId id) rs) = do
 apply ActionNone = currentBoard
 
 apply (ActionSequence a m) = do
-  board' <- apply a
+  board' <- apply a `catchError` handler
 
-  if isPlaying board' then
-    withBoard board' $ m >>= apply
-  else
-    return board'
+  withBoard board' $ m >>= apply
+
+  where
+    handler (board, action) = throwError (board, ActionSequence action m)
 
 apply ActionEndTurn = do
   player <- currentPlayer
@@ -72,14 +72,54 @@ apply ActionEndTurn = do
 
 apply ActionStartTurn = do
   -- make space for new villian
-  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until empty or escaped
+  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until
+  -- empty or escaped
   player <- currentPlayer
 
   board <- moveCity (City 0)
 
   withBoard board (apply $ revealAndMove (VillianDeck, 0) (City 0) Front)
 
-apply action = lose $ "Don't know how to apply: " <> showT action
+apply a@(ActionPlayerTurn playerId) = do
+  board <- currentBoard
+
+  let choices = view (playerChoices . at playerId . non mempty) board
+
+  board' <- f choices
+
+  return $ set (playerChoices . at playerId) mempty board'
+
+  where
+    f :: S.Seq PlayerChoice -> GameMonad Board
+    f (ChooseCard location@(PlayerLocation playerId Hand, i) S.:<| _) = do
+      card       <- requireCard location
+      cardEffect <- playAction card
+
+      apply $
+           revealAndMove location (PlayerLocation playerId Played) Front
+        <> cardEffect
+
+    f (ChooseCard location@(HQ, i) S.:<| _) = do
+      (CardInPlay card _) <- requireCard location
+
+      apply $
+           MoveCard location (PlayerLocation playerId Discard) Front
+        <> ApplyResources playerId (mempty { _money = -(cardCost card)})
+        <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+
+    f (ChooseCard location@(City n, i) S.:<| _) = do
+      (CardInPlay card _) <- requireCard location
+
+      apply $
+           MoveCard location (PlayerLocation playerId Victory) Front
+        <> ApplyResources playerId (mempty { _attack = -(cardHealth card)})
+
+    f (ChooseEndTurn S.:<| _) =
+      apply $ ActionEndTurn <> ActionStartTurn
+    f _ = halt a
+
+
+apply a@(ActionLose reason) = lose reason
 
 moveCity :: Location -> GameMonad Board
 moveCity Escaped = currentBoard -- TODO: Apply penalty for villian escaping
@@ -147,11 +187,33 @@ overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =
      over (cardsAtLocation location . ix i) f <$> currentBoard
 
-lose :: T.Text -> GameMonad Board
-lose reason = set boardState (Lost reason) <$> currentBoard
+
+halt a = do
+  b <- currentBoard
+
+  throwError (b, a)
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
 setVisibility v (CardInPlay card _) = CardInPlay card v
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < 0) || (view attack r < 0)
+
+lose :: T.Text -> GameMonad a
+lose reason = do
+  b <- currentBoard
+
+  throwError (set boardState (Lost reason) $ b, ActionLose reason)
+
+lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
+lookupCard (location, i) =
+  preview (cardsAtLocation location . ix i) <$> currentBoard
+
+requireCard :: SpecificCard -> GameMonad CardInPlay
+requireCard location = do
+  b <- currentBoard
+  maybeCard <- lookupCard location
+
+  case maybeCard of
+    Just c -> return c
+    Nothing -> lose "No card at location"
