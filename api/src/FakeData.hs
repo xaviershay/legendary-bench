@@ -15,7 +15,7 @@ mkGame :: Game
 mkGame = Game
   { _gameState =
     draw (PlayerId 0) 6 $ Board
-     { _players = S.fromList [Player { _resources = mempty }]
+     { _players = S.fromList [Player { _resources = mempty, _playerId = (PlayerId 0) }]
      , _rng = mkStdGen 0
      , _boardState = Playing
      , _version = 1
@@ -34,6 +34,6 @@ mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicat
 
 draw :: PlayerId -> Int -> Board -> Board
 draw playerId n board =
-  runGameMonad playerId board (apply $ drawAction playerId n)
+  runGameMonad board (apply $ drawAction playerId n)
 
 hideCard card = CardInPlay card Hidden

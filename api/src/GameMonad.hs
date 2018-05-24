@@ -5,10 +5,14 @@ import Utils
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.Except (runExceptT)
+import qualified Data.Sequence as S
 
-runGameMonad :: PlayerId -> Board -> GameMonad Board -> Board
-runGameMonad id board m =
-  let result = runIdentity $ runReaderT (runExceptT m) (GameMonadState { _activePlayer = id, _board = board }) in
+runGameMonad :: Board -> GameMonad Board -> Board
+runGameMonad board m =
+  -- Board must have at least one player
+  let Just pid = preview (players . element 0 . playerId) board in
+  let state    = GameMonadState { _activePlayer = pid, _board = board } in
+  let result   = runIdentity $ runReaderT (runExceptT m) state in
 
   case result of
     Left (x, a) -> set currentAction a x

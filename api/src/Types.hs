@@ -82,8 +82,9 @@ type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
 data GameState = Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
-newtype Player = Player
+data Player = Player
   { _resources :: Resources
+  , _playerId :: PlayerId
   }
   deriving (Show, Generic, Eq)
 
@@ -173,6 +174,12 @@ mkBoard = Board
   , _rng = mkStdGen 0
   , _version = 1
   , _playerChoices = mempty
+  }
+
+mkPlayer :: PlayerId -> Player
+mkPlayer pid = Player
+  { _resources = mempty
+  , _playerId  = pid
   }
 
 -- Return a unique list of all cards in use on the board
