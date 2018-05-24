@@ -83,71 +83,76 @@ apply ActionStartTurn = do
   withBoard board $ do
     board' <- apply $ revealAndMove (VillianDeck, 0) (City 0) Front
 
+    withBoard board' $ apply (ActionPlayerTurn player)
 
-    return $ set currentAction (ActionPlayerTurn player) board'
-
-apply a@(ActionPlayerTurn playerId) = do
-  choices <- choicesFor playerId
-  board <- f choices
-
-  return $ clearChoicesFor playerId board
-
+apply a@(ActionPlayerTurn _) = applyChoices f
   where
-    f :: S.Seq PlayerChoice -> GameMonad Board
-    f (ChooseCard location@(PlayerLocation playerId Hand, i) S.:<| _) = do
-      card       <- requireCard location
-      cardEffect <- playAction card
+    clearAndApply action = do
+      pid <- currentPlayer
+      board' <- clearChoicesFor pid <$> currentBoard
 
-      apply $
-           revealAndMove location (PlayerLocation playerId Played) Front
-        <> cardEffect
+      withBoard board' . apply $ action
+
+    f :: S.Seq PlayerChoice -> GameMonad Action
+    f (ChooseCard location@(PlayerLocation pid' Hand, i) S.:<| _) = do
+      pid <- currentPlayer
+
+      if pid == pid' then
+        do
+          card       <- requireCard location
+          cardEffect <- playAction card
+
+          return $
+               revealAndMove location (PlayerLocation pid Played) Front
+            <> cardEffect
+      else
+        f mempty
 
     f (ChooseCard location@(HQ, i) S.:<| _) = do
       (CardInPlay card _) <- requireCard location
+      pid <- currentPlayer
 
-      apply $
-           MoveCard location (PlayerLocation playerId Discard) Front
-        <> ApplyResources playerId (mempty { _money = -(cardCost card)})
+      return $
+           MoveCard location (PlayerLocation pid Discard) Front
+        <> ApplyResources pid (mempty { _money = -(cardCost card)})
         <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
     f (ChooseCard location@(City n, i) S.:<| _) = do
       (CardInPlay card _) <- requireCard location
+      pid <- currentPlayer
 
-      apply $
-           MoveCard location (PlayerLocation playerId Victory) Front
-        <> ApplyResources playerId (mempty { _attack = -(cardHealth card)})
+      return $
+           MoveCard location (PlayerLocation pid Victory) Front
+        <> ApplyResources pid (mempty { _attack = -(cardHealth card)})
 
-    f (ChooseEndTurn S.:<| _) =
-      apply $ ActionEndTurn <> ActionStartTurn
-    f _ = halt a
+    f (ChooseEndTurn S.:<| _) = return $ ActionEndTurn <> ActionStartTurn
+    f _ = do
+      pid <- currentPlayer
+
+      wait a $ playerDesc pid <> "'s turn"
 
 apply a@(ActionLose reason) = lose reason
 
 moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
- -- TODO: Apply penalty for villian escaping
-moveCity a Escaped incoming = do
+moveCity a Escaped incoming =
   case incoming of
-    (CardInPlay card@EnemyCard{} _ S.:<| other) -> do
-      playerId <- currentPlayer
-      choices <- choicesFor playerId
-
-      clearChoicesFor playerId <$> f choices
+    (CardInPlay card@EnemyCard{} _ S.:<| other) -> applyChoices f
+    _ -> lose "Unexpected incoming in moveCity Escaped handler"
 
   where
     f (ChooseCard location@(HQ, i) S.:<| _) = do
       (CardInPlay card _) <- requireCard location
 
       if cardCost card <= 6 then
-        apply $
+        return $
              MoveCard location KO Front
           <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
       else
-        do
-          playerId <- currentPlayer
-          board <- currentBoard
+        f mempty
+    f _ = do
+      pid <- currentPlayer
 
-          throwError (set (playerChoices . at playerId) mempty board, a)
-    f _ = halt a
+      wait a $ playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
 
 moveCity a location@(City i) incoming = do
   cardsHere <- view (cardsAtLocation location) <$> currentBoard
@@ -230,7 +235,13 @@ lose :: T.Text -> GameMonad a
 lose reason = do
   b <- currentBoard
 
-  throwError (set boardState (Lost reason) $ b, ActionLose reason)
+  throwError (set boardState (Lost reason) b, ActionLose reason)
+
+wait :: Action -> T.Text -> GameMonad a
+wait a reason = do
+  b <- currentBoard
+
+  throwError (set boardState (WaitingForChoice reason) b, a)
 
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
 lookupCard (location, i) =
@@ -245,8 +256,25 @@ requireCard location = do
     Just c -> return c
     Nothing -> lose "No card at location"
 
-choicesFor pid =
+playerDesc (PlayerId id) = "Player " <> showT id
+
+currentPlayerChoices = do
+  pid <- currentPlayer
+
   view (playerChoices . at pid . non mempty) <$> currentBoard
 
 clearChoicesFor pid =
   set (playerChoices . at pid) mempty
+
+applyChoices f = do
+  choices <- currentPlayerChoices
+  a' <- f choices
+  clearAndApply a'
+
+  where
+    clearAndApply action = do
+      playerId <- currentPlayer
+      board' <- clearChoicesFor playerId <$> currentBoard
+
+      withBoard board' . apply $ action
+

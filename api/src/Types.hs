@@ -81,7 +81,7 @@ instance Eq CardInPlay where
 
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
-data GameState = Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
+data GameState = WaitingForChoice T.Text | Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
 data Player = Player
   { _resources :: Resources

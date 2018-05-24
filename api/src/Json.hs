@@ -80,6 +80,11 @@ instance FromJSON PlayerChoice where
       _ -> fail $ "Unknown choice: " <> action
 
 instance ToJSON GameState where
+  toJSON (WaitingForChoice desc) = object
+    [ "tag" .= ("waiting" :: String)
+    , "description" .= desc
+    ]
+
   toJSON Playing = object ["tag" .= ("playing" :: String)]
   toJSON Won = object ["tag" .= ("won" :: String)]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]

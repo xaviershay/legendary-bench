@@ -19,6 +19,7 @@ class App extends Component {
         .then(results => results.json())
         .then(data => {
           this.setState({"gameData": data})
+          console.log(data)
           version = data.board.version;
           f();
           // TODO: Set up a long poll here
@@ -52,9 +53,11 @@ class App extends Component {
   }
 }
 
-function lostMessage(board) {
+function statusMessage(board) {
   if (board.state.tag === "lost") {
     return <p className="lost">Game Lost: {board.state.status}</p>
+  } else if (board.state.tag === "waiting") {
+    return <p className="waiting">{board.state.description}</p>
   } else {
     return null;
   }
@@ -70,7 +73,7 @@ class Board extends Component {
 
     return (
       <div>
-        {lostMessage(board)}
+        {statusMessage(board)}
         <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
         <div className='boardRow'>
           <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />

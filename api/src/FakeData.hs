@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module FakeData where
 
 import qualified Data.HashMap.Strict as M
@@ -19,7 +21,7 @@ mkGame = Game
                     [ Player { _resources = mempty, _playerId = PlayerId 0 }
                     ]
      , _rng = mkStdGen 0
-     , _boardState = Playing
+     , _boardState = WaitingForChoice "It's your turn"
      , _version = 1
      , _currentAction = ActionPlayerTurn (PlayerId 0)
      , _playerChoices = mempty
