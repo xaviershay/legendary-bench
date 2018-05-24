@@ -38,6 +38,7 @@ data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
 
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
+  | KO
   | HeroDeck
   | VillianDeck
   | City Int
@@ -146,8 +147,13 @@ data Action =
 
 instance Show Action where
   show ActionNone = "None"
+  show ActionStartTurn = "Turn Start"
+  show ActionEndTurn = "Turn End"
+  show (ActionPlayerTurn pid) = "Player turn: " <> show pid
   show (ActionLose s) = "Lose: " <> T.unpack s
   show (ActionSequence a f) = "Sequence"
+  show (MoveCard specificCard to dest) = "Move: " <> show specificCard <> " to " <> show to <> "/" <> show dest
+
   show _ = "Some Action"
 
 instance Monoid Action where

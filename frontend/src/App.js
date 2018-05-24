@@ -82,6 +82,7 @@ class Board extends Component {
             <Location cards={board.cards["city-4"]} title="Bridge" actions={attackActions(currentPlayer, 4)} />
           </div>
           <Location cards={board.cards["escaped"]} title="Escaped" layout="stacked" />
+          <Location cards={board.cards["ko"]} title="KO" layout="stacked" />
         </div>
         <div className='boardRow'>
           <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />

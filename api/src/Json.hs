@@ -22,6 +22,7 @@ showLocation :: Location -> T.Text
 showLocation = \case
       Boss -> "boss"
       HQ -> "hq"
+      KO -> "ko"
       HeroDeck -> "hero-deck"
       VillianDeck -> "villian-deck"
       City i -> "city-" <> showT i

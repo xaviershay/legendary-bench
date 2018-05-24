@@ -10,6 +10,8 @@ import           Control.Monad.Except (catchError, throwError)
 import qualified Data.Sequence        as S
 import qualified Data.Text            as T
 
+import Debug.Trace
+
 import           Action
 import           GameMonad
 import           Random
@@ -76,18 +78,19 @@ apply ActionStartTurn = do
   -- empty or escaped
   player <- currentPlayer
 
-  board <- moveCity (City 0)
+  board <- moveCity ActionStartTurn (City 0) mempty
 
-  withBoard board (apply $ revealAndMove (VillianDeck, 0) (City 0) Front)
+  withBoard board $ do
+    board' <- apply $ revealAndMove (VillianDeck, 0) (City 0) Front
+
+
+    return $ set currentAction (ActionPlayerTurn player) board'
 
 apply a@(ActionPlayerTurn playerId) = do
-  board <- currentBoard
+  choices <- choicesFor playerId
+  board <- f choices
 
-  let choices = view (playerChoices . at playerId . non mempty) board
-
-  board' <- f choices
-
-  return $ set (playerChoices . at playerId) mempty board'
+  return $ clearChoicesFor playerId board
 
   where
     f :: S.Seq PlayerChoice -> GameMonad Board
@@ -118,18 +121,42 @@ apply a@(ActionPlayerTurn playerId) = do
       apply $ ActionEndTurn <> ActionStartTurn
     f _ = halt a
 
-
 apply a@(ActionLose reason) = lose reason
 
-moveCity :: Location -> GameMonad Board
-moveCity Escaped = currentBoard -- TODO: Apply penalty for villian escaping
-moveCity location@(City i) = do
-  recurse <- not . S.null . view (cardsAtLocation location) <$> currentBoard
+moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
+ -- TODO: Apply penalty for villian escaping
+moveCity a Escaped incoming = do
+  case incoming of
+    (CardInPlay card@EnemyCard{} _ S.:<| other) -> do
+      playerId <- currentPlayer
+      choices <- choicesFor playerId
 
+      clearChoicesFor playerId <$> f choices
+
+  where
+    f (ChooseCard location@(HQ, i) S.:<| _) = do
+      (CardInPlay card _) <- requireCard location
+
+      if cardCost card <= 6 then
+        apply $
+             MoveCard location KO Front
+          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+      else
+        do
+          playerId <- currentPlayer
+          board <- currentBoard
+
+          throwError (set (playerChoices . at playerId) mempty board, a)
+    f _ = halt a
+
+moveCity a location@(City i) incoming = do
+  cardsHere <- view (cardsAtLocation location) <$> currentBoard
+
+  let recurse = not . S.null $ cardsHere
   let nextLocation = nextL location
 
   board <- if recurse then
-             moveCity nextLocation
+             moveCity a nextLocation cardsHere
            else
              currentBoard
 
@@ -217,3 +244,9 @@ requireCard location = do
   case maybeCard of
     Just c -> return c
     Nothing -> lose "No card at location"
+
+choicesFor pid =
+  view (playerChoices . at pid . non mempty) <$> currentBoard
+
+clearChoicesFor pid =
+  set (playerChoices . at pid) mempty
