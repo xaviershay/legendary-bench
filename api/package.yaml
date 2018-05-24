@@ -78,6 +78,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - legendary-bench
+    - aeson
     - tasty
     - tasty-discover
     - tasty-hunit

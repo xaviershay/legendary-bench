@@ -130,7 +130,7 @@ apply a@(ActionPlayerTurn playerId) = do
              MoveCard location (PlayerLocation playerId Victory) Front
           <> ApplyResources playerId (mempty { _attack = -(cardHealth c)})
 
-    f (ChooseEndTurn S.:<| _) = do
+    f (ChooseEndTurn S.:<| _) =
       apply $ ActionEndTurn <> ActionStartTurn
     f _ = halt a
 

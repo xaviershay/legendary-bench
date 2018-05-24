@@ -41,7 +41,7 @@ readScopedLocation x = lookup x candidates
 
 instance FromJSON ScopedLocation where
   parseJSON = withText "ScopedLocation" $ \v ->
-    case readScopedLocation $ v of
+    case readScopedLocation v of
       Just x -> return x
       Nothing -> fail "No parse"
 
@@ -55,10 +55,7 @@ instance FromJSON Location where
 
     case tokens of
       ["hq"] -> return HQ
-      ["city", i] -> do
-        i' <- readError i
-
-        return $ City i'
+      ["city", i] -> City <$> readError i
 
       ["player", i, location] -> do
         i' <- readError i

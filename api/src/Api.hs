@@ -110,7 +110,7 @@ handleChoice gameId playerId choice = do
 
   where
     applyChoice playerId choice board =
-      let board' = over (playerChoices . at playerId . non mempty) (choice S.<|) board in
+      let board' = addChoice playerId choice board in
 
       runGameMonad playerId board' $
         applyWithVersionBump (view currentAction board')

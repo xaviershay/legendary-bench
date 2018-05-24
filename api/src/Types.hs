@@ -232,6 +232,10 @@ extractMoney _ = 0
 extractAttack (EffectAttack n) = n
 extractAttack _ = 0
 
+addChoice :: PlayerId -> PlayerChoice -> Board -> Board
+addChoice playerId choice board =
+  over (playerChoices . at playerId . non mempty) (choice S.<|) board
+
 baseResource f = walk . view playEffect
   where
     walk (EffectCombine a b) = walk a + walk b
