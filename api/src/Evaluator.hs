@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Evaluator where
 
 import           Control.Lens  (at, ix, non, over, set, view, Lens')
 import qualified Data.Sequence as S
 import qualified Data.Text     as T
+import           Control.Monad.Except (throwError, catchError)
 
 import           Action
 import           GameMonad
@@ -13,8 +15,15 @@ import           Random
 import           Types
 import           Utils
 
+-- TODO: Revisit this once player actions are removed
 applyWithVersionBump :: Action -> GameMonad Board
-applyWithVersionBump action = over version (+ 1) <$> apply action
+applyWithVersionBump action = do
+  b <- apply action `catchError` handler
+
+  return $ over version (+ 1) b
+
+  where
+    handler (board, action) = throwError (over version (+ 1) board, action)
 
 -- Applies an action to the current board, returning the resulting one
 apply :: Action -> GameMonad Board
@@ -47,12 +56,12 @@ apply (ApplyResources (PlayerId id) rs) = do
 apply ActionNone = currentBoard
 
 apply (ActionSequence a m) = do
-  board' <- apply a
+  board' <- apply a `catchError` handler
 
-  if isPlaying board' then
-    withBoard board' $ m >>= apply
-  else
-    return board'
+  withBoard board' $ m >>= apply
+
+  where
+    handler (board, action) = throwError (board, ActionSequence action m)
 
 apply ActionEndTurn = do
   player <- currentPlayer
@@ -80,7 +89,10 @@ apply ActionStartTurn = do
 
   withBoard board (apply $ revealAndMove (VillianDeck, 0) (City 0) Front)
 
-apply action = lose $ "Don't know how to apply: " <> showT action
+apply a@(ActionLose reason) = do
+  board <- set boardState (Lost reason) <$> currentBoard
+
+  throwError (board, a)
 
 moveCity :: Location -> GameMonad Board
 moveCity Escaped = currentBoard -- TODO: Apply penalty for villian escaping
@@ -149,7 +161,7 @@ overCard (location, i) f =
      over (cardsAtLocation location . ix i) f <$> currentBoard
 
 lose :: T.Text -> GameMonad Board
-lose reason = set boardState (Lost reason) <$> currentBoard
+lose reason = apply (ActionLose reason)
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
 setVisibility v (CardInPlay card _) = CardInPlay card v

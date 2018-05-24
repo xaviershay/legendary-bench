@@ -19,6 +19,7 @@ mkGame = Game
      , _rng = mkStdGen 0
      , _boardState = Playing
      , _version = 1
+     , _currentAction = mempty
      , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])

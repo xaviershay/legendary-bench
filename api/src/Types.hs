@@ -112,11 +112,12 @@ instance Show Effect where
   show (EffectCustom a _) = T.unpack a
 
 data Board = Board
-  { _players :: S.Seq Player
-  , _cards   :: CardMap
-  , _boardState   :: GameState
-  , _rng :: StdGen
-  , _version :: Integer
+  { _players       :: S.Seq Player
+  , _cards         :: CardMap
+  , _boardState    :: GameState
+  , _rng           :: StdGen
+  , _version       :: Integer
+  , _currentAction :: Action
   }
   deriving (Show, Generic)
 
@@ -167,6 +168,7 @@ mkBoard = Board
   { _players = mempty
   , _boardState = Playing
   , _cards = mempty
+  , _currentAction = mempty
   , _rng = mkStdGen 0
   , _version = 1
   }
