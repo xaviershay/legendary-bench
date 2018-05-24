@@ -109,11 +109,12 @@ handleChoice gameId playerId choice = do
   return ()
 
   where
+    incrementVersion = over version (+ 1)
     applyChoice playerId choice board =
       let board' = addChoice playerId choice board in
 
-      runGameMonad playerId board' $
-        applyWithVersionBump (view currentAction board')
+      incrementVersion . runGameMonad playerId board' $
+        apply (view currentAction board')
 
 redact :: PlayerId -> Board -> Board
 redact id = over cards (M.mapWithKey f)
