@@ -36,12 +36,4 @@ draw :: PlayerId -> Int -> Board -> Board
 draw playerId n board =
   runGameMonad playerId board (apply $ drawAction playerId n)
 
-play :: PlayerId -> Int -> Board -> Board
-play id i board = runGameMonad id board $
-  translatePlayerAction (PlayCard i) >>= apply
-
-purchase :: PlayerId -> Int -> Board -> Board
-purchase id i board = runGameMonad id board $
-  translatePlayerAction (PurchaseCard i) >>= apply
-
 hideCard card = CardInPlay card Hidden

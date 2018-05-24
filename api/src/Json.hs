@@ -67,18 +67,6 @@ instance FromJSON Location where
         return $ PlayerLocation (PlayerId i') location'
       _ -> fail $ "Unknown location" <> T.unpack v
 
-
-instance FromJSON PlayerAction where
-  parseJSON = withObject "PlayerAction" $ \v -> do
-    action <- v .: "action"
-
-    case action of
-      "PlayCard"     -> PlayCard     <$> v .: "index"
-      "PurchaseCard" -> PurchaseCard <$> v .: "index"
-      "AttackCard"   -> AttackCard   <$> v .: "location"
-      "EndTurn"      -> return EndTurn
-      _ -> fail $ "Unknown action: " <> action
-
 readError :: Read a => T.Text -> Parser a
 readError x = case readMaybe . T.unpack $ x of
                 Just x' -> return x'

@@ -31,14 +31,6 @@ type GameMonad a = ExceptT GameHalt (ReaderT GameMonadState Identity) a
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
-data PlayerAction =
-  PlayCard Int |
-  AttackCard Int |
-  PurchaseCard Int |
-  EndTurn
-
-  deriving (Show, Generic)
-
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
 
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory

@@ -50,7 +50,6 @@ type AppM = ReaderT State Handler
 type MyAPI =
        "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
   :<|> "games" :> Capture "id" Int :> "cards" :> Get '[JSON] (M.HashMap T.Text Card)
-  :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "act" :> ReqBody '[JSON] PlayerAction :> Post '[JSON] ()
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "choose" :> ReqBody '[JSON] PlayerChoice :> Post '[JSON] ()
 
 api :: Proxy MyAPI
@@ -69,7 +68,7 @@ app s =   logStdoutDev
                    { corsRequestHeaders = [ "authorization", "content-type" ]
                    }
 
-server = getGame :<|> getCards :<|> handleAction :<|> handleChoice
+server = getGame :<|> getCards :<|> handleChoice
 
 getGame :: Int -> Maybe Integer -> AppM Game
 getGame gameId maybeVersion = do
@@ -99,20 +98,6 @@ getCards gameId = do
 
     return . M.fromList . fmap (\c -> (cardName c, c)) $
       (cardDictionary . view gameState $ g)
-
-handleAction :: Int -> PlayerId -> PlayerAction -> AppM ()
-handleAction gameId playerId action = do
-  State{game = gvar} <- ask
-
-  liftIO . atomically . modifyTVar gvar $
-    over gameState (applyAction playerId action)
-
-  return ()
-
-  where
-    applyAction playerId action board =
-      runGameMonad playerId board $
-        translatePlayerAction action >>= applyWithVersionBump
 
 handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
 handleChoice gameId playerId choice = do
