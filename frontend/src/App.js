@@ -1,11 +1,14 @@
 import React, { Component } from 'react';
 import './App.css';
 
+const CardsContext = React.createContext({});
+
 class App extends Component {
   constructor() {
     super();
     this.state = {
-      "gameData": {"b": 2}
+      "gameData": {},
+      "cards": {}
     }
   }
 
@@ -16,11 +19,18 @@ class App extends Component {
         .then(results => results.json())
         .then(data => {
           this.setState({"gameData": data})
-          console.log(data);
           version = data.board.version;
           f();
           // TODO: Set up a long poll here
         })
+
+      if (Object.keys(this.state.cards).length === 0) {
+        fetch('http://localhost:8080/games/1/cards')
+          .then(results => results.json())
+          .then(data => {
+            this.setState({"cards": data})
+          })
+      }
     }
 
     f()
@@ -28,9 +38,11 @@ class App extends Component {
 
   render() {
     return (
-      <div className="App">
-        <Board board={this.state.gameData.board} />
-      </div>
+      <CardsContext.Provider value={this.state.cards}>
+        <div className="App">
+          <Board board={this.state.gameData.board} />
+        </div>
+      </CardsContext.Provider>
     );
       /*
           <pre style={{textAlign: "left"}}>
@@ -148,48 +160,61 @@ class Player extends Component {
 
 class Location extends Component {
   render() {
-    let {cards, title, layout, actions} = this.props;
+    return <CardsContext.Consumer>{cardDb => {
+      let {cards, title, layout, actions} = this.props;
 
-    if (!layout)
-      layout = "horizontal";
-    if (!cards)
-      cards = [];
+      if (!layout)
+        layout = "horizontal";
+      if (!cards)
+        cards = [];
 
-    if (!actions)
-      actions = (c, i) => null;
+      if (!actions)
+        actions = (c, i) => null;
 
-    let cardRender = null;
+      let cardRender = null;
 
-    if (layout === "stacked") {
-      if (cards.length > 0) {
+      if (layout === "stacked") {
+        if (cards.length > 0) {
+          let cardDetail = cards[0].visible ? cardDb[cards[0].name] : null
+          if (cardDetail) {
+            cardRender = (
+              <div>
+                <Card card={cardDetail} />
+                <span>({cards.length} cards)</span>
+              </div>
+            )
+          } else {
+            cardRender = (
+              <div>
+                <CardBasic card={cards[0]} />
+                <span>({cards.length} cards)</span>
+              </div>
+            )
+          }
+        } else {
+          cardRender = <div>Empty</div>
+        }
+      } else {
         cardRender = (
-          <div>
-            <Card card={cards[0]} />
-            <span>({cards.length} cards)</span>
+          <div className={"location-" + layout}>
+            {cards.map((c, i) => {
+              let cardDetail = c.visible ? cardDb[c.name] : null
+
+              return <a className="cardLink" href='#x' onClick={actions(c, i)} key={i}>
+                {cardDetail ? <Card card={cardDetail} /> : <CardBasic card={c} />}
+              </a>
+            })}
           </div>
         )
-
-      } else {
-        cardRender = <div>Empty</div>
       }
-    } else {
-      cardRender = (
-        <div className={"location-" + layout}>
-          {cards.map((c, i) => (
-            <a className="card" href='#x' onClick={actions(c, i)} key={i}>
-              <Card card={c} />
-            </a>
-          ))}
+
+      return (
+        <div className='cardLocation'>
+          <h3>{title}</h3>
+          {cardRender}
         </div>
       )
-    }
-
-    return (
-      <div className='cardLocation'>
-        <h3>{title}</h3>
-        {cardRender}
-      </div>
-    )
+    }}</CardsContext.Consumer>
   }
 }
 
@@ -197,8 +222,44 @@ class Card extends Component {
   render() {
     const card = this.props.card;
 
+    if (card.type === "hero") {
+      return (
+        <div className="card">
+          <span className="cardName">{card.name}</span>
+          <div className="footer">
+            <span>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
+            <span>{card.cost > 0 ? "$" + card.cost : ""}</span>
+          </div>
+
+        </div>
+      )
+    } else if (card.type === "enemy") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">{card.name}</span>
+            <div className="footer">
+              <span></span>
+              <span>{"⚔" + card.health}</span>
+            </div>
+
+          </div>
+        </div>
+      )
+    }
+  }
+}
+
+class CardBasic extends Component {
+  render() {
+    const card = this.props.card;
+
     if (card.visible) {
-      return <div>{card.name}</div>
+      return (
+        <div>
+          {card.name}
+        </div>
+      )
     } else {
       return <div>Hidden</div>
     }
