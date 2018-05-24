@@ -89,6 +89,52 @@ apply ActionStartTurn = do
 
   withBoard board (apply $ revealAndMove (VillianDeck, 0) (City 0) Front)
 
+apply a@(ActionPlayerTurn playerId) = do
+  board <- currentBoard
+
+  let choices = view (playerChoices . at playerId . non mempty) board
+
+  board' <- f choices
+
+  return $ set (playerChoices . at playerId) mempty board'
+
+  where
+    f :: S.Seq PlayerChoice -> GameMonad Board
+    f (ChooseCard location@(PlayerLocation playerId Hand, i) S.:<| _) = do
+      card <- lookupCard location
+
+      case card of
+        Nothing -> lose ("No card at: " <> showT location)
+        Just c -> do
+          cardEffect <- playAction c
+
+          apply $
+               revealAndMove location (PlayerLocation playerId Played) Front
+            <> cardEffect
+    f (ChooseCard location@(HQ, i) S.:<| _) = do
+      card <- lookupCard location
+
+      case card of
+        Nothing -> lose ("No card to purchase: " <> showT location)
+        Just (CardInPlay c _) -> apply $
+             MoveCard location (PlayerLocation playerId Discard) Front
+          <> ApplyResources playerId (mempty { _money = -(cardCost c)})
+          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+
+    f (ChooseCard location@(City n, i) S.:<| _) = do
+      card <- lookupCard location
+
+      case card of
+        Nothing -> lose ("No card at: " <> showT location)
+        Just (CardInPlay c _) -> apply $
+             MoveCard location (PlayerLocation playerId Victory) Front
+          <> ApplyResources playerId (mempty { _attack = -(cardHealth c)})
+
+    f (ChooseEndTurn S.:<| _) = do
+      apply $ ActionEndTurn <> ActionStartTurn
+    f _ = halt a
+
+
 apply a@(ActionLose reason) = do
   board <- set boardState (Lost reason) <$> currentBoard
 
@@ -162,6 +208,11 @@ overCard (location, i) f =
 
 lose :: T.Text -> GameMonad Board
 lose reason = apply (ActionLose reason)
+
+halt a = do
+  b <- currentBoard
+
+  throwError (b, a)
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
 setVisibility v (CardInPlay card _) = CardInPlay card v

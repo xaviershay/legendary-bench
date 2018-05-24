@@ -118,6 +118,7 @@ data Board = Board
   , _rng           :: StdGen
   , _version       :: Integer
   , _currentAction :: Action
+  , _playerChoices :: M.HashMap PlayerId (S.Seq PlayerChoice)
   }
   deriving (Show, Generic)
 
@@ -130,6 +131,11 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend = EffectCombine
 
+data PlayerChoice =
+  ChooseCard SpecificCard |
+  ChooseEndTurn
+  deriving (Show, Generic, Eq)
+
 data Action =
   ActionNone |
   ActionLose T.Text |
@@ -137,6 +143,7 @@ data Action =
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources |
+  ActionPlayerTurn PlayerId |
   ActionStartTurn |
   ActionEndTurn
 
@@ -171,6 +178,7 @@ mkBoard = Board
   , _currentAction = mempty
   , _rng = mkStdGen 0
   , _version = 1
+  , _playerChoices = mempty
   }
 
 -- Return a unique list of all cards in use on the board
