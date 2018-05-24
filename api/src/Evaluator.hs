@@ -8,6 +8,7 @@ import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
 import           Control.Monad.Except (catchError, throwError)
 import qualified Data.Sequence        as S
+import Data.Sequence ((<|), Seq((:<|), Empty))
 import qualified Data.Text            as T
 
 import Debug.Trace
@@ -26,7 +27,7 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a specificCard
     Just card ->   over (cardsAtLocation location) (S.deleteAt i)
-                 . over (cardsAtLocation to) (card S.<|)
+                 . over (cardsAtLocation to) (card <|)
                  <$> currentBoard
 
 apply a@(RevealCard location v) = do
@@ -94,7 +95,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       withBoard board' . apply $ action
 
     f :: S.Seq PlayerChoice -> GameMonad Action
-    f (ChooseCard location@(PlayerLocation pid' Hand, i) S.:<| _) = do
+    f (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _) = do
       pid <- currentPlayer
 
       if pid == pid' then
@@ -108,7 +109,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       else
         f mempty
 
-    f (ChooseCard location@(HQ, i) S.:<| _) = do
+    f (ChooseCard location@(HQ, i) :<| _) = do
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
@@ -117,7 +118,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
         <> ApplyResources pid (mempty { _money = -(cardCost card)})
         <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
-    f (ChooseCard location@(City n, i) S.:<| _) = do
+    f (ChooseCard location@(City n, i) :<| _) = do
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
@@ -125,7 +126,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
            MoveCard location (PlayerLocation pid Victory) Front
         <> ApplyResources pid (mempty { _attack = -(cardHealth card)})
 
-    f (ChooseEndTurn S.:<| _) = return $ ActionEndTurn <> ActionStartTurn
+    f (ChooseEndTurn :<| _) = return $ ActionEndTurn <> ActionStartTurn
     f _ = do
       pid <- currentPlayer
 
@@ -136,11 +137,11 @@ apply a@(ActionLose reason) = lose reason
 moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
 moveCity a Escaped incoming =
   case incoming of
-    (CardInPlay card@EnemyCard{} _ S.:<| other) -> applyChoices f
+    (CardInPlay card@EnemyCard{} _ :<| other) -> applyChoices f
     _ -> lose "Unexpected incoming in moveCity Escaped handler"
 
   where
-    f (ChooseCard location@(HQ, i) S.:<| _) = do
+    f (ChooseCard location@(HQ, i) :<| _) = do
       (CardInPlay card _) <- requireCard location
 
       if cardCost card <= 6 then
@@ -181,7 +182,7 @@ moveAllFrom :: Lens' Board (S.Seq CardInPlay)
 moveAllFrom src dest board =
   let cs = view src board in
 
-  set src mempty . over dest (cs S.><) $ board
+  set src mempty . over dest (cs <>) $ board
 
 tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
 tryShuffleDiscardToDeck a specificCard = do
@@ -195,7 +196,7 @@ tryShuffleDiscardToDeck a specificCard = do
       let discardDeck = PlayerLocation playerId Discard
 
       case view (cards . at discardDeck . non mempty) board of
-        S.Empty -> lose $ "No cards left to draw for " <> showT playerId
+        Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> do
           let (shuffled, rng') = shuffleSeq (view rng board) cs
           let board' =   set
