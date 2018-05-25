@@ -19,7 +19,6 @@ class App extends Component {
         .then(results => results.json())
         .then(data => {
           this.setState({"gameData": data})
-          console.log(data)
           version = data.board.version;
           f();
         })
@@ -152,7 +151,6 @@ function lookupLogComponent(type) {
 
 class Log extends Component {
   render() {
-    console.log(this.props);
     let log = this.props.log;
 
     if (!log)
@@ -346,6 +344,7 @@ class Card extends Component {
       return (
         <div className="card">
           <span className="cardName">{card.name}</span>
+          <span className="cardDescription">{card.description}</span>
           <div className="footer">
             <span>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
             <span>{card.cost > 0 ? "$" + card.cost : ""}</span>
@@ -358,6 +357,7 @@ class Card extends Component {
         <div>
           <div className="card">
             <span className="cardName">{card.name}</span>
+            <span className="cardDescription">{card.description}</span>
             <div className="footer">
               <span></span>
               <span>{"⚔" + card.health}</span>

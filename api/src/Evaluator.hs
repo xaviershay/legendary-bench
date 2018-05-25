@@ -310,7 +310,7 @@ setVisibility :: Visibility -> CardInPlay -> CardInPlay
 setVisibility v (CardInPlay card _) = CardInPlay card v
 
 invalidResources :: Resources -> Bool
-invalidResources r = (view money r < 0) || (view attack r < 0)
+invalidResources r = (view money r < mempty) || (view attack r < mempty)
 
 lose :: T.Text -> GameMonad a
 lose reason = do
@@ -361,4 +361,4 @@ checkCondition :: Condition -> GameMonad Bool
 checkCondition (ConditionCostLTE location amount) = do
   (CardInPlay card _) <- requireCard location
 
-  return $ cardCost card <= amount
+  return $ cardCost card <= (Sum amount)

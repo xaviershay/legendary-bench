@@ -2,13 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Types where
 
 import           Control.Lens
 import           Control.Monad.Reader
 import           Control.Monad.Except
-import           Control.Monad.Writer
+import           Control.Monad.Writer (WriterT)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
@@ -52,26 +53,32 @@ newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 data Card = HeroCard
   { _heroName   :: T.Text
   , _playEffect :: Effect
-  , _cost       :: Int
+  , _cost       :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
-  , _baseHealth :: Int
+  , _baseHealth :: SummableInt
   }
 
   deriving (Show, Generic)
 
 data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic)
 
+newtype SummableInt = Sum Int deriving (Show, Generic, Eq, Ord, Num)
+
+instance Monoid SummableInt where
+  mempty = Sum 0
+  mappend (Sum x) (Sum y) = Sum (x + y)
+
 data Resources = Resources
-  { _attack :: Int
-  , _money  :: Int
+  { _attack :: SummableInt
+  , _money  :: SummableInt
   } deriving (Show, Generic, Eq)
 
 instance Monoid Resources where
-  mempty = Resources { _attack = 0,       _money = 0 }
+  mempty = Resources { _attack = mempty,       _money = mempty }
   mappend Resources { _attack = a1,      _money = m1 }
           Resources { _attack = a2,      _money = m2 } =
-          Resources { _attack = a1 + a2, _money = m1 + m2 }
+          Resources { _attack = a1 <> a2, _money = m1 <> m2 }
 
 instance Hashable PlayerId
 instance Hashable ScopedLocation
@@ -92,8 +99,8 @@ data Player = Player
 
 data Effect =
   EffectNone |
-  EffectMoney Int |
-  EffectAttack Int |
+  EffectMoney SummableInt |
+  EffectAttack SummableInt |
   EffectCustom T.Text (GameMonad Action) |
   EffectCombine Effect Effect
   deriving (Generic)
@@ -228,9 +235,9 @@ cardDictionary board =
 -- Can't rely on makeLenses'' here because we have different card types and Int
 -- doesn't implement Monoid so can't work by default with many of the lens.
 -- Could newtype it to fix but probably not worth it.
-cardCost :: Card -> Int
+cardCost :: Card -> SummableInt
 cardCost HeroCard { _cost = c } = c
-cardCost _ = 0
+cardCost _ = mempty
 
 cardName :: Card -> T.Text
 cardName c@HeroCard{}  = view heroName c
@@ -240,9 +247,9 @@ cardType :: Card -> T.Text
 cardType c@HeroCard{} = "hero"
 cardType c@EnemyCard{} = "enemy"
 
-cardHealth :: Card -> Int
+cardHealth :: Card -> SummableInt
 cardHealth EnemyCard { _baseHealth = x } = x
-cardHealth _ = 0
+cardHealth _ = mempty
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
 cardsAtLocation l = cards . at l . non mempty
@@ -256,10 +263,10 @@ isPlaying board = case view boardState board of
                     _                    -> False
 
 extractMoney (EffectMoney n) = n
-extractMoney _ = 0
+extractMoney _ = mempty
 
 extractAttack (EffectAttack n) = n
-extractAttack _ = 0
+extractAttack _ = mempty
 
 addChoice :: PlayerId -> PlayerChoice -> Board -> Board
 addChoice playerId choice =
@@ -267,8 +274,11 @@ addChoice playerId choice =
 
 baseResource f = walk . view playEffect
   where
-    walk (EffectCombine a b) = walk a + walk b
+    walk (EffectCombine a b) = walk a <> walk b
     walk x = f x
+
+extractDescription (EffectCustom d _) = d
+extractDescription _ = ""
 
 isLost :: Board -> Bool
 isLost board = f $ view boardState board

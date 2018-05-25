@@ -89,6 +89,8 @@ instance ToJSON GameState where
   toJSON Won = object ["tag" .= ("won" :: String)]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
+instance ToJSON SummableInt
+
 instance ToJSON Card where
   toJSON c@HeroCard{} = object
     [ "type" .= cardType c
@@ -96,6 +98,7 @@ instance ToJSON Card where
     , "cost" .= cardCost c
     , "baseMoney"  .= baseResource extractMoney c
     , "baseAttack" .= baseResource extractAttack c
+    , "description" .= baseResource extractDescription c
     ]
   toJSON c@EnemyCard{} = object
     [ "type" .= cardType c

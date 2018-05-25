@@ -28,7 +28,7 @@ attackCard = HeroCard
 spideyCard = HeroCard
   { _heroName = "Spiderman"
   , _playEffect =    EffectMoney 1
-                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it." spideyAction
+                  <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
   , _cost = 2
   }
 
