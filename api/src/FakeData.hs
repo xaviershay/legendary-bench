@@ -16,7 +16,7 @@ import Action
 mkGame :: Game
 mkGame = Game
   { _gameState =
-    draw (PlayerId 0) 6 $ Board
+    prepareBoard $ Board
      { _players = S.fromList
                     [ Player { _resources = mempty, _playerId = PlayerId 0 }
                     ]
@@ -36,8 +36,6 @@ mkGame = Game
 
 mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
 
-draw :: PlayerId -> Int -> Board -> Board
-draw playerId n board =
-  runGameMonad board (apply $ drawAction playerId n)
+prepareBoard board = runGameMonad board (apply ActionPrepareGame)
 
 hideCard card = CardInPlay card Hidden

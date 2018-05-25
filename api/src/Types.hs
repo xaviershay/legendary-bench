@@ -134,13 +134,15 @@ data PlayerChoice =
 
 data Action =
   ActionNone |
-  ActionLose T.Text |
   ActionSequence Action (GameMonad Action) |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources |
+
+  ActionLose T.Text |
   ActionPlayerTurn PlayerId |
   ActionStartTurn |
+  ActionPrepareGame |
   ActionEndTurn
 
   deriving (Generic)

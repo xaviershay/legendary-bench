@@ -47,7 +47,7 @@ spideyCard = HeroCard
                    (CardInPlay card _) <- requireCard location
 
                    return $ if cardCost card <= 2 then
-                              drawAction playerId 1
+                              drawAction 1 playerId
                             else
                               ActionNone
                  )

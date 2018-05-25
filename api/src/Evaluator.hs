@@ -57,6 +57,14 @@ apply (ActionSequence a m) = do
   where
     handler (board, action) = throwError (board, ActionSequence action m)
 
+apply ActionPrepareGame = do
+  a <-   mconcat . toList
+       . fmap (drawAction 6 . view playerId)
+       . view players
+       <$> currentBoard
+
+  apply $ a <> ActionStartTurn
+
 apply ActionEndTurn = do
   player <- currentPlayer
   board  <-   set
@@ -71,20 +79,17 @@ apply ActionEndTurn = do
             <$> currentBoard
 
   withBoard board $
-    over players moveHeadToTail <$> apply (drawAction player 6)
+    over players moveHeadToTail <$> apply (drawAction 6 player)
 
 apply ActionStartTurn = do
-  -- make space for new villian
-  -- move villian from 0 to 1, if 1 is full move from 1 to 2, recurse until
-  -- empty or escaped
-  player <- currentPlayer
+  pid <- currentPlayer
 
   board <- moveCity ActionStartTurn (City 0) mempty
 
   withBoard board $ do
     board' <- apply $ revealAndMove (VillianDeck, 0) (City 0) Front
 
-    withBoard board' $ apply (ActionPlayerTurn player)
+    withBoard board' $ apply (ActionPlayerTurn pid)
 
 apply a@(ActionPlayerTurn _) = applyChoices f
   where

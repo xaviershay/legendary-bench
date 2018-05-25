@@ -34,10 +34,10 @@ revealAndMove source destination spot =
      RevealCard source All
   <> MoveCard source destination spot
 
-drawAction :: PlayerId -> Int -> Action
-drawAction playerId n =
+drawAction :: Int -> PlayerId -> Action
+drawAction n pid =
    mconcat . replicate n $
      revealAndMove
-       (PlayerLocation playerId PlayerDeck, 0)
-       (PlayerLocation playerId Hand)
+       (PlayerLocation pid PlayerDeck, 0)
+       (PlayerLocation pid Hand)
        Front
