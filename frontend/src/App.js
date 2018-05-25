@@ -68,19 +68,52 @@ function formatDestination(to, order) {
   return to + "/" + order
 }
 
-function logMove(entry) {
+function logMove(entry, key) {
   const {target, to, order} = entry;
-  return "Move " + formatLocation(target) + " to " + formatDestination(to, order)
+  return <li key={key}>Move {formatLocation(target)} to {formatDestination(to, order)} </li>
 }
 
-function logReveal(entry) {
+function logTagged(entry, key) {
+  const {tag, action} = entry;
+  // TODO: Handle case when subaction not a sequence
+  return (
+    <li key={key}>{tag}
+      <ul>
+        {action.actions.map((l, i) => logComponents[l.type](l, i))}
+      </ul>
+    </li>
+  )
+}
+
+function logReveal(entry, key) {
   const {visibility, target} = entry;
 
   switch (visibility) {
-    case "All": return "Reveal " + formatLocation(target);
-    case "Hidden": return "Hide " + formatLocation(target);
+    case "All": return <li key={key}>Reveal {formatLocation(target)}</li>;
+    case "Hidden": return <li key={key}>"Hide " {formatLocation(target)}</li>;
   }
 }
+
+
+function logSequence(entry, key) {
+  const {actions} = entry
+  return (
+    <li key={key}>
+      <ul>
+        {actions.map((l, i) => logComponents[l.type](l, i))}
+      </ul>
+    </li>
+  )
+}
+
+let logComponents = {
+  "move": logMove,
+  "reveal": logReveal,
+  "tagged": logTagged,
+  "none": () => "",
+  "sequence": logSequence
+}
+
 
 class Log extends Component {
   render() {
@@ -90,16 +123,11 @@ class Log extends Component {
     if (!log)
       log = [];
 
-    let logComponents = {
-      "move": logMove,
-      "reveal": logReveal
-    }
-
     return (
       <div className='logContainer'>
         <h2>Log</h2>
         <ul>
-          {log.reverse().map((l, i) => <li key={i}>{logComponents[l.type](l)}</li>)}
+          {log.reverse().map((l, i) => logComponents[l.type](l, i))}
         </ul>
       </div>
     )

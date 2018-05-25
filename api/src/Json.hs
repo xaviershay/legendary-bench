@@ -165,6 +165,22 @@ instance ToJSON MoveDestination where
   toJSON (LocationIndex i) = toJSON i
 
 instance ToJSON Action where
+  toJSON (ActionCombine a ActionNone) = toJSON a
+  toJSON (ActionCombine ActionNone b) = toJSON b
+  toJSON a@(ActionCombine _ _) = object
+    [ "type" .= ("sequence" :: String)
+    , "actions" .= f a
+    ]
+
+    where
+      f (ActionCombine a b) = f a <> f b
+      f ActionNone = []
+      f x = [x]
+  toJSON (ActionTagged tag action) = object
+    [ "type" .= ("tagged" :: String)
+    , "tag"  .= tag
+    , "action" .= action
+    ]
   toJSON (RevealCard specificCard vis) = object
     [ "type" .= ("reveal" :: String)
     , "target" .= specificCard
@@ -176,3 +192,5 @@ instance ToJSON Action where
     , "to"   .= location
     , "order" .= dest
     ]
+  toJSON ActionNone = object ["type" .= ("none" :: String)]
+  toJSON a = error $ "No JSON pattern for " <> show a

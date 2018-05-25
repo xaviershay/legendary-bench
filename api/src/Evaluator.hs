@@ -135,8 +135,14 @@ apply ActionStartTurn = do
 
     withBoard board' $ apply (ActionPlayerTurn pid)
 
-apply a@(ActionTagged _ subAction) = do
-  apply subAction
+apply a@(ActionTagged tag subAction) = do
+  board <- currentBoard
+
+  let (board', actions) = runGameMonad' board (apply subAction)
+
+  logAction (ActionTagged tag $ mconcat . toList $ actions)
+
+  return board'
 
 apply a@(ActionPlayerTurn _) = applyChoices f
   where

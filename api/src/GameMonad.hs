@@ -23,6 +23,20 @@ runGameMonad board m =
 
   over actionLog (\xs -> xs <> log) board'
 
+runGameMonad' :: Board -> GameMonad Board -> (Board, S.Seq Action)
+runGameMonad' board m =
+  -- Board must have at least one player
+  let Just pid = preview (players . element 0 . playerId) board in
+  let state    = GameMonadState { _activePlayer = pid, _board = board } in
+  let (result, log) = runIdentity $ runWriterT (runReaderT (runExceptT m) state) in
+
+  let board' = case result of
+                 Left (x, a) -> set currentAction a x
+                 Right x -> x
+    in
+
+  (board', log)
+
 currentPlayer :: GameMonad PlayerId
 currentPlayer = asks _activePlayer
 
