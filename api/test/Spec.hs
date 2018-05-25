@@ -30,7 +30,7 @@ test_DrawFromEmpty =
   where
     board = set (cardsAtLocation (PlayerLocation player Discard)) (genCards 1)
               $ mkBoard
-    action = drawAction player 1
+    action = drawAction 1 player
     player = PlayerId 0
     result = runGameMonad board $ apply action
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
