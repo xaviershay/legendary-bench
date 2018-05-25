@@ -85,7 +85,7 @@ instance ToJSON GameState where
     , "description" .= desc
     ]
 
-  toJSON Playing = object ["tag" .= ("playing" :: String)]
+  toJSON Preparing = object ["tag" .= ("preparing" :: String)]
   toJSON Won = object ["tag" .= ("won" :: String)]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 

@@ -81,7 +81,7 @@ instance Eq CardInPlay where
 
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
-data GameState = WaitingForChoice T.Text | Playing | Won | Lost T.Text deriving (Show, Generic, Eq)
+data GameState = WaitingForChoice T.Text | Preparing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
 data Player = Player
   { _resources :: Resources
@@ -176,7 +176,7 @@ instance Eq Card where
 mkBoard :: Board
 mkBoard = Board
   { _players = mempty
-  , _boardState = Playing
+  , _boardState = Preparing
   , _cards = mempty
   , _currentAction = mempty
   , _rng = mkStdGen 0
@@ -239,7 +239,9 @@ playerResources :: PlayerId -> Traversal' Board Resources
 playerResources (PlayerId id) = players . ix id . resources
 
 isPlaying :: Board -> Bool
-isPlaying board = view boardState board == Playing
+isPlaying board = case view boardState board of
+                    (WaitingForChoice _) -> True
+                    _                    -> False
 
 extractMoney (EffectMoney n) = n
 extractMoney _ = 0

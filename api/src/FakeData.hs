@@ -21,9 +21,9 @@ mkGame = Game
                     [ Player { _resources = mempty, _playerId = PlayerId 0 }
                     ]
      , _rng = mkStdGen 0
-     , _boardState = WaitingForChoice "It's your turn"
+     , _boardState = Preparing
      , _version = 1
-     , _currentAction = ActionPlayerTurn (PlayerId 0)
+     , _currentAction = mempty
      , _playerChoices = mempty
      , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
