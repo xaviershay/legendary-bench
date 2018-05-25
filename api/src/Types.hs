@@ -33,7 +33,7 @@ type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Act
 type SpecificCard = (Location, Int)
 data MoveDestination = Front | LocationIndex Int deriving (Show, Generic)
 
-data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq)
+data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
   deriving (Show, Generic, Eq, Enum, Bounded)
@@ -142,7 +142,7 @@ data PlayerChoice =
   deriving (Show, Generic, Eq)
 
 data Condition =
-  ConditionCostLTE SpecificCard Int
+  ConditionCostLTE SpecificCard Int deriving (Show, Generic)
 
 data Action =
   ActionNone |

@@ -87,3 +87,6 @@ tests:
     - random-shuffle
     - lens
     - containers
+    - unordered-containers
+    - text
+    - hashable
