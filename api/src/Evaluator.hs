@@ -169,7 +169,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           cip@(CardInPlay card _)       <- requireCard location
           cardEffect <- playAction cip
 
-          return . ActionTagged (playerDesc pid <> " plays " <> cardName card) $
+          return . ActionTagged (playerDesc pid <> " plays " <> view cardName card) $
                revealAndMove location (PlayerLocation pid Played) Front
             <> cardEffect
       else
@@ -179,18 +179,18 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
-      return . ActionTagged (playerDesc pid <> " purchases " <> cardName card) $
+      return . ActionTagged (playerDesc pid <> " purchases " <> view cardName card) $
            MoveCard location (PlayerLocation pid Discard) Front
-        <> ApplyResources pid (mempty { _money = -(cardCost card)})
+        <> ApplyResources pid (mempty { _money = -(view heroCost card)})
         <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
     f (ChooseCard location@(City n, i) :<| _) = do
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
-      return . ActionTagged (playerDesc pid <> " attacks " <> cardName card) $
+      return . ActionTagged (playerDesc pid <> " attacks " <> view cardName card) $
            MoveCard location (PlayerLocation pid Victory) Front
-        <> ApplyResources pid (mempty { _attack = -(cardHealth card)})
+        <> ApplyResources pid (mempty { _attack = -(view baseHealth card)})
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
@@ -361,4 +361,4 @@ checkCondition :: Condition -> GameMonad Bool
 checkCondition (ConditionCostLTE location amount) = do
   (CardInPlay card _) <- requireCard location
 
-  return $ cardCost card <= (Sum amount)
+  return $ view heroCost card <= (Sum amount)

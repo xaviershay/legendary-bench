@@ -16,20 +16,20 @@ villianCard = EnemyCard
 moneyCard = HeroCard
   { _heroName = "Money"
   , _playEffect = EffectMoney 1
-  , _cost = 0
+  , _heroCost = 0
   }
 
 attackCard = HeroCard
   { _heroName = "Attack"
   , _playEffect = EffectAttack 1
-  , _cost = 0
+  , _heroCost = 0
   }
 
 spideyCard = HeroCard
   { _heroName = "Spiderman"
   , _playEffect =    EffectMoney 1
                   <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
-  , _cost = 2
+  , _heroCost = 2
   }
 
   where

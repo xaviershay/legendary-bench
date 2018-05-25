@@ -15,7 +15,7 @@ import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
 import qualified Data.Sequence        as S
 import qualified Data.Text            as T
-import           GHC.Generics
+import           GHC.Generics hiding (to)
 import           System.Random        (StdGen, mkStdGen)
 
 import Debug.Trace
@@ -53,7 +53,7 @@ newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 data Card = HeroCard
   { _heroName   :: T.Text
   , _playEffect :: Effect
-  , _cost       :: SummableInt
+  , _heroCost   :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: SummableInt
@@ -189,7 +189,7 @@ makeLenses ''Game
 -- This instance is used for anything substantial, it's just needed for some
 -- lens derivation (which we ultimately don't rely on)
 instance Eq Card where
-  a == b = cardType a == cardType b && cardName a == cardName b
+  a == b = view cardType a == view cardType b && view cardName a == view cardName b
 
 mkBoard :: Board
 mkBoard = Board
@@ -232,24 +232,22 @@ cardDictionary board =
     allPlayerLocations playerId =
       PlayerLocation (PlayerId playerId) <$> [(minBound :: ScopedLocation)..]
 
--- Can't rely on makeLenses'' here because we have different card types and Int
--- doesn't implement Monoid so can't work by default with many of the lens.
--- Could newtype it to fix but probably not worth it.
-cardCost :: Card -> SummableInt
-cardCost HeroCard { _cost = c } = c
-cardCost _ = mempty
+cardName = lens getter setter
+  where
+    getter c@HeroCard{} = view heroName c
+    getter c@EnemyCard{} = view enemyName c
 
-cardName :: Card -> T.Text
-cardName c@HeroCard{}  = view heroName c
-cardName c@EnemyCard{} = view enemyName c
+    setter c@HeroCard{} x = set heroName x c
+    setter c@EnemyCard{} x = set enemyName x c
 
-cardType :: Card -> T.Text
-cardType c@HeroCard{} = "hero"
-cardType c@EnemyCard{} = "enemy"
+cardType = lens getter setter
+  where
+    getter c@HeroCard{} = view (to (const "hero")) c
+    getter c@EnemyCard{} = view (to (const "enemy")) c
 
-cardHealth :: Card -> SummableInt
-cardHealth EnemyCard { _baseHealth = x } = x
-cardHealth _ = mempty
+    -- TODO: In theory should be able to define a Getter but I couldn't figure
+    -- it out.
+    setter = undefined
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
 cardsAtLocation l = cards . at l . non mempty
@@ -268,6 +266,9 @@ extractMoney _ = mempty
 extractAttack (EffectAttack n) = n
 extractAttack _ = mempty
 
+extractDescription (EffectCustom d _) = d
+extractDescription _ = ""
+
 addChoice :: PlayerId -> PlayerChoice -> Board -> Board
 addChoice playerId choice =
   over (playerChoices . at playerId . non mempty) (choice S.<|)
@@ -276,9 +277,6 @@ baseResource f = walk . view playEffect
   where
     walk (EffectCombine a b) = walk a <> walk b
     walk x = f x
-
-extractDescription (EffectCustom d _) = d
-extractDescription _ = ""
 
 isLost :: Board -> Bool
 isLost board = f $ view boardState board

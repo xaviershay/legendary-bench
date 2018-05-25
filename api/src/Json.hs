@@ -93,17 +93,17 @@ instance ToJSON SummableInt
 
 instance ToJSON Card where
   toJSON c@HeroCard{} = object
-    [ "type" .= cardType c
-    , "name" .= cardName c
-    , "cost" .= cardCost c
+    [ "type" .= view cardType c
+    , "name" .= view cardName c
+    , "cost" .= view heroCost c
     , "baseMoney"  .= baseResource extractMoney c
     , "baseAttack" .= baseResource extractAttack c
     , "description" .= baseResource extractDescription c
     ]
   toJSON c@EnemyCard{} = object
-    [ "type" .= cardType c
-    , "name" .= cardName c
-    , "health" .= cardHealth c
+    [ "type" .= view cardType c
+    , "name" .= view cardName c
+    , "health" .= view baseHealth c
     ]
 
 instance ToJSON Game where
@@ -135,10 +135,10 @@ instance ToJSON CardInPlay where
     error "Trying to convert Owner visibility to JSON"
 
   toJSON (CardInPlay card vis) = object $
-    [ "type"    .= cardType card
+    [ "type"    .= view cardType card
     , "visible" .= toJSON visible
     ] <>
-    [ "name" .= cardName card | visible
+    [ "name" .= view cardName card | visible
     ]
 
     where
