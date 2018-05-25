@@ -5,6 +5,7 @@ import Utils
 import qualified Data.Text as T
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.Writer (runWriterT)
 import Control.Monad.Except (runExceptT)
 import qualified Data.Sequence as S
 
@@ -13,11 +14,14 @@ runGameMonad board m =
   -- Board must have at least one player
   let Just pid = preview (players . element 0 . playerId) board in
   let state    = GameMonadState { _activePlayer = pid, _board = board } in
-  let result   = runIdentity $ runReaderT (runExceptT m) state in
+  let (result, log) = runIdentity $ runWriterT (runReaderT (runExceptT m) state) in
 
-  case result of
-    Left (x, a) -> set currentAction a x
-    Right x -> x
+  let board' = case result of
+                 Left (x, a) -> set currentAction a x
+                 Right x -> x
+    in
+
+  over actionLog (\xs -> xs <> log) board'
 
 currentPlayer :: GameMonad PlayerId
 currentPlayer = asks _activePlayer

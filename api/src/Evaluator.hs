@@ -7,6 +7,7 @@ module Evaluator where
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
 import           Control.Monad.Except (catchError, throwError)
+import           Control.Monad.Writer (tell)
 import qualified Data.Sequence        as S
 import Data.Sequence ((<|), (|>), Seq((:<|), Empty))
 import qualified Data.Text            as T
@@ -19,6 +20,9 @@ import           Random
 import           Types
 import           Utils
 
+logAction :: Action -> GameMonad ()
+logAction a = tell (S.singleton a)
+
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
 apply a@(MoveCard specificCard@(location, i) to dest) = do
@@ -26,10 +30,15 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a specificCard
-    Just card ->   over (cardsAtLocation location) (S.deleteAt i)
-                 . over (cardsAtLocation to) ((insertF dest) card)
-                 . over actionLog (\x -> x |> a)
-                 <$> currentBoard
+    Just card -> do
+                   board <- currentBoard
+
+                   logAction a
+
+                   return $
+                       over (cardsAtLocation location) (S.deleteAt i)
+                     . over (cardsAtLocation to) ((insertF dest) card)
+                     $ board
 
   where
     insertF Front = (<|)
@@ -43,7 +52,9 @@ apply a@(RevealCard location v) = do
     Just card -> do
       board <- overCard location (setVisibility v)
 
-      return $ over actionLog (\x -> x |> a) board
+      logAction a
+
+      return board
 
 apply (ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -124,6 +135,9 @@ apply ActionStartTurn = do
 
     withBoard board' $ apply (ActionPlayerTurn pid)
 
+apply a@(ActionTagged _ subAction) = do
+  apply subAction
+
 apply a@(ActionPlayerTurn _) = applyChoices f
   where
     clearAndApply action = do
@@ -138,10 +152,10 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       if pid == pid' then
         do
-          card       <- requireCard location
-          cardEffect <- playAction card
+          cip@(CardInPlay card _)       <- requireCard location
+          cardEffect <- playAction cip
 
-          return $
+          return . ActionTagged ("Play " <> cardName card) $
                revealAndMove location (PlayerLocation pid Played) Front
             <> cardEffect
       else
