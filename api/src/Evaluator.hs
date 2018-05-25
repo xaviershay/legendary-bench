@@ -171,27 +171,33 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       wait a $ playerDesc pid <> "'s turn"
 
 apply a@(ActionLose reason) = lose reason
+apply (ActionHalt a reason) = wait a reason
 
 moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
 moveCity a Escaped incoming =
   case incoming of
-    (CardInPlay card@EnemyCard{} _ :<| other) -> applyChoices f
+    (CardInPlay card@EnemyCard{} _ :<| other) -> applyChoices villainEscaped
     _ -> lose "Unexpected incoming in moveCity Escaped handler"
 
   where
-    f (ChooseCard location@(HQ, i) :<| _) = do
-      (CardInPlay card _) <- requireCard location
-
-      if cardCost card <= 6 then
-        return $
-             MoveCard location KO Front
-          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
-      else
-        f mempty
-    f _ = do
+    haltAction = do
       pid <- currentPlayer
 
-      wait a $ playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
+      return . ActionHalt a $
+        playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
+
+    villainEscaped (ChooseCard location@(HQ, i) :<| _) = do
+      elseAction <- haltAction
+      (CardInPlay card _) <- requireCard location
+
+      -- TODO: Handle case where no cards matching criteria are in HQ
+      return $ ActionIf
+        (ConditionCostLTE location 6)
+          (  MoveCard location KO Front
+          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+          )
+        elseAction
+    villainEscaped _ = haltAction
 
 moveCity a location@(City i) incoming = do
   cardsHere <- view (cardsAtLocation location) <$> currentBoard

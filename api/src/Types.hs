@@ -144,6 +144,7 @@ data Action =
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
   ActionIf Condition Action Action |
+  ActionHalt Action T.Text |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
