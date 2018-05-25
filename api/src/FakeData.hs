@@ -4,7 +4,7 @@ module FakeData where
 
 import qualified Data.HashMap.Strict as M
 import qualified Data.Sequence       as S
-import           System.Random       (mkStdGen)
+import           System.Random       (StdGen, mkStdGen)
 
 import Types
 import Evaluator
@@ -13,18 +13,19 @@ import Utils
 import GameMonad
 import Action
 
-mkGame :: Game
-mkGame = Game
+mkGame :: StdGen -> Game
+mkGame g = Game
   { _gameState =
     prepareBoard $ Board
      { _players = S.fromList
                     [ Player { _resources = mempty, _playerId = PlayerId 0 }
                     ]
-     , _rng = mkStdGen 0
+     , _rng = g
      , _boardState = Preparing
      , _version = 1
      , _currentAction = mempty
      , _playerChoices = mempty
+     , _actionLog     = mempty
      , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [CardInPlay spideyCard All])

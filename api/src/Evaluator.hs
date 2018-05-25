@@ -8,7 +8,7 @@ import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
 import           Control.Monad.Except (catchError, throwError)
 import qualified Data.Sequence        as S
-import Data.Sequence ((<|), Seq((:<|), Empty))
+import Data.Sequence ((<|), (|>), Seq((:<|), Empty))
 import qualified Data.Text            as T
 
 import Debug.Trace
@@ -27,15 +27,23 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a specificCard
     Just card ->   over (cardsAtLocation location) (S.deleteAt i)
-                 . over (cardsAtLocation to) (card <|)
+                 . over (cardsAtLocation to) ((insertF dest) card)
+                 . over actionLog (\x -> x |> a)
                  <$> currentBoard
+
+  where
+    insertF Front = (<|)
+    insertF (LocationIndex i) = S.insertAt i
 
 apply a@(RevealCard location v) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a location
-    Just card -> overCard location (setVisibility v)
+    Just card -> do
+      board <- overCard location (setVisibility v)
+
+      return $ over actionLog (\x -> x |> a) board
 
 apply (ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -57,13 +65,41 @@ apply (ActionSequence a m) = do
   where
     handler (board, action) = throwError (board, ActionSequence action m)
 
-apply ActionPrepareGame = do
-  a <-   mconcat . toList
-       . fmap (drawAction 6 . view playerId)
-       . view players
-       <$> currentBoard
+apply (ActionCombine a b) = do
+  board' <- apply a `catchError` handler
 
-  apply $ a <> ActionStartTurn
+  withBoard board' $ apply b
+
+  where
+    handler (board, action) = throwError (board, ActionCombine action b)
+
+apply (ActionShuffle location) = do
+  board <- currentBoard
+
+  let g = view rng board
+  let cs = view (cardsAtLocation location) board
+  let (shuffled, g') = shuffleSeq g cs
+
+  return
+    . set
+        (cardsAtLocation location)
+        shuffled
+    . set rng g'
+    $ board
+
+apply ActionPrepareGame = do
+  preparePlayers <-   mconcat . toList
+                    . fmap (preparePlayer . view playerId)
+                    . view players
+                    <$> currentBoard
+
+  apply $    preparePlayers
+          <> (mconcat $ fmap ActionShuffle [HeroDeck, VillianDeck])
+          <> ActionStartTurn
+
+  where
+    preparePlayer pid =    ActionShuffle (PlayerLocation pid PlayerDeck)
+                        <> drawAction 6 pid
 
 apply ActionEndTurn = do
   player <- currentPlayer
@@ -79,7 +115,7 @@ apply ActionEndTurn = do
             <$> currentBoard
 
   withBoard board $
-    over players moveHeadToTail <$> apply (drawAction 6 player)
+    over players moveHeadToTail <$> apply (let x = (drawAction 6 player) in trace (show x) x)
 
 apply ActionStartTurn = do
   pid <- currentPlayer
@@ -202,16 +238,10 @@ tryShuffleDiscardToDeck a specificCard = do
 
       case view (cards . at discardDeck . non mempty) board of
         Empty -> lose $ "No cards left to draw for " <> showT playerId
-        cs -> do
-          let (shuffled, rng') = shuffleSeq (view rng board) cs
-          let board' =   set
-                           (cardsAtLocation location)
-                           (fmap (setVisibility Hidden) shuffled)
-                       . set (cardsAtLocation discardDeck) mempty
-                       . set rng rng'
-                       $ board
-
-          withBoard board' $ apply a
+        cs -> apply $
+                    moveAndHide (length cs) discardDeck location
+                <> ActionShuffle location
+                <> a
 
   where
     -- Returns the relevant PlayerId if the given location is a player's deck.
@@ -220,6 +250,12 @@ tryShuffleDiscardToDeck a specificCard = do
     playerDeck :: Location -> Maybe PlayerId
     playerDeck (PlayerLocation playerId PlayerDeck) = Just playerId
     playerDeck _ = Nothing
+
+    moveAndHide :: Int -> Location -> Location -> Action
+    moveAndHide n from to =
+      mconcat . toList . replicate n $
+           MoveCard (from, 0) to Front
+        <> RevealCard (to, 0) Hidden
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f =

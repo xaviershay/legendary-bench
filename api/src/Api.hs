@@ -24,6 +24,7 @@ import           Network.Wai.Middleware.Cors          (cors, corsRequestHeaders,
                                                        simpleCorsResourcePolicy)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant
+import           System.Random                        (newStdGen)
 import           System.Timeout                       (timeout)
 
 import FakeData
@@ -40,7 +41,8 @@ newtype State = State
 
 mkState :: IO State
 mkState = do
-  x <- atomically . newTVar $ mkGame
+  rng <- liftIO newStdGen
+  x <- atomically . newTVar $ (mkGame rng)
   return $ State { game = x }
 
 instance FromHttpApiData PlayerId where
@@ -105,6 +107,10 @@ handleChoice gameId playerId choice = do
 
   liftIO . atomically . modifyTVar gvar $
     over gameState (applyChoice playerId choice)
+
+  g <- liftIO . atomically . readTVar $ gvar
+
+  --liftIO $ sequence (fmap (putStrLn . show) $ view (gameState . actionLog) g)
 
   return ()
 
