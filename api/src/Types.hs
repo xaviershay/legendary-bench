@@ -275,3 +275,6 @@ isLost board = f $ view boardState board
   where
     f (Lost _) = True
     f _        = False
+
+playerDesc (PlayerId id) = "Player " <> showT id
+

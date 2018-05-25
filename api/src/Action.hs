@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Action where
 
 import Types
@@ -35,7 +37,7 @@ revealAndMove source destination spot =
   <> MoveCard source destination spot
 
 drawAction :: Int -> PlayerId -> Action
-drawAction n pid =
+drawAction n pid = ActionTagged (playerDesc pid <> " draws " <> showT n) $
    mconcat . replicate n $
      revealAndMove
        (PlayerLocation pid PlayerDeck, 0)

@@ -4,8 +4,15 @@
   flex-direction: row;
 }
 
+.board {
+  width: 1200px;
+}
+
 .logContainer {
   margin-left: 1em;
+  width: 400px;
+  background-color: #dddddd;
+  padding: 1em;
 }
 
 .lost {

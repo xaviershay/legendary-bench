@@ -56,8 +56,10 @@ apply a@(RevealCard location v) = do
 
       return board
 
-apply (ApplyResources (PlayerId id) rs) = do
+apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
+
+  logAction a
 
   let board' = over (players . ix id . resources) (rs <>) board
 
@@ -81,12 +83,14 @@ apply (ActionCombine a b) = do
   where
     handler (board, action) = throwError (board, ActionCombine action b)
 
-apply (ActionShuffle location) = do
+apply a@(ActionShuffle location) = do
   board <- currentBoard
 
   let g = view rng board
   let cs = view (cardsAtLocation location) board
   let (shuffled, g') = shuffleSeq g cs
+
+  logAction a
 
   return
     . set
@@ -101,7 +105,8 @@ apply ActionPrepareGame = do
                     . view players
                     <$> currentBoard
 
-  apply $    preparePlayers
+  apply . ActionTagged "Prepare game" $
+             preparePlayers
           <> (mconcat $ fmap ActionShuffle [HeroDeck, VillianDeck])
           <> ActionStartTurn
 
@@ -123,15 +128,17 @@ apply ActionEndTurn = do
             <$> currentBoard
 
   withBoard board $
-    over players moveHeadToTail <$> apply (drawAction 6 player)
+    over players moveHeadToTail <$> apply
+      (ActionTagged (playerDesc player <> " turn end") $ drawAction 6 player)
 
 apply ActionStartTurn = do
   pid <- currentPlayer
 
-  board <- moveCity ActionStartTurn (City 0) mempty
+  board <- moveCity (ActionTagged (playerDesc pid <> " turn start") ActionStartTurn) (City 0) mempty
 
   withBoard board $ do
-    board' <- apply $ revealAndMove (VillianDeck, 0) (City 0) Front
+    board' <- apply $
+                revealAndMove (VillianDeck, 0) (City 0) Front
 
     withBoard board' $ apply (ActionPlayerTurn pid)
 
@@ -139,8 +146,9 @@ apply a@(ActionTagged tag subAction) = do
   board <- currentBoard
 
   let (board', actions) = runGameMonad' board (apply subAction)
-
-  logAction (ActionTagged tag $ mconcat . toList $ actions)
+  case mconcat . toList $ actions of
+    ActionNone   -> return ()
+    foldedAction -> logAction (ActionTagged tag foldedAction)
 
   return board'
 
@@ -161,7 +169,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           cip@(CardInPlay card _)       <- requireCard location
           cardEffect <- playAction cip
 
-          return . ActionTagged ("Play " <> cardName card) $
+          return . ActionTagged (playerDesc pid <> " plays " <> cardName card) $
                revealAndMove location (PlayerLocation pid Played) Front
             <> cardEffect
       else
@@ -171,7 +179,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
-      return $
+      return . ActionTagged (playerDesc pid <> " purchases " <> cardName card) $
            MoveCard location (PlayerLocation pid Discard) Front
         <> ApplyResources pid (mempty { _money = -(cardCost card)})
         <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
@@ -180,11 +188,16 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       (CardInPlay card _) <- requireCard location
       pid <- currentPlayer
 
-      return $
+      return . ActionTagged (playerDesc pid <> " attacks " <> cardName card) $
            MoveCard location (PlayerLocation pid Victory) Front
         <> ApplyResources pid (mempty { _attack = -(cardHealth card)})
 
-    f (ChooseEndTurn :<| _) = return $ ActionEndTurn <> ActionStartTurn
+    f (ChooseEndTurn :<| _) = do
+      pid <- currentPlayer
+
+      return $
+           ActionEndTurn
+        <> ActionTagged (playerDesc pid <> " turn start") ActionStartTurn
     f _ = do
       pid <- currentPlayer
 
@@ -262,8 +275,11 @@ tryShuffleDiscardToDeck a specificCard = do
       case view (cards . at discardDeck . non mempty) board of
         Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> apply $
+                (ActionTagged
+                  (playerDesc playerId <> " shuffles discard into deck") $
                     moveAndHide (length cs) discardDeck location
-                <> ActionShuffle location
+                  <> ActionShuffle location
+                )
                 <> a
 
   where
@@ -320,8 +336,6 @@ requireCard location = do
   case maybeCard of
     Just c -> return c
     Nothing -> lose "No card at location"
-
-playerDesc (PlayerId id) = "Player " <> showT id
 
 currentPlayerChoices = do
   pid <- currentPlayer

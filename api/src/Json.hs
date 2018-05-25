@@ -186,11 +186,20 @@ instance ToJSON Action where
     , "target" .= specificCard
     , "visibility" .= vis
     ]
+  toJSON (ActionShuffle location) = object
+    [ "type" .= ("shuffle" :: String)
+    , "target" .= location
+    ]
   toJSON (MoveCard specificCard location dest) = object
     [ "type" .= ("move" :: String)
     , "target" .= specificCard
     , "to"   .= location
     , "order" .= dest
+    ]
+  toJSON (ApplyResources pid rs) = object
+    [ "type"   .= ("resources" :: String)
+    , "player" .= pid
+    , "amount" .= rs
     ]
   toJSON ActionNone = object ["type" .= ("none" :: String)]
   toJSON a = error $ "No JSON pattern for " <> show a

@@ -22,7 +22,6 @@ class App extends Component {
           console.log(data)
           version = data.board.version;
           f();
-          // TODO: Set up a long poll here
         })
 
       if (Object.keys(this.state.cards).length === 0) {
@@ -73,46 +72,82 @@ function logMove(entry, key) {
   return <li key={key}>Move {formatLocation(target)} to {formatDestination(to, order)} </li>
 }
 
-function logTagged(entry, key) {
-  const {tag, action} = entry;
-  // TODO: Handle case when subaction not a sequence
-  return (
-    <li key={key}>{tag}
-      <ul>
-        {action.actions.map((l, i) => logComponents[l.type](l, i))}
-      </ul>
-    </li>
-  )
-}
-
 function logReveal(entry, key) {
   const {visibility, target} = entry;
 
   switch (visibility) {
     case "All": return <li key={key}>Reveal {formatLocation(target)}</li>;
     case "Hidden": return <li key={key}>"Hide " {formatLocation(target)}</li>;
+    default: return <li key={key}>Unknown vis: {visibility}</li>
   }
 }
 
+function logResources(entry, key) {
+  const {player, amount} = entry;
 
-function logSequence(entry, key) {
-  const {actions} = entry
-  return (
-    <li key={key}>
-      <ul>
-        {actions.map((l, i) => logComponents[l.type](l, i))}
-      </ul>
-    </li>
-  )
+  let amountDesc = Object.keys(amount)
+    .filter((x) => amount[x] !== 0)
+    .map((x) => x + " " + (amount[x] > 0 ? "+" : "") + amount[x])
+    .join(", ")
+
+  return <li key={key}>Change player {player} resources: {amountDesc}</li>;
 }
 
-let logComponents = {
-  "move": logMove,
-  "reveal": logReveal,
-  "tagged": logTagged,
-  "none": () => "",
-  "sequence": logSequence
+function logShuffle(entry, key) {
+  return <li key={key}>Shuffle {entry.target}</li>;
 }
+
+class LogEntryTagged extends Component {
+  constructor() {
+    super()
+    this.state = {showDetail: false}
+
+    this.handleClick = this.handleClick.bind(this)
+  }
+
+  handleClick() {
+    this.setState({showDetail: !this.state.showDetail})
+  }
+
+  render() {
+    const {tag, action} = this.props.entry;
+    const showDetail = this.state.showDetail;
+
+    let actions = [action]
+    if (action.type === "sequence") {
+      actions = action.actions
+    }
+    return (
+      <li>
+        {tag}
+        &nbsp;
+        <a href="#toggle" onClick={this.handleClick}>({showDetail ? "-" : "+"})</a>
+      {showDetail && <ul>
+          {actions.map((l, i) => lookupLogComponent(l.type)(l, i))}
+        </ul>}
+      </li>
+    )
+  }
+}
+
+function lookupLogComponent(type) {
+  let logComponents = {
+    "move": logMove,
+    "reveal": logReveal,
+    "tagged": (entry, key) => <LogEntryTagged key={key} entry={entry} />,
+    "resources": logResources,
+    "shuffle": logShuffle,
+    "none": () => ""
+  }
+
+  let x = logComponents[type];
+
+  if (!x) {
+    return (e, k) => <li key={k}>{JSON.stringify(e)}</li>
+  }
+  return x
+}
+
 
 
 class Log extends Component {
@@ -127,7 +162,7 @@ class Log extends Component {
       <div className='logContainer'>
         <h2>Log</h2>
         <ul>
-          {log.reverse().map((l, i) => logComponents[l.type](l, i))}
+          {log.reverse().map((l, i) => lookupLogComponent(l.type)(l, i))}
         </ul>
       </div>
     )
@@ -153,7 +188,7 @@ class Board extends Component {
       return null;
 
     return (
-      <div>
+      <div className='board'>
         {statusMessage(board)}
         <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
         <div className='boardRow'>
