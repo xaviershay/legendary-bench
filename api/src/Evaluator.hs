@@ -112,7 +112,7 @@ apply ActionEndTurn = do
             <$> currentBoard
 
   withBoard board $
-    over players moveHeadToTail <$> apply (let x = (drawAction 6 player) in trace (show x) x)
+    over players moveHeadToTail <$> apply (drawAction 6 player)
 
 apply ActionStartTurn = do
   pid <- currentPlayer
