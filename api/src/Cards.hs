@@ -28,7 +28,7 @@ attackCard = HeroCard
 spideyCard = HeroCard
   { _heroName = "Spiderman"
   , _playEffect =    EffectMoney 1
-                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it" spideyAction
+                  <> EffectCustom "Reveal top card of deck, if costs less than two then draw it." spideyAction
   , _cost = 2
   }
 
@@ -41,13 +41,9 @@ spideyCard = HeroCard
 
       card <- lookupCard location
 
-      return $ ActionSequence
-                 (RevealCard location All)
-                 (do
-                   (CardInPlay card _) <- requireCard location
-
-                   return $ if cardCost card <= 2 then
-                              drawAction 1 playerId
-                            else
-                              ActionNone
-                 )
+      return $
+           RevealCard location All
+        <> ActionIf
+             (ConditionCostLTE location 2)
+             (drawAction 1 playerId)
+             mempty

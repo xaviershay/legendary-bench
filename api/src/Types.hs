@@ -133,14 +133,17 @@ data PlayerChoice =
   ChooseEndTurn
   deriving (Show, Generic, Eq)
 
+data Condition =
+  ConditionCostLTE SpecificCard Int
+
 data Action =
   ActionNone |
-  ActionSequence Action (GameMonad Action) |
   ActionCombine Action Action |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
+  ActionIf Condition Action Action |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -156,7 +159,6 @@ instance Show Action where
   show ActionEndTurn = "Turn End"
   show (ActionPlayerTurn pid) = "Player turn: " <> show pid
   show (ActionLose s) = "Lose: " <> T.unpack s
-  show (ActionSequence a f) = show a
   show (ActionCombine a b) = show a <> "\n" <> show b
   show (ActionShuffle location) = "Shuffle: " <> show location
   show (MoveCard specificCard to dest) = "Move: " <> show specificCard <> " to " <> show to <> "/" <> show dest

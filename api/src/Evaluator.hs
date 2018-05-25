@@ -57,13 +57,10 @@ apply (ApplyResources (PlayerId id) rs) = do
 
 apply ActionNone = currentBoard
 
-apply (ActionSequence a m) = do
-  board' <- apply a `catchError` handler
+apply (ActionIf cond a b) = do
+  branch <- checkCondition cond
 
-  withBoard board' $ m >>= apply
-
-  where
-    handler (board, action) = throwError (board, ActionSequence action m)
+  apply $ if branch then a else b
 
 apply (ActionCombine a b) = do
   board' <- apply a `catchError` handler
@@ -320,3 +317,8 @@ applyChoices f = do
 
       withBoard board' . apply $ action
 
+checkCondition :: Condition -> GameMonad Bool
+checkCondition (ConditionCostLTE location amount) = do
+  (CardInPlay card _) <- requireCard location
+
+  return $ cardCost card <= amount
