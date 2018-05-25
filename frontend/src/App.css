@@ -1,5 +1,11 @@
 .App {
   margin: 20px;
+  display: flex;
+  flex-direction: row;
+}
+
+.logContainer {
+  margin-left: 1em;
 }
 
 .lost {

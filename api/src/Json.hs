@@ -155,4 +155,24 @@ instance ToJSON Board where
     , "players" .= toJSON (map IndexedPlayer $ zip (toList $ view players b) [(0 :: Int)..])
     , "state"   .= toJSON (view boardState b)
     , "version" .= toJSON (view version b)
+    , "log"     .= toJSON (view actionLog b)
+    ]
+
+instance ToJSON Visibility
+
+instance ToJSON MoveDestination where
+  toJSON Front = "front"
+  toJSON (LocationIndex i) = toJSON i
+
+instance ToJSON Action where
+  toJSON (RevealCard specificCard vis) = object
+    [ "type" .= ("reveal" :: String)
+    , "target" .= specificCard
+    , "visibility" .= vis
+    ]
+  toJSON (MoveCard specificCard location dest) = object
+    [ "type" .= ("move" :: String)
+    , "target" .= specificCard
+    , "to"   .= location
+    , "order" .= dest
     ]

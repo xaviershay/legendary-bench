@@ -38,10 +38,17 @@ class App extends Component {
   }
 
   render() {
+    const board = this.state.gameData.board;
+    let log = [];
+
+    if (board) {
+      log = board.log
+    }
     return (
       <CardsContext.Provider value={this.state.cards}>
         <div className="App">
-          <Board board={this.state.gameData.board} />
+          <Board board={board} />
+          <Log log={log} />
         </div>
       </CardsContext.Provider>
     );
@@ -50,6 +57,52 @@ class App extends Component {
             {JSON.stringify(this.state.gameData, null, 2)}
           </pre>
         */
+  }
+}
+
+function formatLocation(target) {
+  return target[0] + "/" + target[1]
+}
+
+function formatDestination(to, order) {
+  return to + "/" + order
+}
+
+function logMove(entry) {
+  const {target, to, order} = entry;
+  return "Move " + formatLocation(target) + " to " + formatDestination(to, order)
+}
+
+function logReveal(entry) {
+  const {visibility, target} = entry;
+
+  switch (visibility) {
+    case "All": return "Reveal " + formatLocation(target);
+    case "Hidden": return "Hide " + formatLocation(target);
+  }
+}
+
+class Log extends Component {
+  render() {
+    console.log(this.props);
+    let log = this.props.log;
+
+    if (!log)
+      log = [];
+
+    let logComponents = {
+      "move": logMove,
+      "reveal": logReveal
+    }
+
+    return (
+      <div className='logContainer'>
+        <h2>Log</h2>
+        <ul>
+          {log.reverse().map((l, i) => <li key={i}>{logComponents[l.type](l)}</li>)}
+        </ul>
+      </div>
+    )
   }
 }
 
