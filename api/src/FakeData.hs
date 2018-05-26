@@ -18,11 +18,11 @@ import Action
 
 mkGame :: StdGen -> Game
 mkGame g = Game
-  { _gameState = prepareBoard $ newMkBoard g 1
+  { _gameState = prepareBoard $ mkBoard g 1
   }
 
-newMkBoard :: StdGen -> Int -> Board
-newMkBoard g playerCount = evalState a 1
+mkBoard :: StdGen -> Int -> Board
+mkBoard g playerCount = evalState a 1
   where
     a = do
       let ps = S.fromList $ fmap PlayerId [0..playerCount -1]
@@ -38,7 +38,7 @@ newMkBoard g playerCount = evalState a 1
         <$> foldM setPlayerDeck mkBoard ps
 
     setPlayerDeck board pid = do
-      playerDeck <- mkNewPlayerDeck
+      playerDeck <- mkPlayerDeck
 
       return $ set
         (cardsAtLocation (PlayerLocation pid PlayerDeck))
@@ -46,27 +46,20 @@ newMkBoard g playerCount = evalState a 1
         board
 
 mkHeroDeck =
-  sequence . fmap (mkNewCardInPlay Hidden) $
+  sequence . fmap (mkCardInPlay Hidden) $
     S.replicate 30 spideyCard
 
 mkVillainDeck =
-  sequence . fmap (mkNewCardInPlay Hidden) $
+  sequence . fmap (mkCardInPlay Hidden) $
     S.replicate 30 villianCard
 
-mkNewPlayerDeck =
-  sequence . fmap (mkNewCardInPlay Hidden) $
+mkPlayerDeck =
+  sequence . fmap (mkCardInPlay Hidden) $
        S.replicate 8 moneyCard
     <> S.replicate 4 attackCard
 
-
-getThen :: (a -> a) -> State a a
-getThen f = do
-  x <- get
-  put (f x)
-  return x
-
-mkNewCardInPlay :: Visibility -> Card -> State Int CardInPlay
-mkNewCardInPlay visibility template = do
+mkCardInPlay :: Visibility -> Card -> State Int CardInPlay
+mkCardInPlay visibility template = do
   cardId <- getThen (+ 1)
 
   return $ CardInPlay
@@ -75,14 +68,10 @@ mkNewCardInPlay visibility template = do
     , _cardTemplate = template
     }
 
-mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicate 4 attackCard
-
 prepareBoard board = runGameMonad board (apply ActionPrepareGame)
 
-hideCard card = mkCardInPlay card Hidden
-
-mkCardInPlay template vis = CardInPlay
-  { _cardTemplate = template
-  , _cardVisibility = vis
-  , _cardId = CardId 0
-  }
+getThen :: (a -> a) -> State a a
+getThen f = do
+  x <- get
+  put (f x)
+  return x
