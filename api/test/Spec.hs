@@ -19,7 +19,14 @@ import Utils
 
 import Debug.Trace
 
-genCards n = S.replicate n (CardInPlay moneyCard All)
+genCards n = S.replicate n $ buildCard moneyCard All
+
+buildCard template vis = CardInPlay
+  { _cardTemplate = template
+  , _cardVisibility = vis
+  , _cardId = CardId 0
+  }
+
 
 test_DrawFromEmpty =
   testGroup "Drawing from empty deck shuffles in discard"
@@ -49,7 +56,7 @@ test_SpiderMan =
                 (genCards 1)
             . set
                 (cardsAtLocation (PlayerLocation player Hand))
-                (S.fromList [CardInPlay spideyCard Owner])
+                (S.fromList [buildCard spideyCard Owner])
             . addPlayer player
             . addChoice player choice
             $ mkBoard
@@ -66,7 +73,7 @@ test_SpiderManLose =
     board =
               set
                 (cardsAtLocation (PlayerLocation player Hand))
-                (S.fromList [CardInPlay spideyCard Owner])
+                (S.fromList [buildCard spideyCard Owner])
             . addPlayer player
             . addChoice player choice
             $ mkBoard

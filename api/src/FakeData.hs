@@ -18,11 +18,11 @@ import Action
 
 mkGame :: StdGen -> Game
 mkGame g = Game
-  { _gameState = prepareBoard $ mkBoard g 1
+  { _gameState = prepareBoard $ genBoard g 1
   }
 
-mkBoard :: StdGen -> Int -> Board
-mkBoard g playerCount = evalState a 1
+genBoard :: StdGen -> Int -> Board
+genBoard g playerCount = evalState a 1
   where
     a = do
       let ps = S.fromList $ fmap PlayerId [0..playerCount -1]

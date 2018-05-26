@@ -34,7 +34,7 @@ instance Arbitrary Board where
 setVisibilities [] = []
 setVisibilities (l:ls) = f l:setVisibilities ls
   where
-    f (l, cs) = (l, fmap (\c -> CardInPlay c (defaultVisibilityFor l)) cs)
+    f (l, cs) = (l, fmap (\c -> CardInPlay {_cardTemplate = c, _cardVisibility = defaultVisibilityFor l, _cardId = CardId 0}) cs)
 
 defaultVisibilityFor HeroDeck = Hidden
 defaultVisibilityFor VillainDeck = Hidden
@@ -43,7 +43,7 @@ defaultVisibilityFor _ = All
 
 instance Arbitrary CardInPlay where
   shrink = genericShrink
-  arbitrary = CardInPlay <$> arbitrary <*> arbitrary
+  arbitrary = CardInPlay <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary T.Text where
   shrink x = fmap T.pack $ genericShrink (T.unpack x)
@@ -56,6 +56,10 @@ instance Arbitrary Card where
 instance Arbitrary PlayerId where
   shrink = genericShrink
   arbitrary = PlayerId <$> arbitrary
+
+instance Arbitrary CardId where
+  shrink = genericShrink
+  arbitrary = CardId <$> arbitrary
 
 instance Arbitrary ScopedLocation where
   shrink = genericShrink
