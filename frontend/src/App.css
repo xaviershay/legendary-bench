@@ -105,25 +105,25 @@ h4 {
   flex-direction: column;
   justify-content: space-between;
   font-size: 8pt;
-  background-color: #fafafa;
+  background-color: #f0f0f0;
 }
 
 .ability-type-Instinct {
-  background-color: #feeeee;
+  background-color: #e5d3d3;
 }
 
 .ability-type-Strength {
-  background-color: #eefeee;
+  background-color: #d3e5d8;
 }
 
 .footer {
   font-size: 10pt;
 }
 .cardMoney {
-  color: gold
+  color: #ffc300;
 }
 .cardAttack {
-  color: red
+  color: red;
 }
 .cardName {
   font-weight: bold;
