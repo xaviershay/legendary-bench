@@ -178,9 +178,24 @@ function statusMessage(board) {
 }
 
 class Board extends Component {
+  constructor() {
+    super()
+    this.state = {
+      actingAs: 0
+    }
+
+    this.handleActingChange = this.handleActingChange.bind(this)
+  }
+
+  handleActingChange(e) {
+    this.setState({
+      actingAs: e.target.value * 1
+    })
+  }
+
   render() {
     const board = this.props.board;
-    const currentPlayer = 0;
+    const currentPlayer = this.state.actingAs;
 
     if (!board)
       return null;
@@ -189,21 +204,44 @@ class Board extends Component {
       <div className='board'>
         {statusMessage(board)}
         <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
+      <form>
+        {board.players.map((p) => <div key={p.id}>
+          <label>
+          <input
+            name='acting'
+            type='radio'
+            checked={this.state.actingAs === p.id}
+            onChange={this.handleActingChange}
+            value={p.id}
+          /> Player {p.id}
+          </label>
+        </div>)}
+      </form>
         <div className='boardRow'>
-          <Location cards={board.cards["villian-deck"]} title="Villian Deck" layout="stacked" />
+          <Location cards={board.cards["villian-deck"]} title="Villian Deck"
+            layout="stacked" />
           <div className='city'>
-            <Location cards={board.cards["city-0"]} title="Sewers" actions={attackActions(currentPlayer, 0)} />
-            <Location cards={board.cards["city-1"]} title="Bank" actions={attackActions(currentPlayer, 1)}  />
-            <Location cards={board.cards["city-2"]} title="Rooftops" actions={attackActions(currentPlayer, 2)} />
-            <Location cards={board.cards["city-3"]} title="Streets" actions={attackActions(currentPlayer, 3)}  />
-            <Location cards={board.cards["city-4"]} title="Bridge" actions={attackActions(currentPlayer, 4)} />
+            <Location cards={board.cards["city-0"]} title="Sewers"
+              actions={attackActions(currentPlayer, 0)} />
+            <Location cards={board.cards["city-1"]} title="Bank"
+              actions={attackActions(currentPlayer, 1)}  />
+            <Location cards={board.cards["city-2"]} title="Rooftops"
+              actions={attackActions(currentPlayer, 2)} />
+            <Location cards={board.cards["city-3"]} title="Streets"
+              actions={attackActions(currentPlayer, 3)}  />
+            <Location cards={board.cards["city-4"]} title="Bridge"
+              actions={attackActions(currentPlayer, 4)} />
           </div>
-          <Location cards={board.cards["escaped"]} title="Escaped" layout="stacked" />
-          <Location cards={board.cards["ko"]} title="KO" layout="stacked" />
+          <Location cards={board.cards["escaped"]} title="Escaped"
+            layout="stacked" />
+          <Location cards={board.cards["ko"]} title="KO"
+            layout="stacked" />
         </div>
         <div className='boardRow'>
-          <Location cards={board.cards["hero-deck"]} title="Hero Deck" layout="stacked" />
-          <Location cards={board.cards["hq"]} title="HQ" actions={purchaseCardActions(0)} />
+          <Location cards={board.cards["hero-deck"]} title="Hero Deck"
+            layout="stacked" />
+          <Location cards={board.cards["hq"]} title="HQ"
+            actions={purchaseCardActions(currentPlayer)} />
         </div>
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>

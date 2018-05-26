@@ -18,7 +18,7 @@ import Action
 
 mkGame :: StdGen -> Game
 mkGame g = Game
-  { _gameState = prepareBoard $ genBoard g 1
+  { _gameState = prepareBoard $ genBoard g 2
   }
 
 genBoard :: StdGen -> Int -> Board

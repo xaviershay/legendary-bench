@@ -11,23 +11,13 @@ import qualified Data.Sequence as S
 
 runGameMonad :: Board -> GameMonad Board -> Board
 runGameMonad board m =
-  -- Board must have at least one player
-  let Just pid = preview (players . element 0 . playerId) board in
-  let state    = GameMonadState { _activePlayer = pid, _board = board } in
-  let (result, log) = runIdentity $ runWriterT (runReaderT (runExceptT m) state) in
-
-  let board' = case result of
-                 Left (x, a) -> set currentAction a x
-                 Right x -> x
-    in
+  let (board', log) = runGameMonad' board m in
 
   over actionLog (\xs -> xs <> log) board'
 
 runGameMonad' :: Board -> GameMonad Board -> (Board, S.Seq Action)
 runGameMonad' board m =
-  -- Board must have at least one player
-  let Just pid = preview (players . element 0 . playerId) board in
-  let state    = GameMonadState { _activePlayer = pid, _board = board } in
+  let state    = GameMonadState { _board = board } in
   let (result, log) = runIdentity $ runWriterT (runReaderT (runExceptT m) state) in
 
   let board' = case result of
@@ -37,16 +27,11 @@ runGameMonad' board m =
 
   (board', log)
 
-currentPlayer :: GameMonad PlayerId
-currentPlayer = asks _activePlayer
-
 currentBoard :: GameMonad Board
 currentBoard = asks _board
 
 withBoard :: Board -> GameMonad Board -> GameMonad Board
 withBoard board m = do
-  playerId <- currentPlayer
-
-  let state = GameMonadState { _activePlayer = playerId, _board = board }
+  let state = GameMonadState { _board = board }
 
   local (const state) m

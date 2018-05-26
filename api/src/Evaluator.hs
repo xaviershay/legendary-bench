@@ -100,16 +100,17 @@ apply a@(ActionShuffle location) = do
     $ board
 
 apply ActionPrepareGame = do
-  preparePlayers <-   mconcat . toList
-                    . fmap (preparePlayer . view playerId)
-                    . view players
-                    <$> currentBoard
+  tag "Prepare game" $ do
+    preparePlayers <-   mconcat . toList
+                      . fmap (preparePlayer . view playerId)
+                      . view players
+                      <$> currentBoard
 
-  apply . ActionTagged "Prepare game" $
-             preparePlayers
-          <> (mconcat $ fmap ActionShuffle [HeroDeck, VillainDeck])
-          <> (mconcat $ fmap replaceHeroInHQ [0..4])
-          <> ActionStartTurn
+    apply $
+               preparePlayers
+            <> (mconcat $ fmap ActionShuffle [HeroDeck, VillainDeck])
+            <> (mconcat $ fmap replaceHeroInHQ [0..4])
+            <> ActionStartTurn
 
   where
     preparePlayer pid =    ActionShuffle (PlayerLocation pid PlayerDeck)
@@ -117,47 +118,44 @@ apply ActionPrepareGame = do
 
 apply ActionEndTurn = do
   player <- currentPlayer
-  board  <-   set
-                (playerResources player)
-                mempty
-            . moveAllFrom
-                (cardsAtLocation $ PlayerLocation player Played)
-                (cardsAtLocation $ PlayerLocation player Discard)
-            . moveAllFrom
-                (cardsAtLocation $ PlayerLocation player Hand)
-                (cardsAtLocation $ PlayerLocation player Discard)
-            <$> currentBoard
 
-  withBoard board $
-    over players moveHeadToTail <$> apply
-      (ActionTagged (playerDesc player <> " turn end") $ drawAction 6 player)
+  tag (playerDesc player <> " turn end") $ do
+    board  <-   set
+                  (playerResources player)
+                  mempty
+              . moveAllFrom
+                  (cardsAtLocation $ PlayerLocation player Played)
+                  (cardsAtLocation $ PlayerLocation player Discard)
+              . moveAllFrom
+                  (cardsAtLocation $ PlayerLocation player Hand)
+                  (cardsAtLocation $ PlayerLocation player Discard)
+              <$> currentBoard
+
+    withBoard board $
+      over players moveHeadToTail <$> apply (drawAction 6 player)
 
 apply ActionStartTurn = do
   pid <- currentPlayer
 
-  board <- moveCity (ActionTagged (playerDesc pid <> " turn start") ActionStartTurn) (City 0) mempty
+  tag (playerDesc pid <> " turn start") $ do
+    board <- moveCity
+              ActionStartTurn
+              (City 0)
+              mempty
 
-  withBoard board $ do
-    board' <- apply $
-                revealAndMove (VillainDeck, 0) (City 0) Front
+    withBoard board $ do
+      board' <- apply $
+                  revealAndMove (VillainDeck, 0) (City 0) Front
 
-    withBoard board' $ apply (ActionPlayerTurn pid)
+      withBoard board' $ apply (ActionPlayerTurn pid)
 
-apply a@(ActionTagged tag subAction) = do
-  board <- currentBoard
-
-  let (board', actions) = runGameMonad' board (apply subAction)
-  case mconcat . toList $ actions of
-    ActionNone   -> return ()
-    foldedAction -> logAction (ActionTagged tag foldedAction)
-
-  return board'
+apply (ActionTagged reason action) = tag reason (apply action)
 
 apply a@(ActionPlayerTurn _) = applyChoices f
   where
     clearAndApply action = do
       pid <- currentPlayer
-      board' <- clearChoicesFor pid <$> currentBoard
+      board' <- clearChoices <$> currentBoard
 
       withBoard board' . apply $ action
 
@@ -203,7 +201,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       return $
            ActionEndTurn
-        <> ActionTagged (playerDesc pid <> " turn start") ActionStartTurn
+        <> ActionStartTurn
     f _ = do
       pid <- currentPlayer
 
@@ -319,11 +317,6 @@ setVisibility v = set cardVisibility v
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < mempty) || (view attack r < mempty)
 
-lose :: T.Text -> GameMonad a
-lose reason = do
-  b <- currentBoard
-
-  throwError (set boardState (Lost reason) b, ActionLose reason)
 
 wait :: Action -> T.Text -> GameMonad a
 wait a reason = do
@@ -349,8 +342,8 @@ currentPlayerChoices = do
 
   view (playerChoices . at pid . non mempty) <$> currentBoard
 
-clearChoicesFor pid =
-  set (playerChoices . at pid) mempty
+clearChoices =
+  set playerChoices mempty
 
 applyChoices f = do
   choices <- currentPlayerChoices
@@ -360,7 +353,7 @@ applyChoices f = do
   where
     clearAndApply action = do
       playerId <- currentPlayer
-      board' <- clearChoicesFor playerId <$> currentBoard
+      board' <- clearChoices <$> currentBoard
 
       withBoard board' . apply $ action
 
@@ -369,3 +362,14 @@ checkCondition (ConditionCostLTE location amount) = do
   card <- requireCard location
 
   return $ view (cardTemplate . heroCost) card <= (Sum amount)
+
+tag :: T.Text -> GameMonad Board -> GameMonad Board
+tag message m = do
+  board <- currentBoard
+  let (board', actions) = runGameMonad' board m
+
+  case mconcat . toList $ actions of
+    ActionNone   -> return ()
+    foldedAction -> logAction (ActionTagged message foldedAction)
+
+  return board'

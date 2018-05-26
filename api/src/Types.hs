@@ -23,8 +23,7 @@ import Debug.Trace
 import Utils
 
 data GameMonadState = GameMonadState
-  { _activePlayer :: PlayerId
-  , _board        :: Board
+  { _board        :: Board
   }
 
 type GameHalt = (Board, Action)

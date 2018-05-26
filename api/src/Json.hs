@@ -15,6 +15,8 @@ import Utils
 instance ToJSONKey Location where
   toJSONKey = toJSONKeyText showLocation
 
+instance ToJSONKey PlayerId
+
 instance ToJSON ScopedLocation where
   toJSON = toJSON . T.toLower . showT
 
@@ -114,6 +116,7 @@ instance ToJSON Game where
 instance ToJSON Player where
   toJSON player = object
     [ "resources" .= view resources player
+    , "id"        .= view playerId player
     ]
 
 instance ToJSON Resources where
@@ -145,21 +148,16 @@ instance ToJSON CardInPlay where
         [ "name" .= view cardName template | visible == All
         ]
 
-instance ToJSON IndexedPlayer where
-  toJSON (IndexedPlayer (player, i)) = object
-    [ "id"        .= i
-    , "resources" .= view resources player
-    ]
-
-newtype IndexedPlayer = IndexedPlayer (Player, Int)
+instance ToJSON PlayerChoice
 
 instance ToJSON Board where
   toJSON b = object
-    [ "cards"   .= toJSON (view cards b)
-    , "players" .= toJSON (map IndexedPlayer $ zip (toList $ view players b) [(0 :: Int)..])
-    , "state"   .= toJSON (view boardState b)
-    , "version" .= toJSON (view version b)
-    , "log"     .= toJSON (view actionLog b)
+    [ "cards"   .= view cards b
+    , "players" .= view players b
+    , "state"   .= view boardState b
+    , "version" .= view version b
+    , "log"     .= view actionLog b
+    , "choices" .= view playerChoices b
     ]
 
 instance ToJSON Visibility
