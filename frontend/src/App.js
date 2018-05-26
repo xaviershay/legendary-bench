@@ -180,11 +180,14 @@ function statusMessage(board) {
 class Board extends Component {
   constructor() {
     super()
+
     this.state = {
-      actingAs: 0
+      actingAs: 0,
+      tracking: true
     }
 
     this.handleActingChange = this.handleActingChange.bind(this)
+    this.handleTrackingChange = this.handleTrackingChange.bind(this)
   }
 
   handleActingChange(e) {
@@ -193,9 +196,25 @@ class Board extends Component {
     })
   }
 
+  handleTrackingChange(e) {
+    const board = this.props.board;
+    const currentPlayer = board.players[0].id
+
+    this.setState({
+      tracking: !this.state.tracking,
+      actingAs: currentPlayer
+    })
+  }
+
   render() {
     const board = this.props.board;
-    const currentPlayer = this.state.actingAs;
+    let currentPlayer;
+
+    if (board && this.state.tracking) {
+      currentPlayer = board.players[0].id
+    } else {
+      currentPlayer = this.state.actingAs
+    }
 
     if (!board)
       return null;
@@ -213,9 +232,18 @@ class Board extends Component {
             checked={this.state.actingAs === p.id}
             onChange={this.handleActingChange}
             value={p.id}
+            disabled={this.state.tracking}
           /> Player {p.id}
           </label>
         </div>)}
+        <label>
+          <input
+            name='tracking'
+            type='checkbox'
+            checked={this.state.tracking}
+            onChange={this.handleTrackingChange}
+          /> Track current player
+        </label>
       </form>
         <div className='boardRow'>
           <Location cards={board.cards["villian-deck"]} title="Villian Deck"
