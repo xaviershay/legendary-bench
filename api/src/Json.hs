@@ -125,6 +125,9 @@ instance ToJSON Resources where
 instance ToJSON PlayerId where
   toJSON (PlayerId id) = toJSON id
 
+instance ToJSON CardId where
+  toJSON (CardId id) = toJSON id
+
 instance ToJSON Effect where
   toJSON = toJSON . show
 
@@ -136,7 +139,8 @@ instance ToJSON CardInPlay where
       Owner -> error "Trying to convert Owner visibilty, should be redacted"
       visible -> object $
         [ "type"    .= view cardType template
-        , "visible" .= toJSON visible
+        , "visible" .= visible
+        , "id"      .= view cardId card
         ] <>
         [ "name" .= view cardName template | visible == All
         ]

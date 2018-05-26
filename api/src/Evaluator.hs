@@ -108,6 +108,7 @@ apply ActionPrepareGame = do
   apply . ActionTagged "Prepare game" $
              preparePlayers
           <> (mconcat $ fmap ActionShuffle [HeroDeck, VillainDeck])
+          <> (mconcat $ fmap replaceHeroInHQ [0..4])
           <> ActionStartTurn
 
   where
@@ -184,7 +185,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
            MoveCard location (PlayerLocation pid Discard) Front
         <> ApplyResources pid (mempty { _money = -(view heroCost template)})
-        <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+        <> replaceHeroInHQ i
 
     f (ChooseCard location@(City n, i) :<| _) = do
       card <- requireCard location

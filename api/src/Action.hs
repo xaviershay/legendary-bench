@@ -32,6 +32,9 @@ applyResourcesAction rs = do
 -- Action Builders
 -- ===============
 
+replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
+  revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+
 revealAndMove source destination spot =
      RevealCard source All
   <> MoveCard source destination spot
