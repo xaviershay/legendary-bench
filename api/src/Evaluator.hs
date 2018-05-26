@@ -166,31 +166,36 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       if pid == pid' then
         do
-          cip@(CardInPlay card _)       <- requireCard location
-          cardEffect <- playAction cip
+          card       <- requireCard location
+          cardEffect <- playAction card
 
-          return . ActionTagged (playerDesc pid <> " plays " <> view cardName card) $
+          return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                revealAndMove location (PlayerLocation pid Played) Front
             <> cardEffect
       else
         f mempty
 
     f (ChooseCard location@(HQ, i) :<| _) = do
-      (CardInPlay card _) <- requireCard location
+      card <- requireCard location
       pid <- currentPlayer
 
-      return . ActionTagged (playerDesc pid <> " purchases " <> view cardName card) $
+      let template = view cardTemplate card
+
+      return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
            MoveCard location (PlayerLocation pid Discard) Front
-        <> ApplyResources pid (mempty { _money = -(view heroCost card)})
+        <> ApplyResources pid (mempty { _money = -(view heroCost template)})
         <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
     f (ChooseCard location@(City n, i) :<| _) = do
-      (CardInPlay card _) <- requireCard location
+      card <- requireCard location
       pid <- currentPlayer
 
-      return . ActionTagged (playerDesc pid <> " attacks " <> view cardName card) $
+      let template = view cardTemplate card
+
+      return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
            MoveCard location (PlayerLocation pid Victory) Front
-        <> ApplyResources pid (mempty { _attack = -(view baseHealth card)})
+        <> ApplyResources pid
+             (set attack (negate . view baseHealth $ template) mempty)
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
@@ -209,8 +214,10 @@ apply (ActionHalt a reason) = wait a reason
 moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
 moveCity a Escaped incoming =
   case incoming of
-    (CardInPlay card@EnemyCard{} _ :<| other) -> applyChoices villainEscaped
-    _ -> lose "Unexpected incoming in moveCity Escaped handler"
+    (card :<| other) -> case view cardTemplate card of
+                          EnemyCard{} -> applyChoices villainEscaped
+                          _ -> lose "Unhandled incoming in Escaped handler"
+    _                -> lose "No incoming cards in Escaped handler"
 
   where
     haltAction = do
@@ -221,7 +228,6 @@ moveCity a Escaped incoming =
 
     villainEscaped (ChooseCard location@(HQ, i) :<| _) = do
       elseAction <- haltAction
-      (CardInPlay card _) <- requireCard location
 
       -- TODO: Handle case where no cards matching criteria are in HQ
       return $ ActionIf
@@ -307,7 +313,7 @@ halt a = do
   throwError (b, a)
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
-setVisibility v (CardInPlay card _) = CardInPlay card v
+setVisibility v = set cardVisibility v
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < mempty) || (view attack r < mempty)
@@ -359,6 +365,6 @@ applyChoices f = do
 
 checkCondition :: Condition -> GameMonad Bool
 checkCondition (ConditionCostLTE location amount) = do
-  (CardInPlay card _) <- requireCard location
+  card <- requireCard location
 
-  return $ view heroCost card <= (Sum amount)
+  return $ view (cardTemplate . heroCost) card <= (Sum amount)

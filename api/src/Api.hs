@@ -132,5 +132,5 @@ redact id = over cards (M.mapWithKey f)
 
     f _ cs = cs
 
-    transformOwned desired (CardInPlay card Owner) = CardInPlay card desired
-    transformOwned _ x = x
+    transformOwned desired =
+      over cardVisibility (\x -> if x == Owner then desired else x)

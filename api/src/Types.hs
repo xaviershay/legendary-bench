@@ -61,7 +61,13 @@ data Card = HeroCard
 
   deriving (Show, Generic)
 
-data CardInPlay = CardInPlay Card Visibility deriving (Show, Generic)
+newtype CardId = CardId Int deriving (Show, Generic, Eq)
+
+data CardInPlay = CardInPlay
+  { _cardId :: CardId
+  , _cardVisibility :: Visibility
+  , _cardTemplate :: Card
+  } deriving (Show, Generic)
 
 newtype SummableInt = Sum Int deriving (Show, Generic, Eq, Ord, Num)
 
@@ -83,9 +89,6 @@ instance Monoid Resources where
 instance Hashable PlayerId
 instance Hashable ScopedLocation
 instance Hashable Location
-
-instance Eq CardInPlay where
-  (CardInPlay a b) == (CardInPlay c d) = a == c && b == d
 
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
@@ -181,6 +184,7 @@ instance Monoid Action where
   mappend a b = ActionCombine a b
 
 makeLenses ''Player
+makeLenses ''CardInPlay
 makeLenses ''Board
 makeLenses ''Card
 makeLenses ''Resources
@@ -190,6 +194,9 @@ makeLenses ''Game
 -- lens derivation (which we ultimately don't rely on)
 instance Eq Card where
   a == b = view cardType a == view cardType b && view cardName a == view cardName b
+
+instance Eq CardInPlay where
+  a == b = view cardId a == view cardId b
 
 mkBoard :: Board
 mkBoard = Board
@@ -214,13 +221,12 @@ cardDictionary :: Board -> [Card]
 cardDictionary board =
     nub
   . toList
-  . fmap extractCard
+  . fmap (view cardTemplate)
   . mconcat
   . fmap (\l -> view (cardsAtLocation l) board)
   $ allLocations board
 
   where
-    extractCard (CardInPlay c _) = c
     allLocations board =
       let playerIds = [0 .. (S.length . view players $ board) - 1] in
 

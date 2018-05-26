@@ -28,9 +28,9 @@ mkGame g = Game
      , _actionLog     = mempty
      , _cards = M.fromList
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
-        , (HQ, S.fromList [CardInPlay spideyCard All])
-        , (HeroDeck, S.fromList [CardInPlay spideyCard Hidden])
-        , (VillianDeck, S.fromList (replicate 30 (CardInPlay villianCard Hidden)))
+        , (HQ, S.fromList [mkCardInPlay spideyCard All])
+        , (HeroDeck, S.fromList [mkCardInPlay spideyCard Hidden])
+        , (VillianDeck, S.fromList (replicate 30 (mkCardInPlay villianCard Hidden)))
         ]
     }
   }
@@ -39,4 +39,10 @@ mkPlayerDeck = S.replicate 1 spideyCard <> S.replicate 8 moneyCard <> S.replicat
 
 prepareBoard board = runGameMonad board (apply ActionPrepareGame)
 
-hideCard card = CardInPlay card Hidden
+hideCard card = mkCardInPlay card Hidden
+
+mkCardInPlay template vis = CardInPlay
+  { _cardTemplate = template
+  , _cardVisibility = vis
+  , _cardId = CardId 0
+  }

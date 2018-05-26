@@ -129,20 +129,17 @@ instance ToJSON Effect where
   toJSON = toJSON . show
 
 instance ToJSON CardInPlay where
-  -- Data should be pre-processed to remove all other visibility types before
-  -- reaching here.
-  toJSON (CardInPlay _ Owner) =
-    error "Trying to convert Owner visibility to JSON"
+  toJSON card =
+    let template = view cardTemplate card in
 
-  toJSON (CardInPlay card vis) = object $
-    [ "type"    .= view cardType card
-    , "visible" .= toJSON visible
-    ] <>
-    [ "name" .= view cardName card | visible
-    ]
-
-    where
-      visible = vis == All
+    case view cardVisibility card of
+      Owner -> error "Trying to convert Owner visibilty, should be redacted"
+      visible -> object $
+        [ "type"    .= view cardType template
+        , "visible" .= toJSON visible
+        ] <>
+        [ "name" .= view cardName template | visible == All
+        ]
 
 instance ToJSON IndexedPlayer where
   toJSON (IndexedPlayer (player, i)) = object
