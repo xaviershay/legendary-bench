@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { Transition } from 'react-spring';
 import './App.css';
 
 const CardsContext = React.createContext({});
@@ -227,8 +228,9 @@ function endTurn(playerId) {
   }
 }
 
-function chooseCard(playerId, specificCard) {
+function chooseCard(playerId, specificCard, c, i) {
   return () => {
+    console.log(c, i)
     fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
       method: 'POST',
       headers: {
@@ -241,7 +243,7 @@ function chooseCard(playerId, specificCard) {
 
 
 function playCardActions(playerId) {
-  return (c, i) => chooseCard(playerId, ["player-" + playerId + "-hand", i])
+  return (c, i) => chooseCard(playerId, ["player-" + playerId + "-hand", i], c, i)
 }
 
 function purchaseCardActions(playerId) {
@@ -289,6 +291,8 @@ class Location extends Component {
       if (!actions)
         actions = (c, i) => null;
 
+      cards = cards.map((c, i) => Object.assign({index: i}, c))
+
       let cardRender = null;
 
       if (layout === "stacked") {
@@ -315,13 +319,27 @@ class Location extends Component {
       } else {
         cardRender = (
           <div className={"location-" + layout}>
-            {cards.map((c, i) => {
-              let cardDetail = c.visible ? cardDb[c.name] : null
+            <Transition
+                keys={cards.map(item => item.id)}
+                from={{ opacity: 0, width: 0 }}
+                enter={{ opacity: 1, width: 120 }}
+                leave={{ opacity: 0, width: 0 }}>
+                {cards.map((card, i) => styles => {
+                  let cardDetail = card.visible ? cardDb[card.name] : null
 
-              return <a className="cardLink" href='#x' onClick={actions(c, i)} key={i}>
-                {cardDetail ? <Card card={cardDetail} /> : <CardBasic card={c} />}
-              </a>
-            })}
+                  return <a
+                            style={styles}
+                            className="cardLink"
+                            href='#x'
+                            onClick={actions(card, i)}
+                         >
+                    {cardDetail ?
+                      <Card card={Object.assign({index: card.index}, cardDetail)} /> :
+                      <CardBasic card={card} />
+                    }
+                  </a>
+                })}
+            </Transition>
           </div>
         )
       }
@@ -343,7 +361,7 @@ class Card extends Component {
     if (card.type === "hero") {
       return (
         <div className="card">
-          <span className="cardName">{card.name}</span>
+          <span className="cardName">{card.name} {card.index}</span>
           <span className="cardDescription">{card.description}</span>
           <div className="footer">
             <span>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
