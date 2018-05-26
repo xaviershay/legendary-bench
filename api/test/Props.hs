@@ -57,6 +57,14 @@ instance Arbitrary PlayerId where
   shrink = genericShrink
   arbitrary = PlayerId <$> arbitrary
 
+instance Arbitrary HeroTeam where
+  shrink = genericShrink
+  arbitrary = HeroTeam <$> arbitrary
+
+instance Arbitrary HeroType where
+  shrink = genericShrink
+  arbitrary = HeroType <$> arbitrary
+
 instance Arbitrary CardId where
   shrink = genericShrink
   arbitrary = CardId <$> arbitrary
