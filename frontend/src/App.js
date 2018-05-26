@@ -331,8 +331,8 @@ class Player extends Component {
         <div className="playerRow">
           <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
           <div className="workingArea">
-            <Location cards={cardsAt("played")} title="Played" />
             <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
+            <Location cards={cardsAt("played")} title="Played" />
           </div>
           <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
           <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
