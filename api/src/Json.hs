@@ -24,7 +24,7 @@ showLocation = \case
       HQ -> "hq"
       KO -> "ko"
       HeroDeck -> "hero-deck"
-      VillianDeck -> "villian-deck"
+      VillainDeck -> "villian-deck"
       City i -> "city-" <> showT i
       Escaped -> "escaped"
       PlayerLocation (PlayerId id) location -> "player-"

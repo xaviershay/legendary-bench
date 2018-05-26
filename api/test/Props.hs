@@ -37,7 +37,7 @@ setVisibilities (l:ls) = f l:setVisibilities ls
     f (l, cs) = (l, fmap (\c -> CardInPlay c (defaultVisibilityFor l)) cs)
 
 defaultVisibilityFor HeroDeck = Hidden
-defaultVisibilityFor VillianDeck = Hidden
+defaultVisibilityFor VillainDeck = Hidden
 defaultVisibilityFor (PlayerLocation _ PlayerDeck) = Hidden
 defaultVisibilityFor _ = All
 
@@ -81,7 +81,7 @@ instance Arbitrary Location where
               [ pure HQ
               , pure KO
               , pure HeroDeck
-              , pure VillianDeck
+              , pure VillainDeck
               , City <$> elements [0..4]
               , pure Escaped
               , pure Boss
@@ -124,7 +124,7 @@ instance Arbitrary Action where
           sub = f (n `div` 2)
 
 genCards :: Location -> Gen (S.Seq Card)
-genCards VillianDeck = S.fromList <$> listOf genEnemy
+genCards VillainDeck = S.fromList <$> listOf genEnemy
 genCards _ = S.fromList <$> listOf genHero
 
 genHero = do
@@ -151,7 +151,7 @@ genLocation ps = oneof
   [ pure HQ
   , pure KO
   , pure HeroDeck
-  , pure VillianDeck
+  , pure VillainDeck
   , City <$> elements [0..4]
   , pure Escaped
   , pure Boss

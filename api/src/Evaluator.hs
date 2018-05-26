@@ -107,7 +107,7 @@ apply ActionPrepareGame = do
 
   apply . ActionTagged "Prepare game" $
              preparePlayers
-          <> (mconcat $ fmap ActionShuffle [HeroDeck, VillianDeck])
+          <> (mconcat $ fmap ActionShuffle [HeroDeck, VillainDeck])
           <> ActionStartTurn
 
   where
@@ -138,7 +138,7 @@ apply ActionStartTurn = do
 
   withBoard board $ do
     board' <- apply $
-                revealAndMove (VillianDeck, 0) (City 0) Front
+                revealAndMove (VillainDeck, 0) (City 0) Front
 
     withBoard board' $ apply (ActionPlayerTurn pid)
 

@@ -9,7 +9,7 @@ import GameMonad
 import Evaluator
 
 villianCard = EnemyCard
-  { _enemyName = "Villian"
+  { _enemyName = "Villain"
   , _baseHealth = 3
   }
 

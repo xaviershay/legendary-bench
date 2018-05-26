@@ -30,7 +30,7 @@ mkGame g = Game
         [ (PlayerLocation (PlayerId 0) PlayerDeck, fmap hideCard mkPlayerDeck)
         , (HQ, S.fromList [mkCardInPlay spideyCard All])
         , (HeroDeck, S.fromList [mkCardInPlay spideyCard Hidden])
-        , (VillianDeck, S.fromList (replicate 30 (mkCardInPlay villianCard Hidden)))
+        , (VillainDeck, S.fromList (replicate 30 (mkCardInPlay villianCard Hidden)))
         ]
     }
   }

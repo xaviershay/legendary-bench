@@ -42,7 +42,7 @@ data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | KO
   | HeroDeck
-  | VillianDeck
+  | VillainDeck
   | City Int
   | Escaped
   | Boss
@@ -230,7 +230,7 @@ cardDictionary board =
     allLocations board =
       let playerIds = [0 .. (S.length . view players $ board) - 1] in
 
-         [HQ, HeroDeck, VillianDeck, Escaped, Boss]
+         [HQ, HeroDeck, VillainDeck, Escaped, Boss]
       <> allCityLocations
       <> concatMap allPlayerLocations playerIds
 
