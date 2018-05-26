@@ -45,8 +45,8 @@ class App extends Component {
     return (
       <CardsContext.Provider value={this.state.cards}>
         <div className="App">
-          <Board board={board} />
           <Log log={log} />
+          <Board board={board} />
         </div>
       </CardsContext.Provider>
     );
@@ -147,8 +147,6 @@ function lookupLogComponent(type) {
   return x
 }
 
-
-
 class Log extends Component {
   render() {
     let log = this.props.log;
@@ -169,9 +167,9 @@ class Log extends Component {
 
 function statusMessage(board) {
   if (board.state.tag === "lost") {
-    return <p className="lost">Game Lost: {board.state.status}</p>
+    return <p className="status lost">Game Lost: {board.state.status}</p>
   } else if (board.state.tag === "waiting") {
-    return <p className="waiting">{board.state.description}</p>
+    return <p className="status waiting">{board.state.description}</p>
   } else {
     return null;
   }
@@ -221,30 +219,34 @@ class Board extends Component {
 
     return (
       <div className='board'>
-        {statusMessage(board)}
-        <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
-      <form>
-        {board.players.map((p) => <div key={p.id}>
-          <label>
-          <input
-            name='acting'
-            type='radio'
-            checked={this.state.actingAs === p.id}
-            onChange={this.handleActingChange}
-            value={p.id}
-            disabled={this.state.tracking}
-          /> Player {p.id}
-          </label>
-        </div>)}
-        <label>
-          <input
-            name='tracking'
-            type='checkbox'
-            checked={this.state.tracking}
-            onChange={this.handleTrackingChange}
-          /> Track current player
-        </label>
-      </form>
+        <div class='boardHeader'>
+          {statusMessage(board)}
+          <div>
+          <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
+          <form>
+            {board.players.map((p) => <div key={p.id}>
+              <label>
+              <input
+                name='acting'
+                type='radio'
+                checked={this.state.actingAs === p.id}
+                onChange={this.handleActingChange}
+                value={p.id}
+                disabled={this.state.tracking}
+              /> Player {p.id}
+              </label>
+            </div>)}
+            <label>
+              <input
+                name='tracking'
+                type='checkbox'
+                checked={this.state.tracking}
+                onChange={this.handleTrackingChange}
+              /> Track current player
+            </label>
+          </form>
+          </div>
+        </div>
         <div className='boardRow'>
           <Location cards={board.cards["villian-deck"]} title="Villian Deck"
             layout="stacked" />
@@ -326,9 +328,11 @@ class Player extends Component {
 
     return (
       <div>
-        <h2>Player {id}</h2>
-        <p>{resources.attack} Attack, {resources.money} Money</p>
         <div className="playerRow">
+          <div>
+            <h4>Player {id}</h4>
+            <p>{resources.attack} Attack<br/>{resources.money} Money</p>
+          </div>
           <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
           <div className="workingArea">
             <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
@@ -340,6 +344,12 @@ class Player extends Component {
       </div>
     )
   }
+}
+
+function lookupCard(cardDb, templateId) {
+  let card = cardDb[templateId];
+
+  return card;
 }
 
 class Location extends Component {
@@ -359,7 +369,7 @@ class Location extends Component {
 
       if (layout === "stacked") {
         if (cards.length > 0) {
-          let cardDetail = cards[0].visible ? cardDb[cards[0].name] : null
+          let cardDetail = cards[0].visible ? lookupCard(cardDb, cards[0].templateId) : null
           if (cardDetail) {
             cardRender = (
               <div>
@@ -382,7 +392,7 @@ class Location extends Component {
         cardRender = (
           <div className={"location-" + layout}>
             {cards.map((c, i) => {
-              let cardDetail = c.visible ? cardDb[c.name] : null
+              let cardDetail = c.visible ? lookupCard(cardDb, c.templateId) : null
 
               return <a className="cardLink" href='#x' onClick={actions(c, i)} key={i}>
                 {cardDetail ? <Card card={cardDetail} /> : <CardBasic card={c} />}
@@ -394,7 +404,7 @@ class Location extends Component {
 
       return (
         <div className='cardLocation'>
-          <h3>{title}</h3>
+          <h4>{title}</h4>
           {cardRender}
         </div>
       )
@@ -407,13 +417,15 @@ class Card extends Component {
     const card = this.props.card;
 
     if (card.type === "hero") {
+      /* Some weird name/ablity logic here to deal with S.H.E.I.L.D cards */
       return (
-        <div className="card">
-          <span className="cardName">{card.name}</span>
+        <div className={"card ability-type-" + card.heroAbilityType}>
+          <span className="cardName">{card.ability !== "" ? card.ability : card.name}</span>
+          {card.ability !== "" && <span className="heroName">{card.name}</span>}
           <span className="cardDescription">{card.description}</span>
           <div className="footer">
-            <span>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
-            <span>{card.cost > 0 ? "$" + card.cost : ""}</span>
+            <span className={card.baseMoney > 0 ? "cardMoney" : "cardAttack"}>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
+            <span className="cardCost">{card.cost > 0 ? "$" + card.cost : ""}</span>
           </div>
 
         </div>

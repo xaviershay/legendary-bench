@@ -46,8 +46,8 @@ genBoard g playerCount = evalState a 1
         board
 
 mkHeroDeck =
-  sequence . fmap (mkCardInPlay Hidden) $
-    S.replicate 30 spideyCard
+  sequence . fmap (mkCardInPlay Hidden) .
+    S.fromList . mconcat . replicate 30 $ spidermanCards
 
 mkVillainDeck =
   sequence . fmap (mkCardInPlay Hidden) $

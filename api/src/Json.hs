@@ -93,10 +93,16 @@ instance ToJSON GameState where
 
 instance ToJSON SummableInt
 
+instance ToJSON HeroType
+instance ToJSON HeroTeam
+
 instance ToJSON Card where
   toJSON c@HeroCard{} = object
     [ "type" .= view cardType c
-    , "name" .= view cardName c
+    , "name" .= view heroName c
+    , "ability" .= view heroAbilityName c
+    , "team"    .= view heroTeam c
+    , "heroAbilityType"    .= view heroType c
     , "cost" .= view heroCost c
     , "baseMoney"  .= baseResource extractMoney c
     , "baseAttack" .= baseResource extractAttack c
@@ -145,8 +151,12 @@ instance ToJSON CardInPlay where
         , "visible" .= visible
         , "id"      .= view cardId card
         ] <>
-        [ "name" .= view cardName template | visible == All
-        ]
+        if visible == All then
+          [ "name"       .= view cardName template
+          , "templateId" .= view (cardTemplate . templateId) card
+          ]
+        else
+          []
 
 instance ToJSON PlayerChoice
 

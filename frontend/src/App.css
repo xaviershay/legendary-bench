@@ -5,20 +5,26 @@
 }
 
 .board {
-  width: 1200px;
+  margin-left: 1em;
 }
 
 .cardDescription {
   padding-top: 0.5em;
-  font-size: 8pt;
   overflow: hidden; 
+  flex-grow: 1;
+}
+
+.boardHeader {
+  display: flex;
+  flex-direction: row;
 }
 
 .logContainer {
-  margin-left: 1em;
-  width: 400px;
+  display: none;
+  min-width: 400px;
   background-color: #dddddd;
-  padding: 1em;
+  padding-left: 1em;
+  padding-right: 1em;
 }
 
 .lost {
@@ -33,6 +39,15 @@
   color: white;
   font-weight: bold;
   padding: 1em;
+}
+
+.status {
+  flex-grow: 1;
+  margin-right: 1em;
+}
+
+h4 {
+  white-space: nowrap;
 }
 
 .boardRow {
@@ -80,15 +95,43 @@
   box-sizing: border-box;
   margin-right: 10px;
   display: flex;
-  width: 100px;
-  height: 150px;
+  width: 150px;
+  height: 200px;
   border: solid 1px black;
-  padding: 0.5em;
+  padding: 10px;
   color: black;
   text-decoration: none;
   font-size: 10pt;
   flex-direction: column;
   justify-content: space-between;
+  font-size: 8pt;
+  background-color: #fafafa;
+}
+
+.ability-type-Instinct {
+  background-color: #feeeee;
+}
+
+.ability-type-Strength {
+  background-color: #eefeee;
+}
+
+.footer {
+  font-size: 10pt;
+}
+.cardMoney {
+  color: gold
+}
+.cardAttack {
+  color: red
+}
+.cardName {
+  font-weight: bold;
+  text-align: center;
+}
+.heroName {
+  font-style: italic;
+  text-align: center;
 }
 
 .footer {

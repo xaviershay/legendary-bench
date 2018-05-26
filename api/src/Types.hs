@@ -37,6 +37,12 @@ data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enu
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
   deriving (Show, Generic, Eq, Enum, Bounded)
 
+newtype HeroType = HeroType T.Text
+  deriving (Show, Generic, Eq, Monoid)
+
+newtype HeroTeam = HeroTeam T.Text
+  deriving (Show, Generic, Eq, Monoid)
+
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | KO
@@ -51,6 +57,9 @@ newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 
 data Card = HeroCard
   { _heroName   :: T.Text
+  , _heroAbilityName :: T.Text
+  , _heroType :: HeroType
+  , _heroTeam :: HeroTeam
   , _playEffect :: Effect
   , _heroCost   :: SummableInt
   } | EnemyCard
@@ -189,10 +198,10 @@ makeLenses ''Card
 makeLenses ''Resources
 makeLenses ''Game
 
--- This instance is used for anything substantial, it's just needed for some
--- lens derivation (which we ultimately don't rely on)
 instance Eq Card where
-  a == b = view cardType a == view cardType b && view cardName a == view cardName b
+  a == b =
+    view cardType a == view cardType b &&
+    view templateId a == view templateId b
 
 instance Eq CardInPlay where
   a == b = view cardId a == view cardId b
@@ -249,6 +258,15 @@ cardType = lens getter setter
   where
     getter c@HeroCard{} = view (to (const "hero")) c
     getter c@EnemyCard{} = view (to (const "enemy")) c
+
+    -- TODO: In theory should be able to define a Getter but I couldn't figure
+    -- it out.
+    setter = undefined
+
+templateId :: Lens' Card T.Text
+templateId = lens getter setter
+  where
+    getter c = view cardName c <> "/" <> view heroAbilityName c
 
     -- TODO: In theory should be able to define a Getter but I couldn't figure
     -- it out.

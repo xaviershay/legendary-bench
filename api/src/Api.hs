@@ -98,7 +98,8 @@ getCards gameId = do
     State{game = gvar} <- ask
     g <- liftIO . atomically . readTVar $ gvar
 
-    return . M.fromList . fmap (\c -> (view cardName c, c)) $
+    return . M.fromList . fmap
+      (\c -> (view templateId c, c)) $
       (cardDictionary . view gameState $ g)
 
 handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
