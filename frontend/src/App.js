@@ -220,7 +220,6 @@ class Board extends Component {
     return (
       <div className='board'>
         <div class='boardHeader'>
-          {statusMessage(board)}
           <div>
           <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
           <form>
@@ -246,6 +245,7 @@ class Board extends Component {
             </label>
           </form>
           </div>
+          {statusMessage(board)}
         </div>
         <div className='boardRow'>
           <Location cards={board.cards["villian-deck"]} title="Villian Deck"
