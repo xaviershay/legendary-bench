@@ -147,6 +147,9 @@ genHero = do
   return $ HeroCard
     { _heroName = name
     , _heroCost = cost
+    , _heroAbilityName = mempty
+    , _heroType = mempty
+    , _heroTeam = mempty
     , _playEffect = effect
     }
 

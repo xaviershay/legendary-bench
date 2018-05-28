@@ -8,9 +8,11 @@ import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
+import Data.Foldable (find)
 import qualified Data.Sequence        as S
 import Data.Sequence ((<|), (|>), Seq((:<|), Empty))
 import qualified Data.Text            as T
+import Data.Maybe (catMaybes)
 
 import Debug.Trace
 
@@ -41,6 +43,7 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
                      $ board
 
   where
+    insertF Back = flip (|>)
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
 
@@ -138,16 +141,35 @@ apply ActionStartTurn = do
   pid <- currentPlayer
 
   tag (playerDesc pid <> " turn start") $ do
-    board <- moveCity
-              ActionStartTurn
-              (City 0)
-              mempty
+    let topCard = (VillainDeck, 0)
+    nextCard <- lookupCard topCard
 
-    withBoard board $ do
-      board' <- apply $
-                  revealAndMove (VillainDeck, 0) (City 0) Front
+    case view cardTemplate <$> nextCard of
+      Nothing -> lose "Draw! No more villians."
+      Just BystanderCard -> do
+        board <- currentBoard
+        let nearestVillain = find
+                               (villainAtLocation board)
+                               allCityLocations
 
-      withBoard board' $ apply (ActionPlayerTurn pid)
+        let action = case nearestVillain of
+                       Just location -> revealAndMove topCard location Back
+
+                       -- TODO: Move to mastermind
+                       Nothing       -> revealAndMove topCard KO Front
+
+        apply $ action <> ActionPlayerTurn pid
+
+      Just EnemyCard{} -> do
+        (board, effect) <- moveCity (City 0) mempty
+
+        withBoard board . apply $
+             effect
+          <> revealAndMove (VillainDeck, 0) (City 0) Front
+          <> ActionPlayerTurn pid
+  where
+    villainAtLocation board l =
+      not . null . view (cardsAtLocation l) $ board
 
 apply (ActionTagged reason action) = tag reason (apply action)
 
@@ -210,48 +232,73 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 apply a@(ActionLose reason) = lose reason
 apply (ActionHalt a reason) = wait a reason
 
-moveCity :: Action -> Location -> S.Seq CardInPlay -> GameMonad Board
-moveCity a Escaped incoming =
-  case incoming of
-    (card :<| other) -> case view cardTemplate card of
-                          EnemyCard{} -> applyChoices villainEscaped
-                          _ -> lose "Unhandled incoming in Escaped handler"
-    _                -> lose "No incoming cards in Escaped handler"
-
+apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where
-    haltAction = do
+    discardSelection (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _)
+      | pid == pid' = do
+        card <- requireCard location
+
+        return $ MoveCard location (PlayerLocation pid Discard) Front
+    discardSelection _ = return . ActionHalt a $
+      playerDesc pid <> ": select a card in hand to discard"
+
+apply ActionKOHero = applyChoices koHero
+  where
+    koHero (ChooseCard location@(HQ, i) :<| _) = do
+      pid   <- currentPlayer
+      valid <- checkCondition (ConditionCostLTE location 6)
+
+      return $ if valid then
+             MoveCard location KO Front
+          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+      else
+        ActionHalt ActionKOHero $
+          playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
+    koHero _ = do
       pid <- currentPlayer
 
-      return . ActionHalt a $
+      return . ActionHalt ActionKOHero $
         playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
 
-    villainEscaped (ChooseCard location@(HQ, i) :<| _) = do
-      elseAction <- haltAction
+moveCity :: Location -> S.Seq CardInPlay -> GameMonad (Board, Action)
+moveCity Escaped incoming =
+  case incoming of
+    (card :<| other) -> case view cardTemplate card of
+                          EnemyCard{} -> do
+                            board <- currentBoard
+                            pid <- currentPlayer
 
-      -- TODO: Handle case where no cards matching criteria are in HQ
-      return $ ActionIf
-        (ConditionCostLTE location 6)
-          (  MoveCard location KO Front
-          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
-          )
-        elseAction
-    villainEscaped _ = haltAction
+                            let discardAction = mconcat . toList $
+                                                  fmap (ActionDiscard . view playerId) (view players board)
 
-moveCity a location@(City i) incoming = do
+                            return $ (board, ActionKOHero <> discardAction)
+                          _ -> loseWithEffect "Unhandled incoming in Escaped handler"
+    _                -> loseWithEffect "No incoming cards in Escaped handler"
+
+  where
+    loseWithEffect reason = do
+      board <- lose reason
+
+      return (board, ActionNone)
+
+moveCity location@(City i) incoming = do
   cardsHere <- view (cardsAtLocation location) <$> currentBoard
 
   let recurse = not . S.null $ cardsHere
   let nextLocation = nextL location
 
-  board <- if recurse then
-             moveCity a nextLocation cardsHere
-           else
-             currentBoard
+  (board, effect) <- if recurse then
+                       moveCity nextLocation cardsHere
+                     else
+                       do
+                         board <- currentBoard
 
-  return $ moveAllFrom
+                         return (board, ActionNone)
+
+  return $ (moveAllFrom
              (cardsAtLocation location)
              (cardsAtLocation nextLocation)
-             board
+             board, effect)
 
   where
     nextL (City 4) = Escaped
@@ -346,13 +393,18 @@ clearChoices =
   set playerChoices mempty
 
 applyChoices f = do
-  choices <- currentPlayerChoices
+  pid <- currentPlayer
+
+  applyChoicesFor pid f
+
+applyChoicesFor pid f = do
+  choices <- view (playerChoices . at pid . non mempty) <$> currentBoard
+
   a' <- f choices
   clearAndApply a'
 
   where
     clearAndApply action = do
-      playerId <- currentPlayer
       board' <- clearChoices <$> currentBoard
 
       withBoard board' . apply $ action

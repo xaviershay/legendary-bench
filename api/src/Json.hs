@@ -113,6 +113,9 @@ instance ToJSON Card where
     , "name" .= view cardName c
     , "health" .= view baseHealth c
     ]
+  toJSON c@BystanderCard = object
+    [ "type" .= view cardType c
+    ]
 
 instance ToJSON Game where
   toJSON game = object
@@ -174,6 +177,7 @@ instance ToJSON Visibility
 
 instance ToJSON MoveDestination where
   toJSON Front = "front"
+  toJSON Back = "back"
   toJSON (LocationIndex i) = toJSON i
 
 instance ToJSON Action where

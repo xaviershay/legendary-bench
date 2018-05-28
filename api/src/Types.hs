@@ -30,7 +30,7 @@ type GameHalt = (Board, Action)
 type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Action) Identity))) a
 
 type SpecificCard = (Location, Int)
-data MoveDestination = Front | LocationIndex Int deriving (Show, Generic)
+data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
@@ -65,7 +65,7 @@ data Card = HeroCard
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: SummableInt
-  }
+  } | BystanderCard
 
   deriving (Show, Generic)
 
@@ -170,7 +170,11 @@ data Action =
   ActionPlayerTurn PlayerId |
   ActionStartTurn |
   ActionPrepareGame |
-  ActionEndTurn
+  ActionEndTurn |
+
+  -- TODO: Think through these cases more
+  ActionKOHero |
+  ActionDiscard PlayerId
 
   deriving (Generic)
 
@@ -242,26 +246,28 @@ cardDictionary board =
       <> allCityLocations
       <> concatMap allPlayerLocations playerIds
 
-    allCityLocations = City <$> [0..4]
     allPlayerLocations playerId =
       PlayerLocation (PlayerId playerId) <$> [(minBound :: ScopedLocation)..]
+
+allCityLocations = City <$> [0..4]
 
 cardName = lens getter setter
   where
     getter c@HeroCard{} = view heroName c
     getter c@EnemyCard{} = view enemyName c
+    getter c@BystanderCard = view (to (const "Bystander")) c
 
     setter c@HeroCard{} x = set heroName x c
     setter c@EnemyCard{} x = set enemyName x c
+    setter c@BystanderCard x = c
 
 cardType = lens getter setter
   where
-    getter c@HeroCard{} = view (to (const "hero")) c
-    getter c@EnemyCard{} = view (to (const "enemy")) c
+    getter c@HeroCard{} = "hero"
+    getter c@EnemyCard{} = "enemy"
+    getter c@BystanderCard = "bystander"
 
-    -- TODO: In theory should be able to define a Getter but I couldn't figure
-    -- it out.
-    setter = undefined
+    setter c = const c
 
 templateId :: Lens' Card T.Text
 templateId = lens getter setter

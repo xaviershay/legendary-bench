@@ -51,7 +51,8 @@ mkHeroDeck =
 
 mkVillainDeck =
   sequence . fmap (mkCardInPlay Hidden) $
-    S.replicate 30 villianCard
+    S.replicate 30 villianCard <> S.replicate 30 BystanderCard
+
 
 mkPlayerDeck =
   sequence . fmap (mkCardInPlay Hidden) $
