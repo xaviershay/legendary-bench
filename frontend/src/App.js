@@ -252,14 +252,20 @@ class Board extends Component {
             layout="stacked" />
           <div className='city'>
             <Location cards={board.cards["city-0"]} title="Sewers"
+              layout="stacked"
               actions={attackActions(currentPlayer, 0)} />
             <Location cards={board.cards["city-1"]} title="Bank"
+              layout="stacked"
               actions={attackActions(currentPlayer, 1)}  />
             <Location cards={board.cards["city-2"]} title="Rooftops"
-              actions={attackActions(currentPlayer, 2)} />
+              layout="stacked"
+              actions={attackActions(currentPlayer, 2)}
+            />
             <Location cards={board.cards["city-3"]} title="Streets"
+              layout="stacked"
               actions={attackActions(currentPlayer, 3)}  />
             <Location cards={board.cards["city-4"]} title="Bridge"
+              layout="stacked"
               actions={attackActions(currentPlayer, 4)} />
           </div>
           <Location cards={board.cards["escaped"]} title="Escaped"
@@ -444,6 +450,19 @@ class Card extends Component {
           </div>
         </div>
       )
+    } else if (card.type === "bystander") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">Bystander</span>
+            <span className="cardDescription"></span>
+            <div className="footer">
+            </div>
+          </div>
+        </div>
+      )
+    } else {
+      throw "Unknown card type: " + card.type
     }
   }
 }
