@@ -44,13 +44,16 @@ test_ConcurrentAction =
         result = runGameMonad mkBoard $ apply action
 
     concurrentTest2 = testCase "Halts if any actions halt, but applies other actions" $
-      (ActionConcurrent [tracer "a"], [tracer "b"])  @=? (resume, appliedAction)
+      ( ActionConcurrent [tracer "a", tracer "c"]
+      , [tracer "b"]
+      , WaitingForChoice "a, c"
+      )  @=? (resume, appliedAction, state)
       where
+        state = view boardState result
         resume = view currentAction result
         appliedAction = toList $ view actionLog result
         result = runGameMonad mkBoard $ apply action
-        action = ActionConcurrent [halt "a", tracer "b"]
-
+        action = ActionConcurrent [halt "a", tracer "b", halt "c"]
 
 test_DrawFromEmpty =
   testGroup "Drawing from empty deck shuffles in discard"

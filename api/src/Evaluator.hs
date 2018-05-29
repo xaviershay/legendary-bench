@@ -246,9 +246,9 @@ apply (ActionConcurrent as) = do
   -- it in the list of actions and halt with ActionConcurrent.
   board <- currentBoard
 
-  (board', as') <- foldM f (board, []) as
+  (board, haltInfo) <- foldM f (board, []) as
 
-  if null as' then
+  if null haltInfo then
     -- A player may have set choices without having a blocking action, we don't
     -- want those choices to persist through to whatever the next action might
     -- be. Hence, clear them. For any feature like allowing for play choices
@@ -257,9 +257,10 @@ apply (ActionConcurrent as) = do
     -- choices, and we don't want a player discarding something they had
     -- intended to play.  (Another option would be to scope choices to a phase,
     -- but that's not a concept we've reified right now.)
-    return $ clearChoices board'
+    return $ clearChoices board
   else
-    throwError (board', ActionConcurrent as')
+    let (as', messages) = unzip . reverse $ haltInfo in
+    throwError (set boardState (mconcat messages) board, ActionConcurrent as')
 
   where
     f (board, as) a = do
@@ -269,7 +270,7 @@ apply (ActionConcurrent as) = do
         return (board', as)) `catchError` handler
 
       where
-        handler (b, e) = return (b, e:as)
+        handler (b, e) = return (b, (e, view boardState b):as)
 
 apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where

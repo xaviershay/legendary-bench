@@ -102,6 +102,16 @@ type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
 data GameState = WaitingForChoice T.Text | Preparing | Won | Lost T.Text deriving (Show, Generic, Eq)
 
+instance Monoid GameState where
+  mempty = Preparing
+  mappend _ Won = Won
+  mappend Won _ = Won
+  mappend (Lost x) _ = Lost x
+  mappend _ (Lost x) = Lost x
+  mappend a Preparing = a
+  mappend Preparing b = b
+  mappend (WaitingForChoice x) (WaitingForChoice y) = WaitingForChoice $ x <> ", " <> y
+
 data Player = Player
   { _resources :: Resources
   , _playerId :: PlayerId
