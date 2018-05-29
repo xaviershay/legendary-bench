@@ -30,7 +30,7 @@ runGameMonad' board m =
 currentBoard :: GameMonad Board
 currentBoard = asks _board
 
-withBoard :: Board -> GameMonad Board -> GameMonad Board
+withBoard :: Board -> GameMonad a -> GameMonad a
 withBoard board m = do
   let state = GameMonadState { _board = board }
 

@@ -27,6 +27,30 @@ buildCard template vis = CardInPlay
   , _cardId = CardId 0
   }
 
+test_ConcurrentAction =
+  testGroup "Concurrent action"
+    [ concurrentTest1
+    , concurrentTest2
+    ]
+
+tracer x = ActionTagged x ActionNone
+haltAction x = ActionHalt ActionNone x
+
+concurrentTest1 = testCase "Applys all actions" $
+  [tracer "a", tracer "b"]  @=? appliedAction
+  where
+    appliedAction = toList $ view actionLog result
+    result = runGameMonad mkBoard $ apply action
+    action = ActionConcurrent [tracer "a", tracer "b"]
+
+concurrentTest2 = testCase "Halts if any actions halt, but applies other actions" $
+  (ActionConcurrent [ActionNone], [tracer "b"])  @=? (resume, appliedAction)
+  where
+    appliedAction = toList $ view actionLog result
+    result = runGameMonad mkBoard $ apply action
+    action = ActionConcurrent [haltAction "a", tracer "b"]
+    resume = view currentAction result
+
 
 test_DrawFromEmpty =
   testGroup "Drawing from empty deck shuffles in discard"

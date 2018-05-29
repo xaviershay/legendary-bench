@@ -6,6 +6,7 @@ module Evaluator where
 
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
+import Control.Monad (foldM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
 import Data.Foldable (find)
@@ -232,6 +233,33 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 apply a@(ActionLose reason) = lose reason
 apply (ActionHalt a reason) = wait a reason
 
+apply (ActionConcurrent as) = do
+  -- Each action will return a board, and optionally halt.
+  -- If it halts, keep it in the list of actions and halt with ActionConcurrent
+  -- If it doesn't halt, remove from list
+  --
+  -- Need to fold to thread returned board through each subsequenct action
+  --   Initial state: (board, [])
+  --   Desired output: board, [Action]. If actions non-empty, halt.
+  board <- currentBoard
+
+  (board', as') <- foldM f (board, []) as
+
+  if null as' then
+    return board'
+  else
+    throwError (board', ActionConcurrent as') -- TODO: Combine statuses?
+
+  where
+    f (board, as) a = do
+      withBoard board (do
+        board' <- apply a
+
+        return (board', as)) `catchError` handler
+
+      where
+        handler (b, e) = return (b, e:as)
+
 apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where
     discardSelection (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _)
@@ -239,7 +267,7 @@ apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
         card <- requireCard location
 
         return $ MoveCard location (PlayerLocation pid Discard) Front
-    discardSelection _ = return . ActionHalt a $
+    discardSelection cs = return . ActionHalt a $
       playerDesc pid <> ": select a card in hand to discard"
 
 apply ActionKOHero = applyChoices koHero
@@ -268,7 +296,7 @@ moveCity Escaped incoming =
                             board <- currentBoard
                             pid <- currentPlayer
 
-                            let discardAction = mconcat . toList $
+                            let discardAction = ActionConcurrent . toList $
                                                   fmap (ActionDiscard . view playerId) (view players board)
 
                             return $ (board, ActionKOHero <> discardAction)
@@ -392,6 +420,9 @@ currentPlayerChoices = do
 clearChoices =
   set playerChoices mempty
 
+clearChoicesFor pid =
+  set (playerChoices . at pid) mempty
+
 applyChoices f = do
   pid <- currentPlayer
 
@@ -405,7 +436,7 @@ applyChoicesFor pid f = do
 
   where
     clearAndApply action = do
-      board' <- clearChoices <$> currentBoard
+      board' <- clearChoicesFor pid <$> currentBoard
 
       withBoard board' . apply $ action
 
@@ -421,7 +452,7 @@ tag message m = do
   let (board', actions) = runGameMonad' board m
 
   case mconcat . toList $ actions of
-    ActionNone   -> return ()
+    --ActionNone   -> return ()
     foldedAction -> logAction (ActionTagged message foldedAction)
 
   return board'
