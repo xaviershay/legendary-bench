@@ -1,18 +1,23 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes        #-}
 
-module Evaluator where
+module Evaluator
+  ( apply
+  , lookupCard
+  )
+  where
 
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
+import           Control.Monad        (foldM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
-import Data.Foldable (find)
+import           Data.Foldable        (find)
+import           Data.Maybe           (catMaybes)
+import           Data.Sequence        (Seq ((:<|), Empty), (<|), (|>))
 import qualified Data.Sequence        as S
-import Data.Sequence ((<|), (|>), Seq((:<|), Empty))
 import qualified Data.Text            as T
-import Data.Maybe (catMaybes)
 
 import Debug.Trace
 
@@ -85,6 +90,10 @@ apply (ActionCombine a b) = do
 
   where
     handler (board, action) = throwError (board, ActionCombine action b)
+
+apply a@(ActionTrace _) = do
+  logAction a
+  currentBoard
 
 apply a@(ActionShuffle location) = do
   board <- currentBoard
@@ -232,6 +241,36 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 apply a@(ActionLose reason) = lose reason
 apply (ActionHalt a reason) = wait a reason
 
+apply (ActionConcurrent as) = do
+  -- Each action will return a board, and optionally halt. If it halts, keep
+  -- it in the list of actions and halt with ActionConcurrent.
+  board <- currentBoard
+
+  (board', as') <- foldM f (board, []) as
+
+  if null as' then
+    -- A player may have set choices without having a blocking action, we don't
+    -- want those choices to persist through to whatever the next action might
+    -- be. Hence, clear them. For any feature like allowing for play choices
+    -- before their turn, most likely want to implement that on the client.
+    -- It's unknown whether any effect will interrupt that would overload those
+    -- choices, and we don't want a player discarding something they had
+    -- intended to play.  (Another option would be to scope choices to a phase,
+    -- but that's not a concept we've reified right now.)
+    return $ clearChoices board'
+  else
+    throwError (board', ActionConcurrent as')
+
+  where
+    f (board, as) a = do
+      withBoard board (do
+        board' <- apply a
+
+        return (board', as)) `catchError` handler
+
+      where
+        handler (b, e) = return (b, e:as)
+
 apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where
     discardSelection (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _)
@@ -268,7 +307,7 @@ moveCity Escaped incoming =
                             board <- currentBoard
                             pid <- currentPlayer
 
-                            let discardAction = mconcat . toList $
+                            let discardAction = ActionConcurrent . toList $
                                                   fmap (ActionDiscard . view playerId) (view players board)
 
                             return $ (board, ActionKOHero <> discardAction)
@@ -392,6 +431,9 @@ currentPlayerChoices = do
 clearChoices =
   set playerChoices mempty
 
+clearChoicesFor pid =
+  set (playerChoices . at pid) mempty
+
 applyChoices f = do
   pid <- currentPlayer
 
@@ -405,7 +447,7 @@ applyChoicesFor pid f = do
 
   where
     clearAndApply action = do
-      board' <- clearChoices <$> currentBoard
+      board' <- clearChoicesFor pid <$> currentBoard
 
       withBoard board' . apply $ action
 

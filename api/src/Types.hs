@@ -30,7 +30,7 @@ type GameHalt = (Board, Action)
 type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Action) Identity))) a
 
 type SpecificCard = (Location, Int)
-data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic)
+data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic, Eq)
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
@@ -153,7 +153,7 @@ data PlayerChoice =
   deriving (Show, Generic, Eq)
 
 data Condition =
-  ConditionCostLTE SpecificCard Int deriving (Show, Generic)
+  ConditionCostLTE SpecificCard Int deriving (Show, Generic, Eq)
 
 data Action =
   ActionNone |
@@ -165,6 +165,8 @@ data Action =
   ActionIf Condition Action Action |
   ActionHalt Action T.Text |
   ActionTagged T.Text Action |
+  ActionTrace T.Text |
+  ActionConcurrent [Action] |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -176,20 +178,7 @@ data Action =
   ActionKOHero |
   ActionDiscard PlayerId
 
-  deriving (Generic)
-
-instance Show Action where
-  show ActionNone = "None"
-  show ActionStartTurn = "Turn Start"
-  show ActionEndTurn = "Turn End"
-  show (ActionPlayerTurn pid) = "Player turn: " <> show pid
-  show (ActionLose s) = "Lose: " <> T.unpack s
-  show (ActionCombine a b) = show a <> "\n" <> show b
-  show (ActionShuffle location) = "Shuffle: " <> show location
-  show (MoveCard specificCard to dest) = "Move: " <> show specificCard <> " to " <> show to <> "/" <> show dest
-  show (RevealCard specificCard vis) = "Reveal: " <> show specificCard <> " = " <> show vis
-
-  show _ = "Some Action"
+  deriving (Generic, Eq, Show)
 
 instance Monoid Action where
   mempty = ActionNone
