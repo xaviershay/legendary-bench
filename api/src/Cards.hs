@@ -63,17 +63,12 @@ spidermanCards =
   ]
 
 
-spideyAction :: GameMonad Action
-spideyAction = do
-  playerId <- currentPlayer
-
-  let location = (PlayerLocation playerId PlayerDeck, 0)
-
-  card <- lookupCard location
-
-  return $
-       RevealCard location All
-    <> ActionIf
-         (ConditionCostLTE location 2)
-         (drawAction 1 playerId)
-         mempty
+spideyAction :: Action
+spideyAction =
+  let location = (PlayerLocation CurrentPlayer PlayerDeck, 0) in
+  ( RevealCard location All
+  <> ActionIf
+       (ConditionCostLTE location 2)
+       (drawAction 1 CurrentPlayer)
+       mempty
+  )

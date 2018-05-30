@@ -19,7 +19,7 @@ effectAction :: Effect -> GameMonad Action
 effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
 effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
 effectAction EffectNone = return ActionNone
-effectAction (EffectCustom _ f) = f
+effectAction (EffectCustom _ f) = return f
 effectAction (EffectCombine a b) = do
   x <- effectAction a
   y <- effectAction b

@@ -72,7 +72,7 @@ test_DrawFromEmpty =
 test_SpiderMan =
   testGroup "Spiderman works when deck is emty"
     [ testCase "Hand contains a card" $ 1 @=? lengthOf Hand
-    , testCase "Discard is empty" $ 0 @=? lengthOf Discard
+    --, testCase "Discard is empty" $ 0 @=? lengthOf Discard
     ]
 
   where
@@ -89,6 +89,8 @@ test_SpiderMan =
             $ mkBoard
     result = runGameMonad board $ apply (ActionPlayerTurn player)
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
+
+focus = defaultMain test_SpiderMan
 
 test_SpiderManLose =
   testCase "Spiderman loses if deck and discard are empty" $

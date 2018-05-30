@@ -30,9 +30,16 @@ import           Utils
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
 
--- Applies an action to the current board, returning the resulting one.
-apply :: Action -> GameMonad Board
-apply a@(MoveCard specificCard@(location, i) to dest) = do
+-- Action handlers
+--
+-- These are moved into their own functions for ease of profiling/debugging.
+-- ==============
+
+moveCard :: Action -> GameMonad Board
+moveCard a@(MoveCard specificCard@(location, i) to dest) = do
+  location <- resolveLocation location
+  to <- resolveLocation to
+
   maybeCard <- lookupCard specificCard
 
   case maybeCard of
@@ -52,7 +59,7 @@ apply a@(MoveCard specificCard@(location, i) to dest) = do
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
 
-apply a@(RevealCard location v) = do
+revealCard a@(RevealCard location v) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
@@ -64,6 +71,10 @@ apply a@(RevealCard location v) = do
 
       return board
 
+-- Applies an action to the current board, returning the resulting one.
+apply :: Action -> GameMonad Board
+apply a@MoveCard{} = moveCard a
+apply a@RevealCard{} = revealCard a
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
 
@@ -358,6 +369,7 @@ tryShuffleDiscardToDeck a specificCard = do
   board <- currentBoard
 
   let (location, _) = specificCard
+  location <- resolveLocation location
 
   case playerDeck location of
     Nothing -> lose $ "Card does not exist: " <> showT specificCard
@@ -389,9 +401,10 @@ tryShuffleDiscardToDeck a specificCard = do
         <> RevealCard (to, 0) Hidden
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
-overCard (location, i) f =
-     over (cardsAtLocation location . ix i) f <$> currentBoard
+overCard (location, i) f = do
+  location <- resolveLocation location
 
+  over (cardsAtLocation location . ix i) f <$> currentBoard
 
 halt a = do
   b <- currentBoard
@@ -411,8 +424,16 @@ wait a reason = do
 
   throwError (set boardState (WaitingForChoice reason) b, a)
 
+resolveLocation :: Location -> GameMonad Location
+resolveLocation (PlayerLocation CurrentPlayer x) = do
+  pid <- currentPlayer
+
+  return $ PlayerLocation pid x
+resolveLocation x = return x
+
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
-lookupCard (location, i) =
+lookupCard (location, i) = do
+  location <- resolveLocation location
   preview (cardsAtLocation location . ix i) <$> currentBoard
 
 requireCard :: SpecificCard -> GameMonad CardInPlay

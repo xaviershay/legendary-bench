@@ -52,8 +52,8 @@ data Location = PlayerLocation PlayerId ScopedLocation
   | Escaped
   | Boss
   deriving (Show, Generic, Eq)
-newtype PlayerId = PlayerId Int deriving (Show, Generic, Eq)
 
+data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
 data Card = HeroCard
   { _heroName   :: T.Text
@@ -122,7 +122,7 @@ data Effect =
   EffectNone |
   EffectMoney SummableInt |
   EffectAttack SummableInt |
-  EffectCustom T.Text (GameMonad Action) |
+  EffectCustom T.Text Action |
   EffectCombine Effect Effect
   deriving (Generic)
 
@@ -278,6 +278,7 @@ templateId = lens getter setter
     setter = undefined
 
 cardsAtLocation :: Location -> Lens' Board (S.Seq CardInPlay)
+cardsAtLocation (PlayerLocation CurrentPlayer _) = error "Location must be resolved"
 cardsAtLocation l = cards . at l . non mempty
 
 playerResources :: PlayerId -> Traversal' Board Resources
@@ -313,4 +314,4 @@ isLost board = f $ view boardState board
     f _        = False
 
 playerDesc (PlayerId id) = "Player " <> showT id
-
+playerDesc CurrentPlayer = "Current player"
