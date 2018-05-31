@@ -12,8 +12,8 @@ import Control.Lens
 
 -- Convert card effects to actions
 -- ===============================
-playAction :: CardInPlay -> GameMonad Action
-playAction = effectAction . view (cardTemplate . playEffect)
+--playAction :: CardInPlay -> GameMonad Action
+--playAction = effectAction . view (cardTemplate . playEffect)
 
 effectAction :: Effect -> GameMonad Action
 effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)

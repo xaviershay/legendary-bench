@@ -60,7 +60,7 @@ data Card = HeroCard
   , _heroAbilityName :: T.Text
   , _heroType :: HeroType
   , _heroTeam :: HeroTeam
-  , _playEffect :: Effect
+  , _playEffect :: Action
   , _heroCost   :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
@@ -157,6 +157,13 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend = EffectCombine
 
+data QueryPlayer = QueryCurrentPlayer
+  deriving (Show, Generic, Eq)
+data QueryInt = QueryConst Int
+  deriving (Show, Generic, Eq)
+data QueryLocation = QueryPlayerLocation QueryPlayer ScopedLocation
+  deriving (Show, Generic, Eq)
+
 data PlayerChoice =
   ChooseCard SpecificCard |
   ChooseEndTurn
@@ -170,6 +177,8 @@ data Action =
   ActionCombine Action Action |
   MoveCard SpecificCard Location MoveDestination |
   RevealCard SpecificCard Visibility |
+  ActionMoney QueryPlayer QueryInt |
+  ActionAttack QueryPlayer QueryInt |
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
   ActionIf Condition Action Action |
@@ -289,13 +298,13 @@ isPlaying board = case view boardState board of
                     (WaitingForChoice _) -> True
                     _                    -> False
 
-extractMoney (EffectMoney n) = n
+extractMoney (ActionMoney _ (QueryConst n)) = Sum n
 extractMoney _ = mempty
 
-extractAttack (EffectAttack n) = n
+extractAttack (ActionAttack _ (QueryConst n)) = Sum n
 extractAttack _ = mempty
 
-extractDescription (EffectCustom d _) = d
+extractDescription (ActionTagged d _) = d
 extractDescription _ = ""
 
 addChoice :: PlayerId -> PlayerChoice -> Board -> Board
@@ -304,7 +313,7 @@ addChoice playerId choice =
 
 baseResource f = walk . view playEffect
   where
-    walk (EffectCombine a b) = walk a <> walk b
+    walk (ActionCombine a b) = walk a <> walk b
     walk x = f x
 
 isLost :: Board -> Bool

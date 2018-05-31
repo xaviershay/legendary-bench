@@ -18,7 +18,7 @@ moneyCard = HeroCard
   , _heroAbilityName = mempty
   , _heroTeam = HeroTeam "S.H.E.I.L.D"
   , _heroType = mempty
-  , _playEffect = EffectMoney 1
+  , _playEffect = ActionMoney QueryCurrentPlayer (QueryConst 1)
   , _heroCost = 0
   }
 
@@ -27,7 +27,8 @@ attackCard = HeroCard
   , _heroAbilityName = mempty
   , _heroTeam = HeroTeam "S.H.E.I.L.D"
   , _heroType = mempty
-  , _playEffect = EffectAttack 1
+  --, _playEffect = EffectAttack (QueryConst 1)
+  , _playEffect = ActionNone
   , _heroCost = 0
   }
 
@@ -36,8 +37,9 @@ spideyCard = HeroCard
   , _heroAbilityName = "Astonishing Strength"
   , _heroType = HeroType "Instinct"
   , _heroTeam = HeroTeam "Spider Friends"
-  , _playEffect =    EffectMoney 1
-                  <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+  --, _playEffect =    EffectMoney (QueryConst 1)
+  --                <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+  , _playEffect = ActionNone
   , _heroCost = 2
   }
 
@@ -47,8 +49,9 @@ spidermanCards =
     , _heroAbilityName = "Astonishing Strength"
     , _heroType = HeroType "Strength"
     , _heroTeam = HeroTeam "Spider Friends"
-    , _playEffect =    EffectMoney 1
-                    <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+    , _playEffect = ActionNone
+  --  , _playEffect =    EffectMoney (QueryConst 1)
+  --                  <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
     , _heroCost = 2
     }
   , HeroCard
@@ -56,8 +59,9 @@ spidermanCards =
     , _heroAbilityName = "Great Responsibility"
     , _heroType = HeroType "Instinct"
     , _heroTeam = HeroTeam "Spider Friends"
-    , _playEffect =    EffectAttack 1
-                    <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+    , _playEffect = ActionNone
+    --, _playEffect =    EffectAttack (QueryConst 1)
+    --                <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
     , _heroCost = 2
     }
   ]

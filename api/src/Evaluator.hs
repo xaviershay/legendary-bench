@@ -71,10 +71,22 @@ revealCard a@(RevealCard location v) = do
 
       return board
 
+queryPlayer :: QueryPlayer -> GameMonad PlayerId
+queryPlayer QueryCurrentPlayer = currentPlayer
+
+queryInt :: QueryInt -> GameMonad Int
+queryInt (QueryConst x) = return x
+
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
 apply a@MoveCard{} = moveCard a
 apply a@RevealCard{} = revealCard a
+apply (ActionMoney qp pi) = do
+  pid <- queryPlayer qp
+  amount <- Sum <$> queryInt pi
+
+  apply (ApplyResources pid $ set money amount mempty)
+
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
 
@@ -208,7 +220,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       if pid == pid' then
         do
           card       <- requireCard location
-          cardEffect <- playAction card
+          let cardEffect = view (cardTemplate . playEffect) card
 
           return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                revealAndMove location (PlayerLocation pid Played) Front
