@@ -31,28 +31,28 @@ import           Utils
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
 
-runQuery :: Show a => Term a -> GameMonad a
-runQuery (TConst x) = return x
-runQuery TCurrentPlayer = currentPlayer
-runQuery (TSpecificCard x y) = (,) <$> runQuery x <*> runQuery y
-runQuery (TCardCost tl) = do
-  l <- runQuery tl
+query :: Show a => Term a -> GameMonad a
+query (TConst x) = return x
+query TCurrentPlayer = currentPlayer
+query (TSpecificCard x y) = (,) <$> query x <*> query y
+query (TCardCost tl) = do
+  l <- query tl
   card <- requireCard l
 
   return $ view (cardTemplate . heroCost) card
 
-runQuery (TPlayerLocation tpid tsl) =
-  PlayerLocation <$> runQuery tpid <*> runQuery tsl
+query (TPlayerLocation tpid tsl) =
+  PlayerLocation <$> query tpid <*> query tsl
 
-runQuery (TOp cond lhs rhs) = cond <$> runQuery lhs <*> runQuery rhs
-runQuery x = lose $ "Unknown term: " <> showT x
+query (TOp cond lhs rhs) = cond <$> query lhs <*> query rhs
+query x = lose $ "Unknown term: " <> showT x
 
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
 apply a@(ActionMove qfrom qto qdest) = do
-  specificCard@(location, i) <- runQuery qfrom
-  to <- runQuery qto
-  dest <- runQuery qdest
+  specificCard@(location, i) <- query qfrom
+  to <- query qto
+  dest <- query qdest
 
   maybeCard <- lookupCard specificCard
 
@@ -73,7 +73,7 @@ apply a@(ActionMove qfrom qto qdest) = do
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
 apply a@(ActionReveal ql) = do
-  location <- runQuery ql
+  location <- query ql
   maybeCard <- lookupCard location
 
   case maybeCard of
@@ -85,7 +85,7 @@ apply a@(ActionReveal ql) = do
 
       return board
 apply a@(ActionHide ql) = do
-  location <- runQuery ql
+  location <- query ql
   maybeCard <- lookupCard location
 
   case maybeCard of
@@ -98,13 +98,13 @@ apply a@(ActionHide ql) = do
       return board
 
 apply (ActionMoney qp pi) = do
-  pid <- runQuery qp
-  amount <- runQuery pi
+  pid <- query qp
+  amount <- query pi
 
   apply (ApplyResources pid $ set money amount mempty)
 apply (ActionAttack qp pi) = do
-  pid <- runQuery qp
-  amount <- runQuery pi
+  pid <- query qp
+  amount <- query pi
 
   apply (ApplyResources pid $ set attack amount mempty)
 
@@ -127,7 +127,7 @@ apply (ActionIf cond a b) = do
 
   apply $ if branch then a else b
 apply (ActionIf2 qcond a b) = do
-  branch <- runQuery qcond
+  branch <- query qcond
 
   apply $ if branch then a else b
 
