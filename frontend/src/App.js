@@ -222,6 +222,8 @@ class Board extends Component {
         <div class='boardHeader'>
           <div>
           <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
+          <br />
+          <a href='#end' onClick={pass(currentPlayer)}>Pass</a>
           <form>
             {board.players.map((p) => <div key={p.id}>
               <label>
@@ -272,6 +274,8 @@ class Board extends Component {
             layout="stacked" />
           <Location cards={board.cards["ko"]} title="KO"
             layout="stacked" />
+          <Location cards={board.cards["bystander"]} title="Bystander"
+            layout="stacked" />
         </div>
         <div className='boardRow'>
           <Location cards={board.cards["hero-deck"]} title="Hero Deck"
@@ -297,6 +301,18 @@ function endTurn(playerId) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({type: "ChooseEndTurn"})
+    })
+  }
+}
+
+function pass(playerId) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({type: "ChoosePass"})
     })
   }
 }

@@ -78,9 +78,14 @@ queryFailed a (board, action) = throwError (board, a)
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
 apply (ActionOptional a ifyes ifno) = do
-  board' <- apply (a <> ifyes) `catchError` handler
+  pid <- currentPlayer
+  choices <- view (playerChoices . at pid . non mempty) <$> currentBoard
 
-  return board'
+  case choices of
+    ChoosePass :<| _ -> apply ifno
+    _                -> do
+      board' <- apply a `catchError` handler
+      withBoard board' $ apply ifyes
 
   where
     handler (board, action) = throwError (board, ActionOptional action ifyes ifno)
@@ -112,7 +117,7 @@ apply a@(ActionMove qfrom qto qdest) = do
     Just card -> do
                    board <- currentBoard
 
-                   --logAction a
+                   logAction (ActionMove (TConst specificCard) (TConst to) (TConst dest))
 
                    return $
                        over (cardsAtLocation location) (S.deleteAt i)

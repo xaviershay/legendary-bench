@@ -177,7 +177,7 @@ showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
 
 showTerms2 t (x, y) = showTerms t [show x, show y]
-showTerms3 t (x, y, z) = showTerms t [show x, show y, show x]
+showTerms3 t (x, y, z) = showTerms t [show x, show y, show z]
 
 instance Show t => Show (Term t) where
   show (TConst x)            = showTerms "TConst" [x]
@@ -201,6 +201,7 @@ instance Monoid t => Monoid (Term t) where
 
 data PlayerChoice =
   ChooseCard SpecificCard |
+  ChoosePass |
   ChooseEndTurn
   deriving (Show, Generic, Eq)
 

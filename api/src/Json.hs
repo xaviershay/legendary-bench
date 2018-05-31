@@ -25,6 +25,7 @@ showLocation = \case
       Boss -> "boss"
       HQ -> "hq"
       KO -> "ko"
+      BystanderDeck -> "bystander"
       HeroDeck -> "hero-deck"
       VillainDeck -> "villian-deck"
       City i -> "city-" <> showT i
@@ -78,6 +79,7 @@ instance FromJSON PlayerChoice where
 
     case action of
       "ChooseCard"    -> ChooseCard <$> v .: "card"
+      "ChoosePass"    -> return ChoosePass
       "ChooseEndTurn" -> return ChooseEndTurn
       _ -> fail $ "Unknown choice: " <> action
 
@@ -180,6 +182,9 @@ instance ToJSON MoveDestination where
   toJSON Back = "back"
   toJSON (LocationIndex i) = toJSON i
 
+instance ToJSON t => ToJSON (Term t) where
+  toJSON (TConst x) = toJSON x
+
 instance ToJSON Action where
   toJSON (ActionCombine a ActionNone) = toJSON a
   toJSON (ActionCombine ActionNone b) = toJSON b
@@ -206,12 +211,12 @@ instance ToJSON Action where
     [ "type" .= ("shuffle" :: String)
     , "target" .= location
     ]
-  --toJSON (MoveCard specificCard location dest) = object
-  --  [ "type" .= ("move" :: String)
-  --  , "target" .= specificCard
-  --  , "to"   .= location
-  --  , "order" .= dest
-  --  ]
+  toJSON (ActionMove specificCard location dest) = object
+    [ "type" .= ("move" :: String)
+    , "target" .= specificCard
+    , "to"     .= location
+    , "order" .= dest
+    ]
   toJSON (ApplyResources pid rs) = object
     [ "type"   .= ("resources" :: String)
     , "player" .= pid

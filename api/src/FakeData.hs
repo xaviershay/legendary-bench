@@ -27,12 +27,14 @@ genBoard g playerCount = evalState a 1
     a = do
       let ps = S.fromList $ fmap PlayerId [0..playerCount -1]
 
-      villainDeck <- mkVillainDeck
-      heroDeck <- mkHeroDeck
+      villainDeck   <- mkVillainDeck
+      heroDeck      <- mkHeroDeck
+      bystanderDeck <- mkBystanderDeck
 
       id
         . set (cardsAtLocation VillainDeck) villainDeck
         . set (cardsAtLocation HeroDeck) heroDeck
+        . set (cardsAtLocation BystanderDeck) bystanderDeck
         . set players (fmap mkPlayer ps)
         . set rng g
         <$> foldM setPlayerDeck mkBoard ps
@@ -48,6 +50,10 @@ genBoard g playerCount = evalState a 1
 mkHeroDeck =
   sequence . fmap (mkCardInPlay Hidden) .
     S.fromList . mconcat . replicate 30 $ spidermanCards
+
+mkBystanderDeck =
+  sequence . fmap (mkCardInPlay All) $
+    S.replicate 30 BystanderCard
 
 mkVillainDeck =
   sequence . fmap (mkCardInPlay Hidden) $
