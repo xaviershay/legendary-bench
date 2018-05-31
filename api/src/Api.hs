@@ -112,6 +112,7 @@ handleChoice gameId playerId choice = do
   g <- liftIO . atomically . readTVar $ gvar
 
   --liftIO $ sequence (fmap (putStrLn . show) $ view (gameState . actionLog) g)
+  --liftIO . putStrLn . show $ view (gameState . currentAction) g
 
   return ()
 

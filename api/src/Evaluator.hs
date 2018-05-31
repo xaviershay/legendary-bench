@@ -33,6 +33,10 @@ logAction a = tell (S.singleton a)
 
 query :: Show a => Term a -> GameMonad a
 query (TConst x) = return x
+query (TAppend TEmpty TEmpty) = lose "Can't append two empty queries"
+query (TAppend a TEmpty) = query a
+query (TAppend TEmpty b) = query b
+query (TAppend a b) = (<>) <$> query a <*> query b
 query TCurrentPlayer = currentPlayer
 query (TSpecificCard x y) = (,) <$> query x <*> query y
 query (TCardCost tl) = do
@@ -45,12 +49,59 @@ query (TPlayerLocation tpid tsl) =
   PlayerLocation <$> query tpid <*> query tsl
 
 query (TOp cond lhs rhs) = cond <$> query lhs <*> query rhs
+-- TODO: This function has no way of clearing choices. Not sure if good or bad
+-- but something is weird.
+query (TChooseCard desc qwho qoptions) = do
+  who <- query qwho
+  options <- query qoptions
+  choices <- view (playerChoices . at who . non mempty) <$> currentBoard
+
+  case choices of
+    (ChooseCard specificCard :<| _)
+      | elem specificCard options -> return specificCard
+    -- TODO: Throwing ActionNone here and relying on callers to catch it sucks.
+    -- Need to revisit, probably by placing current action into GameMonad.
+    _ -> wait ActionNone $ playerDesc who <> ": " <> desc
+
+query (TAllCardsAt qloc) = do
+  loc <- query qloc
+  cs <- view (cardsAtLocation loc) <$> currentBoard
+
+  let n = length cs
+
+  return $ S.zip (S.replicate n loc) (S.fromList [0..n-1])
+
 query x = lose $ "Unknown term: " <> showT x
+
+queryFailed a (board, action) = throwError (board, a)
 
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
+apply (ActionOptional a ifyes ifno) = do
+  board' <- apply (a <> ifyes) `catchError` handler
+
+  return board'
+
+  where
+    handler (board, action) = throwError (board, ActionOptional action ifyes ifno)
+
+apply (ActionAllowFail a) = do
+  board' <- apply a `catchError` handler
+
+  if isLost board' then
+    currentBoard
+  else
+    return board'
+  where
+    handler (board, action) = do
+      board' <- currentBoard
+      if isLost board then
+        return board'
+      else
+        throwError (board, ActionAllowFail action)
+
 apply a@(ActionMove qfrom qto qdest) = do
-  specificCard@(location, i) <- query qfrom
+  specificCard@(location, i) <- query qfrom `catchError` (queryFailed a)
   to <- query qto
   dest <- query qdest
 
@@ -66,6 +117,7 @@ apply a@(ActionMove qfrom qto qdest) = do
                    return $
                        over (cardsAtLocation location) (S.deleteAt i)
                      . over (cardsAtLocation to) ((insertF dest) card)
+                     . clearChoices -- TODO: This is a bit weird. See notes at query TChooseCard
                      $ board
 
   where
@@ -250,6 +302,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                revealAndMove location (PlayerLocation pid Played) Front
             <> cardEffect
+            <> a
       else
         f mempty
 

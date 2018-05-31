@@ -53,6 +53,7 @@ data Location = PlayerLocation PlayerId ScopedLocation
   | City Int
   | Escaped
   | Boss
+  | BystanderDeck
   deriving (Show, Generic, Eq)
 
 data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
@@ -167,11 +168,16 @@ data Term t where
   TPlayerLocation :: Term PlayerId -> Term ScopedLocation -> Term Location
   TSpecificCard   :: Term Location -> Term Int -> Term SpecificCard
   TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
+  TChooseCard     :: T.Text -> Term PlayerId -> Term (S.Seq SpecificCard) -> Term SpecificCard
+  TAllCardsAt     :: Term Location -> Term (S.Seq SpecificCard)
+  TAppend         :: (Monoid a) => Term a -> Term a -> Term a
+  TEmpty          :: Term t
 
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
 
 showTerms2 t (x, y) = showTerms t [show x, show y]
+showTerms3 t (x, y, z) = showTerms t [show x, show y, show x]
 
 instance Show t => Show (Term t) where
   show (TConst x)            = showTerms "TConst" [x]
@@ -180,9 +186,18 @@ instance Show t => Show (Term t) where
   show (TPlayerLocation x y) = showTerms2 "TPlayerLocation" (x, y)
   show (TSpecificCard x y)   = showTerms2 "TSpecificCard" (x, y)
   show (TOp _ y z)           = showTerms2 "TOp" (y, z)
+  show (TEmpty)              = "TEmpty"
+  show (TAllCardsAt x)       = showTerms "TAllCardsAt" [x]
+  show (TAppend x y)         = showTerms2 "TAppend" (x, y)
+  show (TChooseCard x y z)   = showTerms3 "TChooseCard" (x, y, z)
+  show _                     = "Unknown Term"
 
 instance Eq t => Eq (Term t) where
   TConst a == TConst b = a == b
+
+instance Monoid t => Monoid (Term t) where
+  mempty = TEmpty
+  mappend a b = TAppend a b
 
 data PlayerChoice =
   ChooseCard SpecificCard |
@@ -195,6 +210,7 @@ data Condition =
 data Action =
   ActionNone |
   ActionCombine Action Action |
+  ActionAllowFail Action |
   ActionReveal (Term SpecificCard) |
   ActionHide (Term SpecificCard) |
   ActionMove (Term SpecificCard) (Term Location) (Term MoveDestination) |
@@ -204,6 +220,7 @@ data Action =
   ActionShuffle Location |
   ActionIf Condition Action Action |
   ActionIf2 (Term Bool) Action Action |
+  ActionOptional Action Action Action |
   ActionHalt Action T.Text |
   ActionTagged T.Text Action |
   ActionTrace T.Text |

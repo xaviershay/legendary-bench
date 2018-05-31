@@ -70,3 +70,31 @@ spiderAction2 = let location = TSpecificCard (TPlayerLocation TCurrentPlayer (TC
        (TOp (<=) (TCardCost location) (TConst 2))
        (ActionMove location (TPlayerLocation TCurrentPlayer (TConst Hand)) (TConst Front))
        mempty
+
+blackWidowCards =
+  [ HeroCard
+    { _heroName = "Black Widow"
+    , _heroAbilityName = "Dangerous Rescue"
+    , _heroType = HeroType "Covert"
+    , _heroTeam = HeroTeam "Avengers"
+    , _heroCost = 3
+    , _heroDescription = "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
+    , _playEffect = ActionAttack TCurrentPlayer (TConst 2) <>
+                    ActionOptional
+                      (ActionMove
+                        (TChooseCard
+                          "Choose a card from hand or discard to KO"
+                          TCurrentPlayer
+                          (mconcat . fmap (TAllCardsAt . TPlayerLocation TCurrentPlayer . TConst) $ [Hand, Discard])
+                        )
+                        (TConst KO)
+                        (TConst Front)
+                      )
+                      (ActionAllowFail $ ActionMove
+                        (TSpecificCard (TConst BystanderDeck) (TConst 0))
+                        (TPlayerLocation TCurrentPlayer (TConst Victory))
+                        (TConst Front)
+                      )
+                      mempty
+    }
+  ]
