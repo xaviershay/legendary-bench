@@ -18,7 +18,8 @@ moneyCard = HeroCard
   , _heroAbilityName = mempty
   , _heroTeam = HeroTeam "S.H.E.I.L.D"
   , _heroType = mempty
-  , _playEffect = ActionMoney QueryCurrentPlayer (QueryConst 1)
+  , _heroDescription = mempty
+  , _playEffect = ActionMoney TCurrentPlayer (TConst 1)
   , _heroCost = 0
   }
 
@@ -27,8 +28,8 @@ attackCard = HeroCard
   , _heroAbilityName = mempty
   , _heroTeam = HeroTeam "S.H.E.I.L.D"
   , _heroType = mempty
-  --, _playEffect = EffectAttack (QueryConst 1)
-  , _playEffect = ActionNone
+  , _heroDescription = mempty
+  , _playEffect = ActionAttack TCurrentPlayer (TConst 1)
   , _heroCost = 0
   }
 
@@ -37,9 +38,8 @@ spideyCard = HeroCard
   , _heroAbilityName = "Astonishing Strength"
   , _heroType = HeroType "Instinct"
   , _heroTeam = HeroTeam "Spider Friends"
-  --, _playEffect =    EffectMoney (QueryConst 1)
-  --                <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
-  , _playEffect = ActionNone
+  , _playEffect = spiderAction2
+  , _heroDescription = mempty
   , _heroCost = 2
   }
 
@@ -49,9 +49,8 @@ spidermanCards =
     , _heroAbilityName = "Astonishing Strength"
     , _heroType = HeroType "Strength"
     , _heroTeam = HeroTeam "Spider Friends"
-    , _playEffect = ActionNone
-  --  , _playEffect =    EffectMoney (QueryConst 1)
-  --                  <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+    , _playEffect = ActionMoney TCurrentPlayer (TConst 1) <> spiderAction2
+    , _heroDescription = "Reveal top card of deck, if cost ≤ 2 then draw it."
     , _heroCost = 2
     }
   , HeroCard
@@ -59,20 +58,15 @@ spidermanCards =
     , _heroAbilityName = "Great Responsibility"
     , _heroType = HeroType "Instinct"
     , _heroTeam = HeroTeam "Spider Friends"
-    , _playEffect = ActionNone
-    --, _playEffect =    EffectAttack (QueryConst 1)
-    --                <> EffectCustom "Reveal top card of deck, if cost ≤ 2 then draw it." spideyAction
+    , _playEffect = ActionAttack TCurrentPlayer (TConst 1) <> spiderAction2
+    , _heroDescription = "Reveal top card of deck, if cost ≤ 2 then draw it."
     , _heroCost = 2
     }
   ]
 
-
-spideyAction :: Action
-spideyAction =
-  let location = (PlayerLocation CurrentPlayer PlayerDeck, 0) in
-  ( RevealCard location All
-  <> ActionIf
-       (ConditionCostLTE location 2)
-       (drawAction 1 CurrentPlayer)
+spiderAction2 = let location = TSpecificCard (TPlayerLocation TCurrentPlayer (TConst PlayerDeck)) (TConst 0) in
+  ActionReveal location
+  <> ActionIf2
+       (TOp (<=) (TCardCost location) (TConst 2))
+       (ActionMove location (TPlayerLocation TCurrentPlayer (TConst Hand)) (TConst Front))
        mempty
-  )

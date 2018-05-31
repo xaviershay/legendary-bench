@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE GADTs #-}
 
 module Evaluator
   ( apply
@@ -30,15 +31,28 @@ import           Utils
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
 
--- Action handlers
---
--- These are moved into their own functions for ease of profiling/debugging.
--- ==============
+runQuery :: Show a => Term a -> GameMonad a
+runQuery (TConst x) = return x
+runQuery TCurrentPlayer = currentPlayer
+runQuery (TSpecificCard x y) = (,) <$> runQuery x <*> runQuery y
+runQuery (TCardCost tl) = do
+  l <- runQuery tl
+  card <- requireCard l
 
-moveCard :: Action -> GameMonad Board
-moveCard a@(MoveCard specificCard@(location, i) to dest) = do
-  location <- resolveLocation location
-  to <- resolveLocation to
+  return $ view (cardTemplate . heroCost) card
+
+runQuery (TPlayerLocation tpid tsl) =
+  PlayerLocation <$> runQuery tpid <*> runQuery tsl
+
+runQuery (TOp cond lhs rhs) = cond <$> runQuery lhs <*> runQuery rhs
+runQuery x = lose $ "Unknown term: " <> showT x
+
+-- Applies an action to the current board, returning the resulting one.
+apply :: Action -> GameMonad Board
+apply a@(ActionMove qfrom qto qdest) = do
+  specificCard@(location, i) <- runQuery qfrom
+  to <- runQuery qto
+  dest <- runQuery qdest
 
   maybeCard <- lookupCard specificCard
 
@@ -47,7 +61,7 @@ moveCard a@(MoveCard specificCard@(location, i) to dest) = do
     Just card -> do
                    board <- currentBoard
 
-                   logAction a
+                   --logAction a
 
                    return $
                        over (cardsAtLocation location) (S.deleteAt i)
@@ -58,34 +72,41 @@ moveCard a@(MoveCard specificCard@(location, i) to dest) = do
     insertF Back = flip (|>)
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
-
-revealCard a@(RevealCard location v) = do
+apply a@(ActionReveal ql) = do
+  location <- runQuery ql
   maybeCard <- lookupCard location
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a location
     Just card -> do
-      board <- overCard location (setVisibility v)
+      board <- overCard location (setVisibility All)
 
-      logAction a
+      --logAction a
+
+      return board
+apply a@(ActionHide ql) = do
+  location <- runQuery ql
+  maybeCard <- lookupCard location
+
+  case maybeCard of
+    Nothing -> tryShuffleDiscardToDeck a location
+    Just card -> do
+      board <- overCard location (setVisibility Hidden)
+
+      --logAction a
 
       return board
 
-queryPlayer :: QueryPlayer -> GameMonad PlayerId
-queryPlayer QueryCurrentPlayer = currentPlayer
-
-queryInt :: QueryInt -> GameMonad Int
-queryInt (QueryConst x) = return x
-
--- Applies an action to the current board, returning the resulting one.
-apply :: Action -> GameMonad Board
-apply a@MoveCard{} = moveCard a
-apply a@RevealCard{} = revealCard a
 apply (ActionMoney qp pi) = do
-  pid <- queryPlayer qp
-  amount <- Sum <$> queryInt pi
+  pid <- runQuery qp
+  amount <- runQuery pi
 
   apply (ApplyResources pid $ set money amount mempty)
+apply (ActionAttack qp pi) = do
+  pid <- runQuery qp
+  amount <- runQuery pi
+
+  apply (ApplyResources pid $ set attack amount mempty)
 
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -103,6 +124,10 @@ apply ActionNone = currentBoard
 
 apply (ActionIf cond a b) = do
   branch <- checkCondition cond
+
+  apply $ if branch then a else b
+apply (ActionIf2 qcond a b) = do
+  branch <- runQuery qcond
 
   apply $ if branch then a else b
 
@@ -235,8 +260,8 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       let template = view cardTemplate card
 
       return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-           MoveCard location (PlayerLocation pid Discard) Front
-        <> ApplyResources pid (mempty { _money = -(view heroCost template)})
+           ActionMove (TConst location) (TConst $ PlayerLocation pid Discard) (TConst Front)
+        <> ActionMoney (TConst pid) (TConst $ -(view heroCost template))
         <> replaceHeroInHQ i
 
     f (ChooseCard location@(City n, i) :<| _) = do
@@ -246,9 +271,8 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       let template = view cardTemplate card
 
       return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
-           MoveCard location (PlayerLocation pid Victory) Front
-        <> ApplyResources pid
-             (set attack (negate . view baseHealth $ template) mempty)
+           ActionMove (TConst location) (TConst $ PlayerLocation pid Victory) (TConst Front)
+        <> ActionAttack (TConst pid) (TConst . negate . view baseHealth $ template)
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
@@ -301,7 +325,10 @@ apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
       | pid == pid' = do
         card <- requireCard location
 
-        return $ MoveCard location (PlayerLocation pid Discard) Front
+        return $ ActionMove
+          (TConst location)
+          (TConst $ PlayerLocation pid Discard)
+          (TConst Front)
     discardSelection _ = return . ActionHalt a $
       playerDesc pid <> ": select a card in hand to discard"
 
@@ -312,7 +339,7 @@ apply ActionKOHero = applyChoices koHero
       valid <- checkCondition (ConditionCostLTE location 6)
 
       return $ if valid then
-             MoveCard location KO Front
+             ActionMove (TConst location) (TConst KO) (TConst Front)
           <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
       else
         ActionHalt ActionKOHero $
@@ -322,6 +349,8 @@ apply ActionKOHero = applyChoices koHero
 
       return . ActionHalt ActionKOHero $
         playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
+
+apply a = lose $ "Unknown action: " <> showT a
 
 moveCity :: Location -> S.Seq CardInPlay -> GameMonad (Board, Action)
 moveCity Escaped incoming =
@@ -409,8 +438,8 @@ tryShuffleDiscardToDeck a specificCard = do
     moveAndHide :: Int -> Location -> Location -> Action
     moveAndHide n from to =
       mconcat . toList . replicate n $
-           MoveCard (from, 0) to Front
-        <> RevealCard (to, 0) Hidden
+           ActionMove (TConst $ (from, 0)) (TConst to) (TConst Front)
+        <> ActionHide (TConst (to, 0))
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f = do

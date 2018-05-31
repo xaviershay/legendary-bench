@@ -3,6 +3,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Types where
 
@@ -30,7 +32,7 @@ type GameHalt = (Board, Action)
 type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Action) Identity))) a
 
 type SpecificCard = (Location, Int)
-data MoveDestination = Front | Back | LocationIndex Int deriving (Show, Generic, Eq)
+data MoveDestination = Top | Front | Back | LocationIndex Int deriving (Show, Generic, Eq)
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
@@ -60,6 +62,7 @@ data Card = HeroCard
   , _heroAbilityName :: T.Text
   , _heroType :: HeroType
   , _heroTeam :: HeroTeam
+  , _heroDescription :: T.Text
   , _playEffect :: Action
   , _heroCost   :: SummableInt
   } | EnemyCard
@@ -157,12 +160,29 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend = EffectCombine
 
-data QueryPlayer = QueryCurrentPlayer
-  deriving (Show, Generic, Eq)
-data QueryInt = QueryConst Int
-  deriving (Show, Generic, Eq)
-data QueryLocation = QueryPlayerLocation QueryPlayer ScopedLocation
-  deriving (Show, Generic, Eq)
+data Term t where
+  TConst          :: t -> Term t
+  TCurrentPlayer  :: Term PlayerId
+  TCardCost       :: Term SpecificCard -> Term SummableInt
+  TPlayerLocation :: Term PlayerId -> Term ScopedLocation -> Term Location
+  TSpecificCard   :: Term Location -> Term Int -> Term SpecificCard
+  TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
+
+showTerms :: Show a => T.Text -> [a] -> String
+showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
+
+showTerms2 t (x, y) = showTerms t [show x, show y]
+
+instance Show t => Show (Term t) where
+  show (TConst x)            = showTerms "TConst" [x]
+  show (TCurrentPlayer)      = "TCurrentPlayer"
+  show (TCardCost x)         = showTerms "TCardCost" [x]
+  show (TPlayerLocation x y) = showTerms2 "TPlayerLocation" (x, y)
+  show (TSpecificCard x y)   = showTerms2 "TSpecificCard" (x, y)
+  show (TOp _ y z)           = showTerms2 "TOp" (y, z)
+
+instance Eq t => Eq (Term t) where
+  TConst a == TConst b = a == b
 
 data PlayerChoice =
   ChooseCard SpecificCard |
@@ -175,13 +195,15 @@ data Condition =
 data Action =
   ActionNone |
   ActionCombine Action Action |
-  MoveCard SpecificCard Location MoveDestination |
-  RevealCard SpecificCard Visibility |
-  ActionMoney QueryPlayer QueryInt |
-  ActionAttack QueryPlayer QueryInt |
+  ActionReveal (Term SpecificCard) |
+  ActionHide (Term SpecificCard) |
+  ActionMove (Term SpecificCard) (Term Location) (Term MoveDestination) |
+  ActionMoney (Term PlayerId) (Term SummableInt) |
+  ActionAttack (Term PlayerId) (Term SummableInt) |
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
   ActionIf Condition Action Action |
+  ActionIf2 (Term Bool) Action Action |
   ActionHalt Action T.Text |
   ActionTagged T.Text Action |
   ActionTrace T.Text |
@@ -298,10 +320,10 @@ isPlaying board = case view boardState board of
                     (WaitingForChoice _) -> True
                     _                    -> False
 
-extractMoney (ActionMoney _ (QueryConst n)) = Sum n
+extractMoney (ActionMoney _ (TConst n)) = n
 extractMoney _ = mempty
 
-extractAttack (ActionAttack _ (QueryConst n)) = Sum n
+extractAttack (ActionAttack _ (TConst n)) = n
 extractAttack _ = mempty
 
 extractDescription (ActionTagged d _) = d

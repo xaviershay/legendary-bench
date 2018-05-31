@@ -39,8 +39,8 @@ replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
   revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
 revealAndMove source destination spot =
-     RevealCard source All
-  <> MoveCard source destination spot
+     ActionReveal (TConst source)
+  <> ActionMove (TConst source) (TConst destination) (TConst spot)
 
 drawAction :: Int -> PlayerId -> Action
 drawAction n pid = ActionTagged (playerDesc pid <> " draws " <> showT n) $

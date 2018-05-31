@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Props where
 
 import           Control.Lens          (over, set, view)
@@ -124,12 +126,15 @@ instance Arbitrary Condition where
   shrink = genericShrink
   arbitrary = ConditionCostLTE <$> arbitrary <*> arbitrary
 
+instance Arbitrary a => Arbitrary (Term a) where
+  shrink (TConst x) = map TConst . shrink $ x
+
 instance Arbitrary Action where
   shrink = genericShrink
   arbitrary = sized f
     where
       f 0 = oneof [ pure ActionNone
-                  , liftM3 MoveCard arbitrary arbitrary arbitrary
+                  , liftM3 ActionMove (TConst <$> arbitrary) (TConst <$> arbitrary) (TConst <$> arbitrary)
                   ]
       f n = oneof [f 0, liftM2 ActionCombine sub sub]
         where

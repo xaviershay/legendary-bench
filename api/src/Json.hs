@@ -106,7 +106,7 @@ instance ToJSON Card where
     , "cost" .= view heroCost c
     , "baseMoney"  .= baseResource extractMoney c
     , "baseAttack" .= baseResource extractAttack c
-    , "description" .= baseResource extractDescription c
+    , "description" .= view heroDescription c
     ]
   toJSON c@EnemyCard{} = object
     [ "type" .= view cardType c
@@ -197,21 +197,21 @@ instance ToJSON Action where
     , "tag"  .= tag
     , "action" .= action
     ]
-  toJSON (RevealCard specificCard vis) = object
-    [ "type" .= ("reveal" :: String)
-    , "target" .= specificCard
-    , "visibility" .= vis
-    ]
+  --toJSON (RevealCard specificCard vis) = object
+  --  [ "type" .= ("reveal" :: String)
+  --  , "target" .= specificCard
+  --  , "visibility" .= vis
+  --  ]
   toJSON (ActionShuffle location) = object
     [ "type" .= ("shuffle" :: String)
     , "target" .= location
     ]
-  toJSON (MoveCard specificCard location dest) = object
-    [ "type" .= ("move" :: String)
-    , "target" .= specificCard
-    , "to"   .= location
-    , "order" .= dest
-    ]
+  --toJSON (MoveCard specificCard location dest) = object
+  --  [ "type" .= ("move" :: String)
+  --  , "target" .= specificCard
+  --  , "to"   .= location
+  --  , "order" .= dest
+  --  ]
   toJSON (ApplyResources pid rs) = object
     [ "type"   .= ("resources" :: String)
     , "player" .= pid
