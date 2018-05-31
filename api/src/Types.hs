@@ -320,10 +320,10 @@ isPlaying board = case view boardState board of
                     (WaitingForChoice _) -> True
                     _                    -> False
 
-extractMoney (ActionMoney _ (TConst n)) = n
+extractMoney (ActionMoney TCurrentPlayer (TConst n)) = n
 extractMoney _ = mempty
 
-extractAttack (ActionAttack _ (TConst n)) = n
+extractAttack (ActionAttack TCurrentPlayer (TConst n)) = n
 extractAttack _ = mempty
 
 extractDescription (ActionTagged d _) = d
