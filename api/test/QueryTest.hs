@@ -39,7 +39,8 @@ data UExpr =
   | UVar T.Text
   | ULet (T.Text, UExpr) UExpr
   | UApp UExpr UExpr
-  deriving (Eq, Show)
+  | UBuiltIn T.Text
+  deriving (Show, Eq)
 
 type UEnv = M.HashMap T.Text UExpr
 
@@ -163,7 +164,21 @@ infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UBool _)) = wconst "Bool"
 infer env (UConst (ULocation _)) = wconst "Location"
---infer env (UConst (UFunc name exp)) = do
+infer env (UConst (UFunc _ name exp)) = do
+  tau <- fresh
+  let sigma = Forall mempty tau
+      env' = extendEnv env (name, sigma)
+  (s, tau') <- infer env' exp
+
+  pure (s, WFun (applySubst s tau) tau')
+
+infer env (UApp f x) = do
+  (s1, fTau) <- infer env f
+  (s2, xTau) <- infer (applySubst s1 env) x
+  fxTau <- fresh
+  s3 <- unify (applySubst s2 fTau, WFun xTau fxTau)
+  let s = s3 <> s2 <> s1
+  pure (s, applySubst s3 fxTau)
 
 infer env (UVar name) = do
   sigma <- lookupEnv env name
@@ -209,6 +224,8 @@ wconst x = return (mempty, WConst x)
 
 printValue (UConst x) = case x of
                           (UInt (Sum n)) -> showT n
+                          x -> showT x
+printValue x = showT x
 
 fresh :: Infer MType
 fresh = drawFromSupply >>= \case
@@ -233,6 +250,7 @@ uQuery env (UApp fexp arg) =
   case uQuery env fexp of
     (UFunc env' argname body) -> uQuery (env <> env') $ ULet (argname, arg) body
     _ -> UError $ (printValue fexp) <> " is not a function"
+uQuery env (UBuiltIn "add") = uQuery env $ builtInAdd env
 
 convertLet :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertLet [] f = toExpr f
@@ -288,7 +306,23 @@ test_TypeInference = testGroup "Type Inference"
       inferType "(let (x 1) (let (y x) y))"
   , testCase "Nested Let" $ Right (WConst "Int") @=?
       inferType "(let (x (let (y 1) y)) x)"
+  , testCase "Fn" $ Right (WFun (WVar "a") (WConst "Int")) @=?
+      inferType "(fn (x) 1)"
+  , testCase "Fn Application" $ Right (WConst "Int") @=?
+      inferType "((fn (x) 1) 2)"
   ]
+
+defaultEnv :: UEnv
+defaultEnv = M.fromList
+  [("add", UConst $ UFunc mempty "x" (UConst $ UFunc mempty "y" (UBuiltIn "add")))
+  ]
+
+builtInAdd :: UEnv -> UExpr
+builtInAdd env = let
+  Just (UConst (UInt x)) = M.lookup "x" env
+  Just (UConst (UInt y)) = M.lookup "y" env
+  in UConst . UInt $ x + y
+
 
 test_ListQuery = testGroup "List Query"
   [ testCase "UInt" $ UInt 1 @=? lQuery mempty "1"
@@ -304,10 +338,11 @@ test_ListQuery = testGroup "List Query"
   , testCase "Numbers can't be used as functions" $ (UError "1 is not a function") @=? lQuery mempty "(1 2)"
   , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "((let (f (fn (x y) x)) (f 1))2)"
   , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "(let (y 1) (let (f (fn () y)) f))"
+  , testCase "Built-in" $ (UInt 3) @=? lQuery defaultEnv "(add 1 2)"
   ]
 
 -- (UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1) --> ULet ("x", 1) (UFunc "y" (UVar "y"))
 -- UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1 --> ULet ("x", 1) (UApp (UFunc "y" (UVar "y")) 2)
 --
---focus = defaultMain test_TypeInference
-focus = defaultMain test_ListQuery
+focus = defaultMain test_TypeInference
+--focus = defaultMain test_ListQuery
