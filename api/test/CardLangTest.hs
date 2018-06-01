@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module QueryTest where
+module CardLangTest where
 
 import Test.Tasty
 import Test.Tasty.HUnit
