@@ -92,3 +92,5 @@ tests:
     - text
     - hashable
     - parsec
+    - s-cargot
+    - mtl

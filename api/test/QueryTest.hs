@@ -11,7 +11,7 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.Writer (runWriterT)
 import Control.Monad.State (State, evalState, get, put)
-import Control.Monad.Trans.Except (runExceptT, ExceptT, throwE)
+import Control.Monad.Except (runExceptT, ExceptT, throwError)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 import qualified Data.Set             as Set
@@ -26,6 +26,7 @@ import Types
 import Evaluator
 import GameMonad
 import Utils
+import Debug.Trace
 
 runQuery :: Show a => Term a -> a
 runQuery q =
@@ -62,6 +63,10 @@ data MType =
   | WFun MType MType
 
   deriving (Eq, Show)
+
+showType (WVar x) = x
+showType (WConst x) = x
+showType (WFun x y) = showType x <> " -> " <> showType y
 
 newtype Subst = Subst (M.HashMap T.Text MType)
 
@@ -130,7 +135,7 @@ runInfer (Infer inf) =
         addSuffixes xs n = map (\x -> addSuffix x n) xs <> addSuffixes xs (n+1)
 
 throw :: InferError -> Infer a
-throw = Infer . throwE
+throw = Infer . throwError
 
 bindVariableTo :: T.Text -> MType -> Infer Subst
 bindVariableTo name (WVar v) | name == v = return mempty
@@ -261,6 +266,7 @@ convertLet (A (ASymbol k):v:vs) f = do
   return $ ULet (k, value) body
 convertLet vs f = fail $ "Invalid let params: " <> show vs
 
+
 -- TODO: Something something env capture
 convertFn :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertFn [] f = toExpr f
@@ -294,55 +300,67 @@ lQuery env text = case decode myParser text of
                     Right x -> uQuery env (head x)
                     Left y -> error $ show y
 
-inferType :: T.Text -> Either InferError MType
-inferType text = case decode myParser text of
-                    Right x -> snd <$> runInfer (infer (WEnv mempty) (head x))
-                    Left y  -> error "parse error"
+inferType :: T.Text -> T.Text
+inferType text = let Right result = showType <$> case decode myParser text of
+                                      Right x -> snd <$> runInfer (infer builtInTypeEnv (head x))
+                                      Left y  -> error "parse error" in result
 
-test_TypeInference = testGroup "Type Inference"
-  [ testCase "Const" $ Right (WConst "Int") @=? inferType "1"
-  , testCase "Let" $ Right (WConst "Int") @=? inferType "(let (x 1) x)"
-  , testCase "Nested Let" $ Right (WConst "Int") @=?
-      inferType "(let (x 1) (let (y x) y))"
-  , testCase "Nested Let" $ Right (WConst "Int") @=?
-      inferType "(let (x (let (y 1) y)) x)"
-  , testCase "Fn" $ Right (WFun (WVar "a") (WConst "Int")) @=?
-      inferType "(fn (x) 1)"
-  , testCase "Fn Application" $ Right (WConst "Int") @=?
-      inferType "((fn (x) 1) 2)"
-  ]
+builtInEnv :: UEnv
+builtInEnv = M.mapWithKey (typeToFn 0) builtIns
 
-defaultEnv :: UEnv
-defaultEnv = M.fromList
-  [("add", UConst $ UFunc mempty "x" (UConst $ UFunc mempty "y" (UBuiltIn "add")))
+typeToFn :: Int -> T.Text -> (MType, UEnv -> UExpr) -> UExpr
+typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
+typeToFn n key (WConst _, _) = UBuiltIn key
+
+builtInTypeEnv :: WEnv
+builtInTypeEnv = WEnv $ M.map (Forall mempty . fst) builtIns
+
+builtIns :: M.HashMap T.Text (MType, UEnv -> UExpr)
+builtIns = M.fromList
+  [ ("add", (WFun (WConst "Int") (WFun (WConst "Int") (WConst "Int")), builtInAdd))
   ]
 
 builtInAdd :: UEnv -> UExpr
 builtInAdd env = let
-  Just (UConst (UInt x)) = M.lookup "x" env
-  Just (UConst (UInt y)) = M.lookup "y" env
+  Just (UConst (UInt x)) = M.lookup "a0" env
+  Just (UConst (UInt y)) = M.lookup "a1" env
   in UConst . UInt $ x + y
 
+testInfer expected input =
+  testCase (T.unpack $ input <> " :: " <> expected) $ expected @=? inferType input
 
-test_ListQuery = testGroup "List Query"
-  [ testCase "UInt" $ UInt 1 @=? lQuery mempty "1"
-  , testCase "UVar None" $ (UError "Unknown variable: x") @=? lQuery mempty "x"
-  , testCase "UVar Just" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 1)]) "x"
-  , testCase "ULet" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 0)]) "(let (x 1) x)"
-  , testCase "ULet" $ (UInt 2) @=? lQuery mempty "(let (x 1 y 2) y)"
-  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "((fn (x) x) 1)"
-  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "(let (f (fn () 1)) f)"
-  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "(let (f (fn (x) x)) (f 1))"
-  , testCase "UFunc" $ (UInt 2) @=? lQuery mempty "(let (f (fn (x y) y)) (f 1 2))"
-  , testCase "UFunc" $ (UInt 2) @=? lQuery mempty "(let (f (fn (x y) y)) ((f 1) 2))"
-  , testCase "Numbers can't be used as functions" $ (UError "1 is not a function") @=? lQuery mempty "(1 2)"
-  , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "((let (f (fn (x y) x)) (f 1))2)"
-  , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "(let (y 1) (let (f (fn () y)) f))"
-  , testCase "Built-in" $ (UInt 3) @=? lQuery defaultEnv "(add 1 2)"
+test_TypeInference = testGroup "Type Inference"
+  [ testInfer "Int" "1"
+  , testInfer "Int" "(let (x 1) x)"
+  , testInfer "Int" "(let (x (let (y 1) y)) x)"
+  , testInfer "a -> Int" "(fn (x) 1)"
+  , testInfer "Int" "((fn (x) 1) 2)"
+  , testInfer "Int" "(add 1 2)"
+  , testInfer "Int -> Int" "(add 1)"
+  , testInfer "Int -> Int -> Int" "(fn (x y) (add x y))"
   ]
 
--- (UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1) --> ULet ("x", 1) (UFunc "y" (UVar "y"))
--- UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1 --> ULet ("x", 1) (UApp (UFunc "y" (UVar "y")) 2)
---
-focus = defaultMain test_TypeInference
---focus = defaultMain test_ListQuery
+testEval = testEvalWith mempty
+testEvalWith env expected input =
+  testCase (T.unpack input) $ expected @=? lQuery (builtInEnv <> M.fromList env) input
+
+test_ListQuery = testGroup "List Query"
+  [ testEval (UInt 1) "1"
+  , testEval (UError "Unknown variable: x") "x"
+  , testEvalWith [("x", UConst . UInt $ 1)] (UInt 1) "x"
+  , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let (x 1) x)"
+  , testEval (UInt 2) "(let (x 1 y 2) y)"
+  , testEval (UInt 1) "((fn (x) x) 1)"
+  , testEval (UInt 1) "(let (f (fn () 1)) f)"
+  , testEval (UInt 1) "(let (f (fn (x) x)) (f 1))"
+  , testEval (UInt 2) "(let (f (fn (x y) y)) (f 1 2))"
+  , testEval (UInt 2) "(let (f (fn (x y) y)) ((f 1) 2))"
+  , testEval (UError "1 is not a function") "(1 2)"
+  , testEval (UInt 1) "((let (f (fn (x y) x)) (f 1)) 2)"
+  , testEval (UInt 1) "(let (y 1) (let (f (fn () y)) f))"
+  , testEval (UInt 3) "(add 1 2)"
+  , testEval (UInt 3) "((add 1) 2)"
+  ]
+
+--focus = defaultMain test_TypeInference
+focus = defaultMain test_ListQuery
