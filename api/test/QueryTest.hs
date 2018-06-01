@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 
 module QueryTest where
 
@@ -8,8 +10,8 @@ import Test.Tasty.HUnit
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.Writer (runWriterT)
-import Control.Monad.State (State)
-import Control.Monad.Except (runExceptT, ExceptT)
+import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.Trans.Except (runExceptT, ExceptT, throwE)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 import qualified Data.Set             as Set
@@ -60,8 +62,20 @@ data MType =
 
 newtype Subst = Subst (M.HashMap T.Text MType)
 
+instance Monoid Subst where
+  mempty = Subst M.empty
+  mappend s1@(Subst a) s2@(Subst b) = Subst (a `M.union` b')
+    where
+      Subst b' = applySubst s1 s2
+
 class Substitutable a where
   applySubst :: Subst -> a -> a
+
+instance (Substitutable a, Substitutable b) => Substitutable (a, b) where
+  applySubst s (x, y) = (applySubst s x, applySubst s y)
+
+instance Substitutable Subst where
+  applySubst s (Subst target) = Subst (fmap (applySubst s) target)
 
 instance Substitutable MType where
   applySubst (Subst s) c@(WVar a) = M.lookupDefault c a s
@@ -96,7 +110,114 @@ instance Substitutable WEnv where
 newtype Infer a = Infer (ExceptT InferError (State [T.Text]) a)
   deriving (Functor, Applicative, Monad)
 
-data InferError = CannotUnify MType MType
+data InferError =
+    CannotUnify MType MType
+  | OccursCheckFailed T.Text MType
+  deriving (Show, Eq)
+
+runInfer :: Infer a -> Either InferError a
+runInfer (Infer inf) =
+  evalState (runExceptT inf) (infiniteSupply alphabet)
+  where
+    alphabet = map T.singleton ['a'..'z']
+
+    -- [a, b, c] ==> [a,b,c, a1,b1,c1, a2,b2,c2, …]
+    infiniteSupply supply = supply <> addSuffixes supply (1 :: Integer)
+      where
+        addSuffixes xs n = map (\x -> addSuffix x n) xs <> addSuffixes xs (n+1)
+
+throw :: InferError -> Infer a
+throw = Infer . throwE
+
+bindVariableTo :: T.Text -> MType -> Infer Subst
+bindVariableTo name (WVar v) | name == v = return mempty
+bindVariableTo name mType | name `occursIn` mType = throw (OccursCheckFailed name mType)
+  where
+    n `occursIn` ty = n `Set.member` freeMType ty
+bindVariableTo name mType = return (Subst (M.singleton name mType))
+
+unify :: (MType, MType) -> Infer Subst
+unify (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
+unify (WVar v, x) = v `bindVariableTo` x
+unify (x, WVar v) = v `bindVariableTo` x
+unify (WConst a, WConst b) | a == b = return mempty
+unify (a, b) = throw (CannotUnify a b)
+
+-- Unification of binary type constructors, such as functions and Either.
+-- Unification is first done for the first operand, and assuming the
+-- required substitution, for the second one.
+unifyBinary :: (MType, MType) -> (MType, MType) -> Infer Subst
+unifyBinary (a,b) (x,y) = do
+    s1 <- unify (a, x)
+    s2 <- unify (applySubst s1 (b, y))
+    pure (s1 <> s2)
+
+addSuffix x n = x <> T.pack (show n)
+
+--data UValue =
+--   UNone
+-- | ULocation Location
+-- | UInt SummableInt
+-- | UBool Bool
+-- | UFunc UExpr
+
+extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
+
+infer :: WEnv -> UExpr -> Infer (Subst, MType)
+infer env (UConst (UInt _)) = wconst "Int"
+infer env (UConst (UBool _)) = wconst "Bool"
+infer env (UConst (ULocation _)) = wconst "Location"
+infer env (UVar name) = do
+  sigma <- lookupEnv env name
+  tau <- instantiate sigma
+
+  return (mempty, tau)
+infer env (ULet (name, e0) e1) = do
+  (s1, tau) <- infer env e0
+  let env' = applySubst s1 env
+  let sigma = generalize env' tau
+  let env'' = extendEnv env' (name, sigma)
+  (s2, tau') <- infer env'' e1
+
+  pure (s2 <> s1, tau')
+
+infer env x = error . show $ x
+
+generalize :: WEnv -> MType -> PType
+generalize env mType = Forall qs mType
+  where
+    qs = freeMType mType `Set.difference` freeEnv env
+
+lookupEnv :: WEnv -> T.Text -> Infer PType
+lookupEnv (WEnv env) name = case M.lookup name env of
+  Just x -> return x
+  Nothing -> error "Name not found"
+
+instantiate :: PType -> Infer MType
+instantiate (Forall qs t) = do
+  subst <- substituteAllWithFresh qs
+  return (applySubst subst t)
+
+  where
+    substituteAllWithFresh xs = do
+      xs' <- sequenceA . fmap freshTuple . toList $ xs
+      pure (Subst $ M.fromList xs')
+    freshTuple x = do
+      v <- fresh
+
+      return (x, v)
+
+wconst x = return (mempty, WConst x)
+
+fresh :: Infer MType
+fresh = drawFromSupply >>= \case
+          Right name -> pure (WVar name)
+          Left err   -> throw err
+  where
+    drawFromSupply = Infer (do
+      s:upply <- lift get
+      lift (put upply)
+      pure (Right s))
 
 pAtom :: Parser Atom
 pAtom =  ((AInt . read) <$> many1 digit)
@@ -128,6 +249,20 @@ lQuery env text = case decode myParser text of
                     Right x -> uQuery env (head x)
                     Left y -> error $ show y
 
+inferType :: T.Text -> Either InferError MType
+inferType text = case decode myParser text of
+                    Right x -> snd <$> runInfer (infer (WEnv mempty) (head x))
+                    Left y  -> error "parse error"
+
+test_TypeInference = testGroup "Type Inference"
+  [ testCase "Const" $ Right (WConst "Int") @=? inferType "1"
+  , testCase "Let" $ Right (WConst "Int") @=? inferType "(let (x 1) x)"
+  , testCase "Nested Let" $ Right (WConst "Int") @=?
+      inferType "(let (x 1) (let (y x) y))"
+  , testCase "Nested Let" $ Right (WConst "Int") @=?
+      inferType "(let (x (let (y 1) y)) x)"
+  ]
+
 test_ListQuery = testGroup "List Query"
   [ testCase "UInt" $ UInt 1 @=? lQuery mempty "1"
   , testCase "UVar None" $ UNone @=? lQuery mempty "x"
@@ -136,4 +271,4 @@ test_ListQuery = testGroup "List Query"
   , testCase "ULet" $ (UInt 2) @=? lQuery mempty "(let (x 1 y 2) y)"
   ]
 
-focus = defaultMain test_ListQuery
+focus = defaultMain test_TypeInference
