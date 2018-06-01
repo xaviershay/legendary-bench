@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module QueryTest where
 
@@ -53,6 +54,7 @@ data UValue =
  | UInt SummableInt
  | UBool Bool
  | UFunc UEnv T.Text UExpr
+ | UList [UExpr]
  | UError T.Text
 
  deriving (Eq, Show)
@@ -61,12 +63,14 @@ data MType =
     WVar T.Text
   | WConst T.Text
   | WFun MType MType
+  | WList MType
 
   deriving (Eq, Show)
 
 showType (WVar x) = x
 showType (WConst x) = x
 showType (WFun x y) = showType x <> " -> " <> showType y
+showType (WList x) = "[" <> showType x <> "]"
 
 newtype Subst = Subst (M.HashMap T.Text MType)
 
@@ -149,6 +153,7 @@ unify (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
 unify (WVar v, x) = v `bindVariableTo` x
 unify (x, WVar v) = v `bindVariableTo` x
 unify (WConst a, WConst b) | a == b = return mempty
+unify (WList a, WList b) = unify (a, b)
 unify (a, b) = throw (CannotUnify a b)
 
 -- Unification of binary type constructors, such as functions and Either.
@@ -169,6 +174,22 @@ infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UBool _)) = wconst "Bool"
 infer env (UConst (ULocation _)) = wconst "Location"
+infer env (UConst (UList [])) = do
+  tau <- fresh
+
+  pure (mempty, WList tau)
+
+-- TODO: I'm not confident this is correct, but seems to work for limited test
+-- cases. In particular, s1..3 should probably be applied to more things. Left
+-- off for now until I get test cases that break it.
+infer env (UConst (UList (a:as))) = do
+  (s, thisMType) <- infer env a
+  (s2, restMType) <- infer env (UConst (UList as))
+
+  s3 <- unify (WList thisMType, restMType)
+
+  pure (s3, WList thisMType)
+
 infer env (UConst (UFunc _ name exp)) = do
   tau <- fresh
   let sigma = Forall mempty tau
@@ -248,6 +269,7 @@ pAtom =  ((AInt . read) <$> many1 digit)
 
 uQuery :: UEnv -> UExpr -> UValue
 uQuery env (UConst fn@(UFunc env' x body)) = UFunc (env' <> env) x body
+uQuery env (UConst (UList xs)) = UList (map (UConst . uQuery env) xs)
 uQuery env (UConst v) = v
 uQuery env (UVar label) = uQuery env $ M.lookupDefault (UConst . UError $ "Unknown variable: " <> label) label env
 uQuery env (ULet (key, value) expr) = uQuery (M.insert key value env) expr
@@ -284,16 +306,35 @@ convertApp (a:rest) = do
 
   return $ UApp xs a'
 
+convertList :: [SExpr Atom] -> Either String [UExpr]
+convertList [] = return []
+convertList (a:as) = do
+  a' <- toExpr a
+  as' <- convertList as
+
+  return $ a':as'
+
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
-toExpr (A (ASymbol "let") ::: L ls ::: f ::: Nil) = convertLet ls f
+toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
 toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
+toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)
 
 toExpr (L _) = return $ UConst UNone
 
-myParser = setCarrier toExpr $ mkParser pAtom
+vec p = do
+  atoms <- vec' p
+
+  pure $ SCons (A (ASymbol "list")) atoms
+
+vec' p = do
+  atoms <- (char ']' *> pure SNil) <|> (SCons <$> p <*> vec' p)
+
+  return atoms
+
+myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
 lQuery :: UEnv -> T.Text -> UValue
 lQuery env text = case decode myParser text of
@@ -301,9 +342,12 @@ lQuery env text = case decode myParser text of
                     Left y -> error $ show y
 
 inferType :: T.Text -> T.Text
-inferType text = let Right result = showType <$> case decode myParser text of
+inferType text = let result = showType <$> case decode myParser text of
                                       Right x -> snd <$> runInfer (infer builtInTypeEnv (head x))
-                                      Left y  -> error "parse error" in result
+                                      Left y  -> error "parse error" in
+                 case result of
+                   Right x -> x
+                   Left y -> error $ show y
 
 builtInEnv :: UEnv
 builtInEnv = M.mapWithKey (typeToFn 0) builtIns
@@ -315,7 +359,9 @@ typeToFn n key (WConst _, _) = UBuiltIn key
 builtInTypeEnv :: WEnv
 builtInTypeEnv = WEnv $ M.map (Forall mempty . fst) builtIns
 
-builtIns :: M.HashMap T.Text (MType, UEnv -> UExpr)
+type BuiltIn = (MType, UEnv -> UExpr)
+
+builtIns :: M.HashMap T.Text BuiltIn
 builtIns = M.fromList
   [ ("add", (WFun (WConst "Int") (WFun (WConst "Int") (WConst "Int")), builtInAdd))
   ]
@@ -331,13 +377,18 @@ testInfer expected input =
 
 test_TypeInference = testGroup "Type Inference"
   [ testInfer "Int" "1"
-  , testInfer "Int" "(let (x 1) x)"
-  , testInfer "Int" "(let (x (let (y 1) y)) x)"
+  , testInfer "Int" "(let [x 1] x)"
+  , testInfer "Int" "(let [x (let [y 1] y)] x)"
   , testInfer "a -> Int" "(fn (x) 1)"
   , testInfer "Int" "((fn (x) 1) 2)"
   , testInfer "Int" "(add 1 2)"
   , testInfer "Int -> Int" "(add 1)"
   , testInfer "Int -> Int -> Int" "(fn (x y) (add x y))"
+  , testInfer "[a]" "[]"
+  , testInfer "[Int]" "[1]"
+  , testInfer "[Int]" "[1 2]"
+  , testInfer "[Int]" "(let [x 1] [x 2])"
+  , testInfer "[Int]" "(let [x 1] [x ((fn (y) y) x)])"
   ]
 
 testEval = testEvalWith mempty
@@ -348,19 +399,22 @@ test_ListQuery = testGroup "List Query"
   [ testEval (UInt 1) "1"
   , testEval (UError "Unknown variable: x") "x"
   , testEvalWith [("x", UConst . UInt $ 1)] (UInt 1) "x"
-  , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let (x 1) x)"
-  , testEval (UInt 2) "(let (x 1 y 2) y)"
+  , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let [x 1] x)"
+  , testEval (UInt 2) "(let [x 1 y 2] y)"
   , testEval (UInt 1) "((fn (x) x) 1)"
-  , testEval (UInt 1) "(let (f (fn () 1)) f)"
-  , testEval (UInt 1) "(let (f (fn (x) x)) (f 1))"
-  , testEval (UInt 2) "(let (f (fn (x y) y)) (f 1 2))"
-  , testEval (UInt 2) "(let (f (fn (x y) y)) ((f 1) 2))"
+  , testEval (UInt 1) "(let [f (fn () 1)] f)"
+  , testEval (UInt 1) "(let [f (fn (x) x)] (f 1))"
+  , testEval (UInt 2) "(let [f (fn (x y) y)] (f 1 2))"
+  , testEval (UInt 2) "(let [f (fn (x y) y)] ((f 1) 2))"
   , testEval (UError "1 is not a function") "(1 2)"
-  , testEval (UInt 1) "((let (f (fn (x y) x)) (f 1)) 2)"
-  , testEval (UInt 1) "(let (y 1) (let (f (fn () y)) f))"
+  , testEval (UInt 1) "((let [f (fn (x y) x)] (f 1)) 2)"
+  , testEval (UInt 1) "(let [y 1] (let [f (fn () y)] f))"
   , testEval (UInt 3) "(add 1 2)"
   , testEval (UInt 3) "((add 1) 2)"
+  , testEval (UList [UConst . UInt $ 1]) "[1]"
+  , testEval (UList [UConst . UInt $ 1, UConst . UInt $ 2]) "(let [x 2] [1 x])"
   ]
 
---focus = defaultMain test_TypeInference
-focus = defaultMain test_ListQuery
+focus = defaultMain test_TypeInference
+--focus = defaultMain test_ListQuery
+--focus =   decode (addReader '[' vec $ mkParser pAtom) "[1 2]"
