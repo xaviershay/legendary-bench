@@ -21,7 +21,7 @@ testInfer expected input =
   where
     inferType :: T.Text -> T.Text
     inferType text = let result = showType <$> case parse text of
-                                          Right x -> typecheck (head x)
+                                          Right x -> typecheck x
                                           Left y  -> error $ "parse error: " <> show y in
                      case result of
                        Right x -> x
@@ -50,7 +50,7 @@ testEvalWith env expected input =
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
-                        Right x -> evalWith env (head x)
+                        Right x -> evalWith env x
                         Left y -> error $ show y
 
 
@@ -72,8 +72,8 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 3) "((add 1) 2)"
   , testEval (UList [UConst . UInt $ 1]) "[1]"
   , testEval (UList [UConst . UInt $ 1, UConst . UInt $ 2]) "(let [x 2] [1 x])"
+  , testEval (UInt 1) "(def x 1) x"
   ]
 
-focus = defaultMain test_TypeInference
---focus = defaultMain test_ListQuery
---focus =   decode (addReader '[' vec $ mkParser pAtom) "[1 2]"
+--focus = defaultMain test_TypeInference
+focus = defaultMain test_ListQuery

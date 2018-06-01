@@ -26,6 +26,9 @@ evalWith :: UEnv -> UExpr -> UValue
 evalWith env exp = evalWith' (builtInEnv <> env) exp
 
 evalWith' :: UEnv -> UExpr -> UValue
+evalWith' env (USequence []) = UNone
+evalWith' env (USequence [x]) = evalWith' env x
+evalWith' env (USequence (x:xs)) = evalWith' env (USequence xs)
 evalWith' env (UConst fn@(UFunc env' x body)) = UFunc (env' <> env) x body
 evalWith' env (UConst (UList xs)) = UList (map (UConst . evalWith' env) xs)
 evalWith' env (UConst v) = v

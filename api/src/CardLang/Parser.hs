@@ -15,12 +15,33 @@ import Utils
 
 data Atom = AInt Int | ASymbol T.Text deriving (Show, Eq)
 
-parse = decode myParser
+parse :: T.Text -> Either String UExpr
+parse x = USequence <$> decode myParser x
 
 pAtom :: Parser Atom
 pAtom =  ((AInt . read) <$> many1 digit)
      <|> ((ASymbol . T.pack) <$> many1 alphaNum)
 
+vec p = do
+  atoms <- vec' p
+
+  pure $ SCons (A (ASymbol "list")) atoms
+
+vec' p = do
+  atoms <- (char ']' *> pure SNil) <|> (SCons <$> p <*> vec' p)
+
+  return atoms
+
+myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
+
+toExpr :: SExpr Atom -> Either String UExpr
+toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
+toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
+toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
+toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
+toExpr (A (ASymbol x)) = Right . UVar $ x
+toExpr (L args) = convertApp (reverse args)
+toExpr (L _) = return $ UConst UNone
 convertLet :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertLet [] f = toExpr f
 convertLet (A (ASymbol k):v:vs) f = do
@@ -55,25 +76,3 @@ convertList (a:as) = do
   as' <- convertList as
 
   return $ a':as'
-
-toExpr :: SExpr Atom -> Either String UExpr
-toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
-toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
-toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
-toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
-toExpr (A (ASymbol x)) = Right . UVar $ x
-toExpr (L args) = convertApp (reverse args)
-
-toExpr (L _) = return $ UConst UNone
-
-vec p = do
-  atoms <- vec' p
-
-  pure $ SCons (A (ASymbol "list")) atoms
-
-vec' p = do
-  atoms <- (char ']' *> pure SNil) <|> (SCons <$> p <*> vec' p)
-
-  return atoms
-
-myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom

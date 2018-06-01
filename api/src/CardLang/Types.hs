@@ -16,6 +16,7 @@ data UExpr =
   | ULet (Name, UExpr) UExpr
   | UApp UExpr UExpr
   | UBuiltIn Name
+  | USequence [UExpr]
   deriving (Show, Eq)
 
 type UEnv = M.HashMap Name UExpr
