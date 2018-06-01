@@ -38,6 +38,7 @@ data UExpr =
     UConst UValue
   | UVar T.Text
   | ULet (T.Text, UExpr) UExpr
+  | UApp UExpr UExpr
   deriving (Eq, Show)
 
 type UEnv = M.HashMap T.Text UExpr
@@ -49,7 +50,8 @@ data UValue =
  | ULocation Location
  | UInt SummableInt
  | UBool Bool
- | UFunc T.Text UExpr
+ | UFunc UEnv T.Text UExpr
+ | UError T.Text
 
  deriving (Eq, Show)
 
@@ -161,7 +163,7 @@ infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UBool _)) = wconst "Bool"
 infer env (UConst (ULocation _)) = wconst "Location"
-infer env (UConst (UFunc name exp)) = do
+--infer env (UConst (UFunc name exp)) = do
 
 infer env (UVar name) = do
   sigma <- lookupEnv env name
@@ -205,6 +207,9 @@ instantiate (Forall qs t) = do
 
 wconst x = return (mempty, WConst x)
 
+printValue (UConst x) = case x of
+                          (UInt (Sum n)) -> showT n
+
 fresh :: Infer MType
 fresh = drawFromSupply >>= \case
           Right name -> pure (WVar name)
@@ -220,9 +225,14 @@ pAtom =  ((AInt . read) <$> many1 digit)
      <|> ((ASymbol . T.pack) <$> many1 alphaNum)
 
 uQuery :: UEnv -> UExpr -> UValue
+uQuery env (UConst fn@(UFunc env' x body)) = UFunc (env' <> env) x body
 uQuery env (UConst v) = v
-uQuery env (UVar label) = uQuery env $ M.lookupDefault (UConst UNone) label env
+uQuery env (UVar label) = uQuery env $ M.lookupDefault (UConst . UError $ "Unknown variable: " <> label) label env
 uQuery env (ULet (key, value) expr) = uQuery (M.insert key value env) expr
+uQuery env (UApp fexp arg) =
+  case uQuery env fexp of
+    (UFunc env' argname body) -> uQuery (env <> env') $ ULet (argname, arg) body
+    _ -> UError $ (printValue fexp) <> " is not a function"
 
 convertLet :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertLet [] f = toExpr f
@@ -239,13 +249,24 @@ convertFn [] f = toExpr f
 convertFn (A (ASymbol x):xs) f = do
   body <- convertFn xs f
 
-  return . UConst $ UFunc x body
+  return . UConst $ UFunc mempty x body
+
+-- TODO: Handle expr in first element
+convertApp [A (ASymbol x)] = return . UVar $ x
+convertApp [a] = toExpr a
+convertApp (a:rest) = do
+  xs <- convertApp rest
+  a'   <- toExpr a
+
+  return $ UApp xs a'
 
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (ASymbol "let") ::: L ls ::: f ::: Nil) = convertLet ls f
 toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
 toExpr (A (ASymbol x)) = Right . UVar $ x
+toExpr (L args) = convertApp (reverse args)
+
 toExpr (L _) = return $ UConst UNone
 
 myParser = setCarrier toExpr $ mkParser pAtom
@@ -271,11 +292,22 @@ test_TypeInference = testGroup "Type Inference"
 
 test_ListQuery = testGroup "List Query"
   [ testCase "UInt" $ UInt 1 @=? lQuery mempty "1"
-  , testCase "UVar None" $ UNone @=? lQuery mempty "x"
+  , testCase "UVar None" $ (UError "Unknown variable: x") @=? lQuery mempty "x"
   , testCase "UVar Just" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 1)]) "x"
   , testCase "ULet" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 0)]) "(let (x 1) x)"
   , testCase "ULet" $ (UInt 2) @=? lQuery mempty "(let (x 1 y 2) y)"
+  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "((fn (x) x) 1)"
+  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "(let (f (fn () 1)) f)"
   , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "(let (f (fn (x) x)) (f 1))"
+  , testCase "UFunc" $ (UInt 2) @=? lQuery mempty "(let (f (fn (x y) y)) (f 1 2))"
+  , testCase "UFunc" $ (UInt 2) @=? lQuery mempty "(let (f (fn (x y) y)) ((f 1) 2))"
+  , testCase "Numbers can't be used as functions" $ (UError "1 is not a function") @=? lQuery mempty "(1 2)"
+  , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "((let (f (fn (x y) x)) (f 1))2)"
+  , testCase "Functions capture env" $ (UInt 1) @=? lQuery mempty "(let (y 1) (let (f (fn () y)) f))"
   ]
 
-focus = defaultMain test_TypeInference
+-- (UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1) --> ULet ("x", 1) (UFunc "y" (UVar "y"))
+-- UApp (UFunc "x" (UFunc "y" (UVar "y"))) 1 --> ULet ("x", 1) (UApp (UFunc "y" (UVar "y")) 2)
+--
+--focus = defaultMain test_TypeInference
+focus = defaultMain test_ListQuery

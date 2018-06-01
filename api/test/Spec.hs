@@ -90,8 +90,6 @@ test_SpiderMan =
     result = runGameMonad board $ apply (ActionPlayerTurn player)
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
 
-focus = defaultMain test_SpiderMan
-
 test_SpiderManLose =
   testCase "Spiderman loses if deck and discard are empty" $
     True @=? (isLost result)
