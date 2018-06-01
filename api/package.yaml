@@ -38,6 +38,7 @@ library:
     - random
     - wai-cors
     - wai-extra
+    - parsec
     - s-cargot
 
 executables:
@@ -77,6 +78,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wunused-imports
     dependencies:
     - legendary-bench
     - aeson
@@ -91,6 +93,3 @@ tests:
     - unordered-containers
     - text
     - hashable
-    - parsec
-    - s-cargot
-    - mtl
