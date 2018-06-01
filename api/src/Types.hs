@@ -66,6 +66,7 @@ data Card = HeroCard
   , _heroDescription :: T.Text
   , _playEffect :: Action
   , _heroCost   :: SummableInt
+  , _heroStartingNumber :: Int
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: SummableInt
@@ -177,6 +178,9 @@ data Term t where
   TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
   TFilterBy       :: (Term a -> Term b) -> (Term b -> Term Bool) -> Term (S.Seq a) -> Term (S.Seq a)
   TMap            :: (Term a -> Term b) -> Term (S.Seq a) -> Term (S.Seq b)
+  THeroType       :: Term SpecificCard -> Term HeroType
+  TLength         :: Term (S.Seq a) -> Term SummableInt
+  TUniq           :: Eq a => Term (S.Seq a) -> Term (S.Seq a)
 
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
