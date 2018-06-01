@@ -71,6 +71,30 @@ query (TAllCardsAt qloc) = do
 
   return $ S.zip (S.replicate n loc) (S.fromList [0..n-1])
 
+query (TPlayedOfType t) = do
+  pid <- currentPlayer
+
+  id
+    . Sum
+    . S.length
+    . S.filter (\c -> t == view (cardTemplate . heroType) c)
+    . view (cardsAtLocation (PlayerLocation pid Played))
+    <$> currentBoard
+
+query (TBystandersAt qloc) = do
+  loc <- query qloc
+
+  id
+    . Sum
+    . S.length
+    . S.filter (isBystander . view cardTemplate)
+    . view (cardsAtLocation loc)
+    <$> currentBoard
+
+  where
+    isBystander BystanderCard = True
+    isBystander _ = False
+
 query x = lose $ "Unknown term: " <> showT x
 
 queryFailed a (board, action) = throwError (board, a)

@@ -434,6 +434,12 @@ class Location extends Component {
   }
 }
 
+function formatDescription(x) {
+  return x.split('\n').map((item, key) => {
+    return <span key={key}>{item}<br/></span>
+  })
+}
+
 class Card extends Component {
   render() {
     const card = this.props.card;
@@ -444,7 +450,7 @@ class Card extends Component {
         <div className={"card ability-type-" + card.heroAbilityType}>
           <span className="cardName">{card.ability !== "" ? card.ability : card.name}</span>
           {card.ability !== "" && <span className="heroName">{card.name}</span>}
-          <span className="cardDescription">{card.description}</span>
+          <span className="cardDescription">{formatDescription(card.description)}</span>
           <div className="footer">
             <span className={card.baseMoney > 0 ? "cardMoney" : "cardAttack"}>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
             <span className="cardCost">{card.cost > 0 ? "$" + card.cost : ""}</span>

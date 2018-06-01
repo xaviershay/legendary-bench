@@ -162,16 +162,21 @@ instance Monoid Effect where
   mappend = EffectCombine
 
 data Term t where
+  TEmpty          :: Term t
   TConst          :: t -> Term t
   TCurrentPlayer  :: Term PlayerId
   TCardCost       :: Term SpecificCard -> Term SummableInt
   TPlayerLocation :: Term PlayerId -> Term ScopedLocation -> Term Location
   TSpecificCard   :: Term Location -> Term Int -> Term SpecificCard
-  TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
   TChooseCard     :: T.Text -> Term PlayerId -> Term (S.Seq SpecificCard) -> Term SpecificCard
   TAllCardsAt     :: Term Location -> Term (S.Seq SpecificCard)
   TAppend         :: (Monoid a) => Term a -> Term a -> Term a
-  TEmpty          :: Term t
+  TPlayedOfType   :: HeroType -> Term SummableInt
+  TBystandersAt   :: Term Location -> Term SummableInt
+  -- TODO: Are these lambdas going to work with parsing?
+  TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
+  TFilterBy       :: (Term a -> Term b) -> (Term b -> Term Bool) -> Term (S.Seq a) -> Term (S.Seq a)
+  TMap            :: (Term a -> Term b) -> Term (S.Seq a) -> Term (S.Seq b)
 
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
@@ -189,6 +194,7 @@ instance Show t => Show (Term t) where
   show (TEmpty)              = "TEmpty"
   show (TAllCardsAt x)       = showTerms "TAllCardsAt" [x]
   show (TAppend x y)         = showTerms2 "TAppend" (x, y)
+  show (TPlayedOfType x)     = showTerms "TPlayedOfType" [x]
   show (TChooseCard x y z)   = showTerms3 "TChooseCard" (x, y, z)
   show _                     = "Unknown Term"
 
@@ -217,6 +223,7 @@ data Action =
   ActionMove (Term SpecificCard) (Term Location) (Term MoveDestination) |
   ActionMoney (Term PlayerId) (Term SummableInt) |
   ActionAttack (Term PlayerId) (Term SummableInt) |
+  ActionFight (Term SpecificCard) |
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
   ActionIf Condition Action Action |

@@ -64,6 +64,7 @@ mkPlayerDeck =
   sequence . fmap (mkCardInPlay Hidden) $
        S.replicate 8 moneyCard
     <> S.replicate 4 attackCard
+    <> S.replicate 40 (blackWidowCards !! 1)
 
 mkCardInPlay :: Visibility -> Card -> State Int CardInPlay
 mkCardInPlay visibility template = do
