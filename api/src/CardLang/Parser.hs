@@ -6,7 +6,7 @@ module CardLang.Parser where
 import Data.SCargot
 import Data.SCargot.Repr.Basic
 import Control.Applicative ((<|>))
-import Text.Parsec (anyChar, char, digit, many1, manyTill, newline, satisfy, string, alphaNum)
+import Text.Parsec ( char, digit, many1, alphaNum)
 import Text.Parsec.Text (Parser)
 import qualified Data.Text            as T
 
@@ -20,7 +20,7 @@ parse x = USequence <$> decode myParser x
 
 pAtom :: Parser Atom
 pAtom =  ((AInt . read) <$> many1 digit)
-     <|> ((ASymbol . T.pack) <$> many1 alphaNum)
+     <|> ((ASymbol . T.pack) <$> many1 (alphaNum <|> char '-'))
 
 vec p = do
   atoms <- vec' p
@@ -38,6 +38,9 @@ toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
 toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
+toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = do
+  fn <- convertFn vs f
+  return $ UDef name fn
 toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: f ::: Nil) = do
   body <- toExpr f
   return $ UDef name body

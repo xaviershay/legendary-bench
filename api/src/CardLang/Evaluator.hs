@@ -3,6 +3,7 @@
 module CardLang.Evaluator
   ( eval
   , evalWith
+  , builtIns
   )
   where
 
@@ -12,8 +13,8 @@ import Data.Maybe (fromJust)
 
 import Utils
 
-import CardLang.BuiltIn
 import CardLang.Types
+import Debug.Trace
 
 printValue (UConst x) = case x of
                           (UInt (Sum n)) -> showT n
@@ -81,3 +82,21 @@ builtInEnv = M.mapWithKey (typeToFn 0) builtIns
     typeToFn :: Int -> Name -> (MType, UEnv -> UExpr) -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
     typeToFn n key (WConst _, _) = UBuiltIn key
+
+builtIns :: M.HashMap Name BuiltIn
+builtIns = M.fromList
+  [ ("add", (WFun (WConst "Int") (WFun (WConst "Int") (WConst "Int")), builtInAdd))
+  ]
+
+builtInAdd :: UEnv -> UExpr
+builtInAdd env = let
+  x = lookupInt "a0"
+  y = lookupInt "a1"
+  in UConst . UInt $ x + y
+
+  where
+    lookupInt name = case M.lookup name env of
+                       Nothing -> error $ "Not in env: " <> show name
+                       Just x -> case evalWith env x of
+                                   UInt x -> x
+                                   y -> error $ "Not uint: " <> show y

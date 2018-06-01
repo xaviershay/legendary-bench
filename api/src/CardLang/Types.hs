@@ -39,3 +39,5 @@ data MType =
   | WList MType
 
   deriving (Eq, Show)
+
+type BuiltIn = (MType, UEnv -> UExpr)

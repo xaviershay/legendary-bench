@@ -16,7 +16,7 @@ import qualified Data.Set             as Set
 import qualified Data.Text            as T
 
 import CardLang.Types
-import CardLang.BuiltIn
+import CardLang.Evaluator
 import Utils
 
 
@@ -78,6 +78,7 @@ newtype Infer a = Infer (ExceptT InferError (State [Name]) a)
 data InferError =
     CannotUnify MType MType
   | OccursCheckFailed Name MType
+  | UnknownIdentifier Name
   deriving (Show, Eq)
 
 
@@ -245,7 +246,7 @@ generalize env mType = Forall qs mType
 lookupEnv :: WEnv -> Name -> Infer PType
 lookupEnv (WEnv env) name = case M.lookup name env of
   Just x -> return x
-  Nothing -> error $ "Name not found: " <> T.unpack name
+  Nothing -> throw $ UnknownIdentifier name
 
 instantiate :: PType -> Infer MType
 instantiate (Forall qs t) = do

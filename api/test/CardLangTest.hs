@@ -46,6 +46,7 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "Int" "(def y (fn (z) z)) (y 1)"
   , testInfer "Int" "(def y (fn (z) z)) (def x 2) (y 2)"
   , testInfer "Int" "(def y (fn (z) z)) (def x (y 2)) x"
+  , testInfer "a -> a" "(def y (fn (z) z)) (def x (y 2)) y"
   ]
 
 testEval = testEvalWith mempty
@@ -54,14 +55,14 @@ testEvalWith env expected input =
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
-                        Right x -> evalWith env x
+                        Right x -> case typecheck x of
+                                     Right _ -> evalWith env x
+                                     Left y -> error $ "Typecheck fail: " <> show y
                         Left y -> error $ show y
 
 
 test_ListQuery = testGroup "List Query"
   [ testEval (UInt 1) "1"
-  , testEval (UError "Unknown variable: x") "x"
-  , testEvalWith [("x", UConst . UInt $ 1)] (UInt 1) "x"
   , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let [x 1] x)"
   , testEval (UInt 2) "(let [x 1 y 2] y)"
   , testEval (UInt 1) "((fn (x) x) 1)"
@@ -70,20 +71,17 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 2) "(let [f (fn (x y) y)] (f 1 2))"
   , testEval (UInt 2) "(let [f (fn (x y) y)] ((f 1) 2))"
   , testEval (UInt 1) "(let [] 1)"
-  , testEval (UError "1 is not a function") "(1 2)"
   , testEval (UInt 1) "((let [f (fn (x y) x)] (f 1)) 2)"
   , testEval (UInt 1) "(let [y 1] (let [f (fn () y)] f))"
   , testEval (UInt 3) "(add 1 2)"
+  , testEval (UInt 3) "(let [x 1] (add x 2))"
   , testEval (UInt 3) "((add 1) 2)"
   , testEval (UList [UConst . UInt $ 1]) "[1]"
   , testEval (UList [UConst . UInt $ 1, UConst . UInt $ 2]) "(let [x 2] [1 x])"
   , testEval (UInt 1) "(def x 1) x"
-
-  -- TODO: Change let to use a list to support this case
-  --, testEval (UError "Unknown variable: y") "(let [] (def y x)) y"
-
-  , testEval (UError "Unknown variable: y") "(let [x 1] (def y x)) y"
+  , testEval (UInt 2) "(defn foo [x] 2) (foo 1)"
+  , testEval (UInt 3) "(defn add-one [x] (add 1 x)) (add-one 2)"
   ]
 
-focus = defaultMain test_TypeInference
---focus = defaultMain test_ListQuery
+--focus = defaultMain test_TypeInference
+focus = defaultMain test_ListQuery
