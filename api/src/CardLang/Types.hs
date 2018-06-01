@@ -14,6 +14,7 @@ data UExpr =
     UConst UValue
   | UVar Name
   | ULet (Name, UExpr) UExpr
+  | UDef Name UExpr
   | UApp UExpr UExpr
   | UBuiltIn Name
   | USequence [UExpr]

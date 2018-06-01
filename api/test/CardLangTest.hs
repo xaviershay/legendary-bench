@@ -42,6 +42,10 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "[Int]" "(let [x 1] [x 2])"
   , testInfer "[Int]" "(let [x 1] [x ((fn (y) y) x)])"
   , testInfer "a -> [a]" "(fn (x) [x])"
+  , testInfer "Int" "(def x 1) x"
+  , testInfer "Int" "(def y (fn (z) z)) (y 1)"
+  , testInfer "Int" "(def y (fn (z) z)) (def x 2) (y 2)"
+  , testInfer "Int" "(def y (fn (z) z)) (def x (y 2)) x"
   ]
 
 testEval = testEvalWith mempty
@@ -65,6 +69,7 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "(let [f (fn (x) x)] (f 1))"
   , testEval (UInt 2) "(let [f (fn (x y) y)] (f 1 2))"
   , testEval (UInt 2) "(let [f (fn (x y) y)] ((f 1) 2))"
+  , testEval (UInt 1) "(let [] 1)"
   , testEval (UError "1 is not a function") "(1 2)"
   , testEval (UInt 1) "((let [f (fn (x y) x)] (f 1)) 2)"
   , testEval (UInt 1) "(let [y 1] (let [f (fn () y)] f))"
@@ -73,7 +78,12 @@ test_ListQuery = testGroup "List Query"
   , testEval (UList [UConst . UInt $ 1]) "[1]"
   , testEval (UList [UConst . UInt $ 1, UConst . UInt $ 2]) "(let [x 2] [1 x])"
   , testEval (UInt 1) "(def x 1) x"
+
+  -- TODO: Change let to use a list to support this case
+  --, testEval (UError "Unknown variable: y") "(let [] (def y x)) y"
+
+  , testEval (UError "Unknown variable: y") "(let [x 1] (def y x)) y"
   ]
 
---focus = defaultMain test_TypeInference
-focus = defaultMain test_ListQuery
+focus = defaultMain test_TypeInference
+--focus = defaultMain test_ListQuery

@@ -38,6 +38,10 @@ toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
 toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
+toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: f ::: Nil) = do
+  body <- toExpr f
+  return $ UDef name body
+
 toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)

@@ -9,7 +9,6 @@ module CardLang.TypeInference
 
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.State  (State, evalState, get, lift, put)
-import           Control.Monad.Writer (runWriterT)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
 import           Data.Maybe           (fromJust)
@@ -26,7 +25,7 @@ showType (WConst x) = x
 showType (WFun x y) = showType x <> " -> " <> showType y
 showType (WList x) = "[" <> showType x <> "]"
 
-newtype Subst = Subst (M.HashMap Name MType)
+newtype Subst = Subst (M.HashMap Name MType) deriving (Show)
 
 instance Monoid Subst where
   mempty = Subst M.empty
@@ -53,7 +52,7 @@ freeMType (WConst _) = mempty
 freeMType (WVar x) = Set.singleton x
 freeMType (WFun x y) = freeMType x <> freeMType y
 
-data PType = Forall (Set.Set Name) MType
+data PType = Forall (Set.Set Name) MType deriving (Show)
 
 freePType :: PType -> Set.Set Name
 freePType (Forall qs mType) = freeMType mType `Set.difference` qs
@@ -65,7 +64,7 @@ instance Substitutable PType where
         s'  = Subst (s `M.difference` qs')
     in Forall qs (applySubst s' mType)
 
-newtype WEnv = WEnv (M.HashMap Name PType)
+newtype WEnv = WEnv (M.HashMap Name PType) deriving (Show)
 
 freeEnv :: WEnv -> Set.Set Name
 freeEnv (WEnv e) = Set.unions (fmap freePType $ M.elems e)
@@ -186,6 +185,19 @@ infer env (UConst (UFunc _ name exp)) = do
 
   pure (s, WFun (applySubst s tau) tau')
 
+-- A sequence can contain heterogenous types. Only the final one is used.
+infer env (USequence []) = do
+  tau <- fresh
+  pure (mempty, tau)
+infer env (USequence [x]) = infer env x
+infer env (USequence (x:xs)) = do
+  -- Since Sequences "pass forward" their environment, we need access to the
+  -- modified environment in infer.
+  (s1, t1, env') <- inferWithNewEnv env x
+  (s2, t2) <- infer env' $ USequence xs
+
+  pure (s2, t2)
+
 infer env (UApp f x) = do
   (s1, fTau) <- infer env f
   (s2, xTau) <- infer (applySubst s1 env) x
@@ -210,6 +222,21 @@ infer env (ULet (name, e0) e1) = do
 
 infer env x = error . show $ x
 
+inferWithNewEnv :: WEnv -> UExpr -> Infer (Subst, MType, WEnv)
+inferWithNewEnv env (UDef name e) = do
+  (s1, t1) <- infer env e
+
+  let env' = applySubst s1 env
+  let sigma = generalize env' t1
+  let env'' = extendEnv env' (name, sigma)
+
+  pure (s1, t1, applySubst s1 env'')
+
+inferWithNewEnv env x = do
+  (s, t) <- infer env x
+
+  pure (s, t, applySubst s env)
+
 generalize :: WEnv -> MType -> PType
 generalize env mType = Forall qs mType
   where
@@ -218,7 +245,7 @@ generalize env mType = Forall qs mType
 lookupEnv :: WEnv -> Name -> Infer PType
 lookupEnv (WEnv env) name = case M.lookup name env of
   Just x -> return x
-  Nothing -> error "Name not found"
+  Nothing -> error $ "Name not found: " <> T.unpack name
 
 instantiate :: PType -> Infer MType
 instantiate (Forall qs t) = do
