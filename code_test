@@ -1,0 +1,3 @@
+(define filter-by-hero-type (fn (type) (fn (cs) (filterBy (fn (c) (== type (heroType c))) cs))))
+(attack 3)
+(attack (filter-by-hero-type :avengers (all-cards-from [:hand, :played])))

@@ -8,9 +8,11 @@ import Test.Tasty.HUnit
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.Writer (runWriterT)
-import Control.Monad.Except (runExceptT)
+import Control.Monad.State (State)
+import Control.Monad.Except (runExceptT, ExceptT)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
+import qualified Data.Set             as Set
 
 import Data.SCargot
 import Data.SCargot.Repr.Basic
@@ -48,6 +50,53 @@ data UValue =
  | UFunc UExpr
 
  deriving (Eq, Show)
+
+data MType =
+    WVar T.Text
+  | WConst T.Text
+  | WFun MType MType
+
+  deriving (Eq, Show)
+
+newtype Subst = Subst (M.HashMap T.Text MType)
+
+class Substitutable a where
+  applySubst :: Subst -> a -> a
+
+instance Substitutable MType where
+  applySubst (Subst s) c@(WVar a) = M.lookupDefault c a s
+  applySubst s c@(WConst {}) = c
+  applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
+
+freeMType :: MType -> Set.Set T.Text
+freeMType (WConst _) = mempty
+freeMType (WVar x) = Set.singleton x
+freeMType (WFun x y) = freeMType x <> freeMType y
+
+data PType = Forall (Set.Set T.Text) MType
+
+freePType :: PType -> Set.Set T.Text
+freePType (Forall qs mType) = freeMType mType `Set.difference` qs
+
+instance Substitutable PType where
+  -- Remove the free types from the env and then substitute mType with that
+  applySubst (Subst s) (Forall qs mType) =
+    let qs' = M.fromList (fmap (\t -> (t, ())) $ toList qs)
+        s'  = Subst (s `M.difference` qs')
+    in Forall qs (applySubst s' mType)
+
+newtype WEnv = WEnv (M.HashMap T.Text PType)
+
+freeEnv :: WEnv -> Set.Set T.Text
+freeEnv (WEnv e) = Set.unions (fmap freePType $ M.elems e)
+
+instance Substitutable WEnv where
+  applySubst s (WEnv env) = WEnv (M.map (applySubst s) env)
+
+newtype Infer a = Infer (ExceptT InferError (State [T.Text]) a)
+  deriving (Functor, Applicative, Monad)
+
+data InferError = CannotUnify MType MType
 
 pAtom :: Parser Atom
 pAtom =  ((AInt . read) <$> many1 digit)
