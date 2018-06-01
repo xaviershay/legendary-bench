@@ -16,6 +16,8 @@ import Control.Monad.Except (runExceptT, ExceptT, throwError)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 import qualified Data.Set             as Set
+import Data.Maybe (fromJust)
+import Data.List (nub)
 
 import Data.SCargot
 import Data.SCargot.Repr.Basic
@@ -128,15 +130,14 @@ data InferError =
   deriving (Show, Eq)
 
 runInfer :: Infer a -> Either InferError a
-runInfer (Infer inf) =
-  evalState (runExceptT inf) (infiniteSupply alphabet)
-  where
-    alphabet = map T.singleton ['a'..'z']
+runInfer (Infer inf) = evalState (runExceptT inf) typeNames
 
-    -- [a, b, c] ==> [a,b,c, a1,b1,c1, a2,b2,c2, …]
-    infiniteSupply supply = supply <> addSuffixes supply (1 :: Integer)
-      where
-        addSuffixes xs n = map (\x -> addSuffix x n) xs <> addSuffixes xs (n+1)
+alphabet = map T.singleton ['a'..'z']
+typeNames = (infiniteSupply alphabet)
+-- [a, b, c] ==> [a,b,c, a1,b1,c1, a2,b2,c2, …]
+infiniteSupply supply = supply <> addSuffixes supply (1 :: Integer)
+  where
+    addSuffixes xs n = map (\x -> addSuffix x n) xs <> addSuffixes xs (n+1)
 
 throw :: InferError -> Infer a
 throw = Infer . throwError
@@ -188,7 +189,7 @@ infer env (UConst (UList (a:as))) = do
 
   s3 <- unify (WList thisMType, restMType)
 
-  pure (s3, WList thisMType)
+  pure (s3, WList $ applySubst s3 thisMType)
 
 infer env (UConst (UFunc _ name exp)) = do
   tau <- fresh
@@ -336,6 +337,24 @@ vec' p = do
 
 myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
+-- Ensure a type is using lowest possible names from the alphabet
+-- TODO: There's probably a Functor implementation of this that would be nicer
+recode :: MType -> MType
+recode x =
+  relabel (M.fromList $ zip (nub . extractVarNames $ x) typeNames) x
+
+  where
+    relabel names (WVar x) = WVar (fromJust $ M.lookup x names)
+    relabel names (WFun x y) = WFun (relabel names x) (relabel names y)
+    relabel names (WList x) = WList (relabel names x)
+    relabel _ x = x
+
+    extractVarNames :: MType -> [T.Text]
+    extractVarNames (WVar x) = [x]
+    extractVarNames (WFun x y) = extractVarNames x <> extractVarNames y
+    extractVarNames (WConst _) = []
+    extractVarNames (WList x) = extractVarNames x
+
 lQuery :: UEnv -> T.Text -> UValue
 lQuery env text = case decode myParser text of
                     Right x -> uQuery env (head x)
@@ -343,7 +362,7 @@ lQuery env text = case decode myParser text of
 
 inferType :: T.Text -> T.Text
 inferType text = let result = showType <$> case decode myParser text of
-                                      Right x -> snd <$> runInfer (infer builtInTypeEnv (head x))
+                                      Right x -> recode . snd <$> runInfer (infer builtInTypeEnv (head x))
                                       Left y  -> error "parse error" in
                  case result of
                    Right x -> x
@@ -389,6 +408,7 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "[Int]" "[1 2]"
   , testInfer "[Int]" "(let [x 1] [x 2])"
   , testInfer "[Int]" "(let [x 1] [x ((fn (y) y) x)])"
+  , testInfer "a -> [a]" "(fn (x) [x])"
   ]
 
 testEval = testEvalWith mempty
