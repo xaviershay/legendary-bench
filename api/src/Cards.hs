@@ -205,6 +205,9 @@ captainAmericaCards =
     , _heroCost = 7
     , _heroStartingNumber = 1
     , _heroDescription = "You get +3 Attack for each other Avengers Hero you played this turn"
+    --, _playCode = "fn filterByHeroType(t, cs) { filterBy((x) -> heroType(x) == :avengers, cs) };"
+               <> "attack(3);"
+               <> "attack(length(filterByHeroType(:avengers, allCardsFrom(:hand, :played)) - 1)"
     , _playEffect = ActionAttack TCurrentPlayer (TConst 3)
                  <> ActionAttack TCurrentPlayer ((TConst (Sum (-1))) <> (
                       TLength $

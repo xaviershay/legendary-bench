@@ -38,6 +38,7 @@ library:
     - random
     - wai-cors
     - wai-extra
+    - s-cargot
 
 executables:
   legendary-bench-exe:
@@ -90,3 +91,4 @@ tests:
     - unordered-containers
     - text
     - hashable
+    - parsec

@@ -165,6 +165,7 @@ instance Monoid Effect where
 data Term t where
   TEmpty          :: Term t
   TConst          :: t -> Term t
+  TVar            :: T.Text -> Term t
   TCurrentPlayer  :: Term PlayerId
   TCardCost       :: Term SpecificCard -> Term SummableInt
   TPlayerLocation :: Term PlayerId -> Term ScopedLocation -> Term Location

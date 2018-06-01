@@ -6,6 +6,7 @@
 module Evaluator
   ( apply
   , lookupCard
+  , query
   )
   where
 
@@ -15,9 +16,10 @@ import           Control.Monad        (foldM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
 import           Data.Foldable        (find)
-import           Data.Maybe           (catMaybes)
+import           Data.Maybe           (catMaybes, fromJust)
 import           Data.Sequence        (Seq ((:<|), Empty), (<|), (|>))
 import qualified Data.Sequence        as S
+import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 
 import Debug.Trace
@@ -31,8 +33,12 @@ import           Utils
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
 
+defaultEnv :: M.HashMap T.Text (Term a)
+defaultEnv = mempty
+
 query :: Show a => Term a -> GameMonad a
 query (TConst x) = return x
+--query (TVar x) = query $ M.lookupDefault (TConst 0) x defaultEnv
 query (TAppend TEmpty TEmpty) = lose "Can't append two empty queries"
 query (TAppend a TEmpty) = query a
 query (TAppend TEmpty b) = query b
