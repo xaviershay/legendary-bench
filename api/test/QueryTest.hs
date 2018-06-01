@@ -49,7 +49,7 @@ data UValue =
  | ULocation Location
  | UInt SummableInt
  | UBool Bool
- | UFunc UExpr
+ | UFunc T.Text UExpr
 
  deriving (Eq, Show)
 
@@ -154,12 +154,6 @@ unifyBinary (a,b) (x,y) = do
 
 addSuffix x n = x <> T.pack (show n)
 
---data UValue =
---   UNone
--- | ULocation Location
--- | UInt SummableInt
--- | UBool Bool
--- | UFunc UExpr
 
 extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
 
@@ -167,6 +161,8 @@ infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UBool _)) = wconst "Bool"
 infer env (UConst (ULocation _)) = wconst "Location"
+infer env (UConst (UFunc name exp)) = do
+
 infer env (UVar name) = do
   sigma <- lookupEnv env name
   tau <- instantiate sigma
@@ -228,6 +224,7 @@ uQuery env (UConst v) = v
 uQuery env (UVar label) = uQuery env $ M.lookupDefault (UConst UNone) label env
 uQuery env (ULet (key, value) expr) = uQuery (M.insert key value env) expr
 
+convertLet :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertLet [] f = toExpr f
 convertLet (A (ASymbol k):v:vs) f = do
   value <- toExpr v
@@ -236,9 +233,18 @@ convertLet (A (ASymbol k):v:vs) f = do
   return $ ULet (k, value) body
 convertLet vs f = fail $ "Invalid let params: " <> show vs
 
+-- TODO: Something something env capture
+convertFn :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
+convertFn [] f = toExpr f
+convertFn (A (ASymbol x):xs) f = do
+  body <- convertFn xs f
+
+  return . UConst $ UFunc x body
+
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (ASymbol "let") ::: L ls ::: f ::: Nil) = convertLet ls f
+toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L _) = return $ UConst UNone
 
@@ -269,6 +275,7 @@ test_ListQuery = testGroup "List Query"
   , testCase "UVar Just" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 1)]) "x"
   , testCase "ULet" $ (UInt 1) @=? lQuery (M.fromList [("x", UConst $ UInt 0)]) "(let (x 1) x)"
   , testCase "ULet" $ (UInt 2) @=? lQuery mempty "(let (x 1 y 2) y)"
+  , testCase "UFunc" $ (UInt 1) @=? lQuery mempty "(let (f (fn (x) x)) (f 1))"
   ]
 
 focus = defaultMain test_TypeInference
