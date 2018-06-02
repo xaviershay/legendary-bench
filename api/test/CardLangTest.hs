@@ -30,6 +30,8 @@ testInfer expected input =
 test_TypeInference = testGroup "Type Inference"
   [ testInfer "Int" "1"
   , testInfer "String" "\"a\""
+  , testInfer "Bool" "true"
+  , testInfer "Bool" "false"
   , testInfer "Int" "(let [x 1] x)"
   , testInfer "Int" "(let [x (let [y 1] y)] x)"
   , testInfer "a -> Int" "(fn [x] 1)"
@@ -94,6 +96,8 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "((fn [x] 2 \"comment\" x) 1)"
   , testEval (UInt 1) "(let [x 1] 2 \"comment\" x)"
   , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
+  , testEval (UBool True) "true"
+  , testEval (UBool False) "false"
   ]
 
 --focus = defaultMain test_TypeInference

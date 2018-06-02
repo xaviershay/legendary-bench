@@ -9,25 +9,37 @@ import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
 import qualified Data.Text               as T
 import           Text.Parsec             (alphaNum, between, char, digit, many,
-                                          many1, noneOf, oneOf)
+                                          many1, noneOf, oneOf, string, try)
 import           Text.Parsec.Text        (Parser)
 
 import CardLang.Types
 import Utils
 
-data Atom = AInt Int | AString T.Text | ASymbol T.Text deriving (Show, Eq)
+data Atom =
+    AInt Int
+  | ABool Bool
+  | AString T.Text
+  | ASymbol T.Text
+  deriving (Show, Eq)
 
 parse :: T.Text -> Either String UExpr
 parse x = USequence <$> decode myParser x
 
 pAtom :: Parser Atom
 pAtom =  parseInt
+     <|> parseBool
      <|> parseSymbol
      <|> parseString
 
 parseInt = ((AInt . read) <$> many1 digit)
+parseBool = ABool <$> (parseSpecific "true" True <|> parseSpecific "false" False)
 parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> char '-'))
 parseString = AString . T.pack <$> quotedString
+
+parseSpecific match value = do
+  _ <- try (string match)
+
+  return value
 
 quotedString = do
   string <- between (char '"') (char '"') (many quotedStringChar)
@@ -52,6 +64,7 @@ myParser = withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser p
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (AString x)) = Right . UConst . UString $ x
+toExpr (A (ABool x)) = Right . UConst . UBool $ x
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do
