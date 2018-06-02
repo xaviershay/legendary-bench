@@ -74,6 +74,9 @@ toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: rs) = do
   body <- convertSequence rs
   return $ UDef name body
 
+toExpr (A (ASymbol "if") ::: cond ::: lhs ::: rhs ::: Nil) =
+  UIf <$> toExpr cond <*> toExpr lhs <*> toExpr rhs
+
 toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)

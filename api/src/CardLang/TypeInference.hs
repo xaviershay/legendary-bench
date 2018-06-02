@@ -5,6 +5,7 @@
 module CardLang.TypeInference
   ( typecheck
   , showType
+  , InferError(..)
   ) where
 
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -222,7 +223,18 @@ infer env (ULet (name, e0) e1) = do
 
   pure (s2 <> s1, tau')
 
-infer env x = error . show $ x
+infer env (UIf cond lhs rhs) = do
+  (scond, tau) <- infer env cond
+  s1 <- unify (tau, WConst "Bool")
+
+  (slhs, lhsTau) <- infer env lhs
+  (srhs, rhsTau) <- infer env rhs
+
+  s2 <- unify (lhsTau, rhsTau)
+
+  pure (s2 <> s1, rhsTau)
+
+infer env x = error . show $ "Unknown form in infer: " <> show x
 
 inferWithNewEnv :: WEnv -> UExpr -> Infer (Subst, MType, WEnv)
 inferWithNewEnv env (UDef name e) = do

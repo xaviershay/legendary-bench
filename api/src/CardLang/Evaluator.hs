@@ -71,6 +71,14 @@ evalWith' (UApp fexp arg) = do
 
     _ -> pure . UError $ (printValue fexp) <> " is not a function"
 
+evalWith' (UIf cond lhs rhs) = do
+  UBool result <- evalWith' cond
+
+  if result then
+    evalWith' lhs
+  else
+    evalWith' rhs
+
 evalWith' (UBuiltIn "add") = do
   env <- get
 

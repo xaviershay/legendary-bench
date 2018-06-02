@@ -27,6 +27,18 @@ testInfer expected input =
                        Right x -> x
                        Left y -> error $ show y
 
+testInferFail expected input =
+  testCase (T.unpack $ input <> " :: FAILS") $ expected @=? inferType input
+
+  where
+    inferType :: T.Text -> InferError
+    inferType text = let result = showType <$> case parse text of
+                                          Right x -> typecheck x
+                                          Left y  -> error $ "parse error: " <> show y in
+                     case result of
+                       Right x -> error $ show x
+                       Left y -> y
+
 test_TypeInference = testGroup "Type Inference"
   [ testInfer "Int" "1"
   , testInfer "String" "\"a\""
@@ -50,6 +62,9 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "Int" "(def y (fn [z] z)) (def x 2) (y 2)"
   , testInfer "Int" "(def y (fn [z] z)) (def x (y 2)) x"
   , testInfer "a -> a" "(def y (fn [z] z)) (def x (y 2)) y"
+  , testInfer "Int" "(if false 1 2)"
+  , testInfer "Int" "(defn foo [x] x) (if (foo false) (foo 1) (foo 2))"
+  , testInferFail (CannotUnify (WConst "Bool") (WConst "Int")) "(if false false 2)"
   ]
 
 -- Replace newlines so test output renders nicely
@@ -98,6 +113,8 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "((fn [x] 2 \"comment\" x) 1)"
   , testEval (UInt 1) "(let [x 1] 2 \"comment\" x)"
   , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
+  , testEval (UInt 1) "(if true 1 2)"
+  , testEval (UInt 2) "(if false 1 2)"
   ]
 
 --focus = defaultMain test_TypeInference

@@ -17,6 +17,7 @@ data UExpr =
   | UDef Name UExpr
   | UApp UExpr UExpr
   | UBuiltIn Name
+  | UIf UExpr UExpr UExpr
   | USequence [UExpr]
   deriving (Show, Eq)
 
