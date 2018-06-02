@@ -53,7 +53,7 @@ toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (AString x)) = Right . UConst . UString $ x
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
-toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
+toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = convertFn vs f
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = do
   fn <- convertFn vs f
   return $ UDef name fn
