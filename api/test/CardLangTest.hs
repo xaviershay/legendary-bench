@@ -89,6 +89,11 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "(def x 1) x"
   , testEval (UInt 2) "(defn foo [x] 2) (foo 1)"
   , testEval (UInt 3) "(defn add-one [x] (add 1 x)) (add-one 2)"
+  , testEval (UInt 1) "(def x \"comment\" 1) x"
+  , testEval (UInt 2) "(defn foo [x] \"comment\" 2) (foo 1)"
+  , testEval (UInt 1) "((fn [x] 2 \"comment\" x) 1)"
+  , testEval (UInt 1) "(let [x 1] 2 \"comment\" x)"
+  , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
   ]
 
 --focus = defaultMain test_TypeInference

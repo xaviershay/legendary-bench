@@ -52,21 +52,22 @@ myParser = withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser p
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (AString x)) = Right . UConst . UString $ x
-toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
-toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = convertFn vs f
-toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = do
+toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
+toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
+toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do
   fn <- convertFn vs f
   return $ UDef name fn
-toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: f ::: Nil) = do
-  body <- toExpr f
+toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: rs) = do
+  body <- convertSequence rs
   return $ UDef name body
 
 toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)
 toExpr (L _) = return $ UConst UNone
+
 convertLet :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
-convertLet [] f = toExpr f
+convertLet [] f = convertSequence f
 convertLet (A (ASymbol k):v:vs) f = do
   value <- toExpr v
   body <- convertLet vs f
@@ -75,7 +76,7 @@ convertLet (A (ASymbol k):v:vs) f = do
 convertLet vs f = fail $ "Invalid let params: " <> show vs
 
 convertFn :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
-convertFn [] f = toExpr f
+convertFn [] f = convertSequence f
 convertFn (A (ASymbol x):xs) f = do
   body <- convertFn xs f
 
@@ -96,3 +97,6 @@ convertList (a:as) = do
   as' <- convertList as
 
   return $ a':as'
+
+convertSequence (L xs) = USequence <$> (sequence . fmap toExpr $ xs)
+convertSequence f = toExpr f
