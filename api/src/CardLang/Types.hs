@@ -26,6 +26,7 @@ data UValue =
    UNone
  | ULocation Location
  | UInt SummableInt
+ | UString T.Text
  | UBool Bool
  | UFunc UEnv Name UExpr
  | UList [UExpr]

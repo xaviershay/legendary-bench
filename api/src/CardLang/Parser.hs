@@ -1,26 +1,40 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module CardLang.Parser where
+module CardLang.Parser (parse) where
 
-import Data.SCargot
-import Data.SCargot.Repr.Basic
-import Control.Applicative ((<|>))
-import Text.Parsec ( char, digit, many1, alphaNum)
-import Text.Parsec.Text (Parser)
-import qualified Data.Text            as T
+import           Control.Applicative     ((<|>))
+import           Data.SCargot
+import           Data.SCargot.Repr.Basic
+import qualified Data.Text               as T
+import           Text.Parsec             (alphaNum, between, char, digit, many,
+                                          many1, noneOf, oneOf)
+import           Text.Parsec.Text        (Parser)
 
 import CardLang.Types
 import Utils
 
-data Atom = AInt Int | ASymbol T.Text deriving (Show, Eq)
+data Atom = AInt Int | AString T.Text | ASymbol T.Text deriving (Show, Eq)
 
 parse :: T.Text -> Either String UExpr
 parse x = USequence <$> decode myParser x
 
 pAtom :: Parser Atom
-pAtom =  ((AInt . read) <$> many1 digit)
-     <|> ((ASymbol . T.pack) <$> many1 (alphaNum <|> char '-'))
+pAtom =  parseInt
+     <|> parseSymbol
+     <|> parseString
+
+parseInt = ((AInt . read) <$> many1 digit)
+parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> char '-'))
+parseString = AString . T.pack <$> quotedString
+
+quotedString = do
+  string <- between (char '"') (char '"') (many quotedStringChar)
+  return string
+  where
+    quotedStringChar = escapedChar <|> normalChar
+    escapedChar = (char '\\') *> (oneOf ['\\', '"'])
+    normalChar = noneOf "\""
 
 vec p = do
   atoms <- vec' p
@@ -36,6 +50,7 @@ myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
+toExpr (A (AString x)) = Right . UConst . UString $ x
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: f ::: Nil) = convertLet ls f
 toExpr (A (ASymbol "fn") ::: L vs ::: f ::: Nil) = convertFn vs f
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f ::: Nil) = do
@@ -58,8 +73,6 @@ convertLet (A (ASymbol k):v:vs) f = do
   return $ ULet (k, value) body
 convertLet vs f = fail $ "Invalid let params: " <> show vs
 
-
--- TODO: Something something env capture
 convertFn :: [SExpr Atom] -> SExpr Atom -> Either String UExpr
 convertFn [] f = toExpr f
 convertFn (A (ASymbol x):xs) f = do
@@ -67,12 +80,11 @@ convertFn (A (ASymbol x):xs) f = do
 
   return . UConst $ UFunc mempty x body
 
--- TODO: Handle expr in first element
 convertApp [A (ASymbol x)] = return . UVar $ x
 convertApp [a] = toExpr a
 convertApp (a:rest) = do
   xs <- convertApp rest
-  a'   <- toExpr a
+  a' <- toExpr a
 
   return $ UApp xs a'
 

@@ -160,6 +160,7 @@ extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
 
 infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
+infer env (UConst (UString _)) = wconst "String"
 infer env (UConst (UBool _)) = wconst "Bool"
 infer env (UConst (ULocation _)) = wconst "Location"
 infer env (UConst (UList [])) = do

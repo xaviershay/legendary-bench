@@ -29,6 +29,7 @@ testInfer expected input =
 
 test_TypeInference = testGroup "Type Inference"
   [ testInfer "Int" "1"
+  , testInfer "String" "\"a\""
   , testInfer "Int" "(let [x 1] x)"
   , testInfer "Int" "(let [x (let [y 1] y)] x)"
   , testInfer "a -> Int" "(fn (x) 1)"
@@ -63,6 +64,9 @@ testEvalWith env expected input =
 
 test_ListQuery = testGroup "List Query"
   [ testEval (UInt 1) "1"
+  , testEval (UString "") "\"\""
+  , testEval (UString "a") "\"a\""
+  , testEval (UString "\"") $ T.pack ['"', '\\', '"', '"']
   , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let [x 1] x)"
   , testEval (UInt 2) "(let [x 1 y 2] y)"
   , testEval (UInt 1) "((fn (x) x) 1)"
@@ -84,4 +88,4 @@ test_ListQuery = testGroup "List Query"
   ]
 
 --focus = defaultMain test_TypeInference
-focus = defaultMain test_ListQuery
+focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
