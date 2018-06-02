@@ -72,7 +72,9 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "; comment\n1"
   , testEval (UString "") "\"\""
   , testEval (UString "a") "\"a\""
-  , testEval (UString "\"") $ T.pack ['"', '\\', '"', '"']
+  , testEval (UString "\"") "\"\\\"\""
+  , testEval (UBool True) "true"
+  , testEval (UBool False) "false"
   , testEvalWith [("x", UConst . UInt $ 0)] (UInt 1) "(let [x 1] x)"
   , testEval (UInt 2) "(let [x 1 y 2] y)"
   , testEval (UInt 1) "((fn [x] x) 1)"
@@ -96,8 +98,6 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 1) "((fn [x] 2 \"comment\" x) 1)"
   , testEval (UInt 1) "(let [x 1] 2 \"comment\" x)"
   , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
-  , testEval (UBool True) "true"
-  , testEval (UBool False) "false"
   ]
 
 --focus = defaultMain test_TypeInference
