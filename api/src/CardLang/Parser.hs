@@ -5,6 +5,7 @@ module CardLang.Parser (parse) where
 
 import           Control.Applicative     ((<|>))
 import           Data.SCargot
+import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
 import qualified Data.Text               as T
 import           Text.Parsec             (alphaNum, between, char, digit, many,
@@ -46,7 +47,7 @@ vec' p = do
 
   return atoms
 
-myParser = addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
+myParser = withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
