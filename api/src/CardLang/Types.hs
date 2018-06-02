@@ -5,6 +5,7 @@ module CardLang.Types
 
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
+import Data.String (IsString, fromString)
 
 import Types (SummableInt(..), Location)
 
@@ -41,5 +42,8 @@ data MType =
   | WList MType
 
   deriving (Eq, Show)
+
+instance IsString MType where
+  fromString = WConst . T.pack
 
 type BuiltIn = (MType, UEnv -> UExpr)

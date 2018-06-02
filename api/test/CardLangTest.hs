@@ -64,7 +64,7 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "a -> a" "(def y (fn [z] z)) (def x (y 2)) y"
   , testInfer "Int" "(if false 1 2)"
   , testInfer "Int" "(defn foo [x] x) (if (foo false) (foo 1) (foo 2))"
-  , testInferFail (CannotUnify (WConst "Bool") (WConst "Int")) "(if false false 2)"
+  , testInferFail (CannotUnify "Bool" "Int") "(if false false 2)"
   ]
 
 -- Replace newlines so test output renders nicely
