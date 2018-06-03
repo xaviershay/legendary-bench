@@ -66,7 +66,7 @@ data Card = HeroCard
   , _heroDescription :: T.Text
   , _playEffect :: Action
   , _heroCost   :: SummableInt
-  , _heroStartingNumber :: Int
+  , _heroStartingNumber :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: SummableInt
@@ -238,6 +238,8 @@ data Action =
   ActionTagged T.Text Action |
   ActionTrace T.Text |
   ActionConcurrent [Action] |
+
+  ActionAttack2 PlayerId SummableInt |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |

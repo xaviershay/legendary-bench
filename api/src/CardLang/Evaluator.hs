@@ -7,11 +7,15 @@ module CardLang.Evaluator
   )
   where
 
-import Control.Lens (view, set, at, non)
-import Control.Monad.State (evalState, State, modify, put, get, withState)
+import Text.Show.Pretty (ppShow)
+import Control.Lens (view, set, at, non, element, preview)
+import Control.Monad.State (evalState, State, modify, put, get, withStateT)
 import qualified Data.HashMap.Strict  as M
+import qualified Data.Text  as T
 import Data.Maybe (fromJust)
+import Control.Monad.Except (throwError, runExceptT)
 
+import Types
 import Utils
 
 import CardLang.Types
@@ -28,9 +32,11 @@ eval :: UExpr -> UValue
 eval = evalWith mempty
 
 evalWith :: UEnv -> UExpr -> UValue
-evalWith env exp = evalState  (evalWith'  exp)(builtInEnv <> env)
+evalWith env exp = case evalState (runExceptT (evalWith' exp)) (builtInEnv <> env) of
+                     Right x -> x
+                     Left y -> UError y
 
-evalWith' :: UExpr -> State UEnv UValue
+evalWith' :: UExpr -> EvalMonad UValue
 evalWith' (USequence []) = pure UNone
 evalWith' (USequence [x]) = evalWith' x
 evalWith' (USequence (x:xs)) = do
@@ -60,9 +66,13 @@ evalWith' (UVar label) = do
 evalWith' (ULet (key, value) expr) = do
   env <- get
 
-  result <- withState (setNon (envVariables . at key) value) (evalWith' expr)
+  modify (setNon (envVariables . at key) value)
+  result <- evalWith' expr
 
+  -- TODO: Restrict to only replacing envVars, not the whole thing? This would
+  -- mean you could make cards inside let blocks, probably what we want.
   put env
+
   pure $ result
 
 evalWith' (UApp fexp arg) = do
@@ -70,7 +80,7 @@ evalWith' (UApp fexp arg) = do
 
   case fn of
     (UFunc env' argname body) -> do
-      modify (\x -> x <> env') >> evalWith' (ULet (argname, arg) body)
+      modify (\x -> env' <> x) >> evalWith' (ULet (argname, arg) body)
 
     _ -> pure . UError $ (printValue fexp) <> " is not a function"
 
@@ -82,48 +92,137 @@ evalWith' (UIf cond lhs rhs) = do
   else
     evalWith' rhs
 
-evalWith' (UBuiltIn "add") = do
-  env <- get
+evalWith' (UBuiltIn x) = do
+  expr <- snd . fromJust $ M.lookup x builtIns
 
-  evalWith' $ (snd . fromJust $ M.lookup "add" builtIns) $ env
+  evalWith' expr
 
 builtInEnv :: UEnv
 builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
   where
-    typeToFn :: Int -> Name -> (MType, UEnv -> UExpr) -> UExpr
+    typeToFn :: Int -> Name -> BuiltIn -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
     typeToFn n key (WConst _, _) = UBuiltIn key
 
 builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
   [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
-  , ("make-hero-full", ("String" ~> "String" ~> "String" ~> "String" ~> "Int" ~> "Int" ~> "String" ~> "String", builtInMakeHeroFull))
+  , ("attack", ("Int" ~> "Action", builtInAdd))
+  , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
+  , ("make-hero-full", ("String"
+                     ~> "String"
+                     ~> "String"
+                     ~> "String"
+                     ~> "Int"
+                     ~> "Int"
+                     ~> "String"
+                     ~> ("CardTemplate" ~> "CardTemplate")
+                     ~> "Void",
+                     builtInMakeHeroFull))
   ]
 
-builtInMakeHeroFull :: UEnv -> UExpr
-builtInMakeHeroFull env =
-  let name = lookupString "a0" in
+builtInAddPlayEffect :: EvalMonad UExpr
+builtInAddPlayEffect = do
+  env <- get
 
-  UConst . UString $ name
+  traceM $ ppShow env
 
-  where
-    lookupString name = case view (envVariables . at name) env of
-                         Nothing -> error $ "Not in env: " <> show name
-                         Just x -> case evalWith env x of
-                                     UString x -> x
-                                     y -> error $ "Not uint: " <> show y
+  effect   <- argAt 0
+  template <- argAt 1
+
+  action <- evalWith' effect
+
+  case fromU action of
+    Right action' -> return . UConst . UCardTemplate $ set playEffect action' template
+    Left x -> throwError x
   
-
+  --return . UConst . UCardTemplate $ set playEffect action template
   
-builtInAdd :: UEnv -> UExpr
-builtInAdd env = let
-  x = lookupInt "a0"
-  y = lookupInt "a1"
-  in UConst . UInt $ x + y
+builtInAdd :: EvalMonad UExpr
+builtInAdd = do
+  env <- get
 
-  where
-    lookupInt name = case view (envVariables . at name) env of
-                       Nothing -> error $ "Not in env: " <> show name
-                       Just x -> case evalWith env x of
-                                   UInt x -> x
-                                   y -> error $ "Not uint: " <> show y
+  traceM "========================="
+  traceM $ ppShow env
+
+  x <- argAt 0
+  y <- argAt 1
+
+  return . UConst . UInt $ x + y
+
+builtInAttack :: EvalMonad UExpr
+builtInAttack = do
+  amount <- argAt 0
+  pid    <- currentPlayer
+
+  return . UConst . UAction $ ActionAttack2 pid amount
+
+builtInMakeHeroFull = do
+  name     <- argAt 0
+  team     <- argAt 1
+  ability  <- argAt 2
+  htype    <- argAt 3
+  cost     <- argAt 4
+  amount   <- argAt 5
+  desc     <- argAt 6
+  callback <- argAt 7
+
+  let template = UConst . UCardTemplate $ HeroCard
+                  { _heroName = name
+                  , _heroAbilityName = ability
+                  , _heroType = HeroType htype
+                  , _heroTeam = HeroTeam team
+                  , _heroCost = cost
+                  , _heroStartingNumber = amount
+                  , _heroDescription = desc
+                  , _playEffect = ActionNone
+                  }
+
+  UConst <$> evalWith' (UApp callback template)
+
+currentVars = view envVariables <$> get
+currentPlayer = do
+  board <- view envBoard <$> get
+
+  case board of
+    Nothing -> throwError "Board function called outside of context"
+    Just b -> do
+      case preview (players . element 0 . playerId) b of
+        Nothing -> throwError "No current player"
+        Just p -> return p
+
+class FromU a where
+  fromU :: UValue -> Either T.Text a
+
+instance FromU SummableInt where
+  fromU (UInt x) = return x
+  fromU x        = throwError ("Expected UInt, got " <> showT x)
+
+instance FromU T.Text where
+  fromU (UString x) = return x
+  fromU x        = throwError ("Expected UString, got " <> showT x)
+
+instance FromU Card where
+  fromU (UCardTemplate x) = return x
+  fromU x        = throwError ("Expected UCardTemplate, got " <> showT x)
+
+instance FromU Action where
+  fromU (UAction x) = return x
+  fromU x        = throwError ("Expected UAction, got " <> showT x)
+
+instance FromU UExpr where
+  fromU x = return $ UConst x
+
+argAt :: FromU a => Int -> EvalMonad a
+argAt index = do
+  let name = "a" <> showT index
+
+  vars <- currentVars
+
+  case view (at name) vars of
+                       Nothing -> throwError $ "Not in env: " <> showT name
+                       Just x -> do
+                         result <- evalWith' x
+                         case fromU result of
+                           Right x -> return x
+                           Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y

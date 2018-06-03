@@ -24,6 +24,7 @@ showType (WVar x) = x
 showType (WConst x) = x
 showType (WFun x y) = showType x <> " -> " <> showType y
 showType (WList x) = "[" <> showType x <> "]"
+showType (WBoardF x) = "@:" <> showType x
 
 newtype Subst = Subst (M.HashMap Name MType) deriving (Show)
 
@@ -50,8 +51,10 @@ instance Substitutable MType where
   applySubst (Subst s) c@(WVar a) = M.lookupDefault c a s
   applySubst s c@(WConst {}) = c
   applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
+  applySubst s (WBoardF x) = WBoardF (applySubst s x)
 
 freeMType :: MType -> Set.Set Name
+freeMType (WBoardF x) = freeMType x
 freeMType (WConst _) = mempty
 freeMType (WVar x) = Set.singleton x
 freeMType (WFun x y) = freeMType x <> freeMType y
@@ -83,6 +86,7 @@ data InferError =
     CannotUnify MType MType
   | OccursCheckFailed Name MType
   | UnknownIdentifier Name
+  deriving (Eq)
 
 instance Show InferError where
   show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
@@ -127,6 +131,7 @@ bindVariableTo name mType = return (Subst (M.singleton name mType))
 
 unify :: (MType, MType) -> Infer Subst
 unify (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
+unify (WBoardF a, WBoardF b) = unify (a, b)
 unify (WVar v, x) = v `bindVariableTo` x
 unify (x, WVar v) = v `bindVariableTo` x
 unify (WConst a, WConst b) | a == b = return mempty
@@ -201,7 +206,7 @@ infer env (UConst (UBoardFunc exp)) = do
   -- TODO: Require exp type to be Action?
   (s, tau) <- infer (env <> boardFuncTypeEnv) exp
 
-  pure (s, WFun "BoardF" tau)
+  pure (s, WBoardF tau)
 
 infer env (UConst (UFunc _ name exp)) = do
   tau <- fresh
