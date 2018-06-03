@@ -121,6 +121,8 @@ data CardInPlay = CardInPlay
 
 newtype SummableInt = Sum Int deriving (Show, Generic, Eq, Ord, Num)
 
+toInt (Sum x) = x
+
 instance Monoid SummableInt where
   mempty = Sum 0
   mappend (Sum x) (Sum y) = Sum (x + y)

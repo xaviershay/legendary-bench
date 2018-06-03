@@ -2,7 +2,7 @@
 
 module FakeData where
 
-import           Control.Lens        (set)
+import           Control.Lens        (set, view)
 import           Control.Monad       (foldM)
 import           Control.Monad.State (State, evalState, get, put)
 import qualified Data.HashMap.Strict as M
@@ -16,19 +16,19 @@ import Utils
 import GameMonad
 import Action
 
-mkGame :: StdGen -> Game
-mkGame g = Game
-  { _gameState = prepareBoard $ genBoard g 2
+mkGame :: StdGen -> S.Seq Card -> Game
+mkGame g cards = Game
+  { _gameState = prepareBoard $ genBoard g 2 cards
   }
 
-genBoard :: StdGen -> Int -> Board
-genBoard g playerCount = evalState a 1
+genBoard :: StdGen -> Int -> S.Seq Card -> Board
+genBoard g playerCount cards = evalState a 1
   where
     a = do
       let ps = S.fromList $ fmap PlayerId [0..playerCount -1]
 
       villainDeck   <- mkVillainDeck
-      heroDeck      <- mkHeroDeck
+      heroDeck      <- mkHeroDeck cards
       bystanderDeck <- mkBystanderDeck
 
       id
@@ -47,9 +47,13 @@ genBoard g playerCount = evalState a 1
         playerDeck
         board
 
-mkHeroDeck =
-  sequence . fmap (mkCardInPlay Hidden) .
-    S.fromList . mconcat . replicate 30 $ spidermanCards
+mkHeroDeck cards =
+  sequence
+    . fmap (mkCardInPlay Hidden)
+    . mconcat
+    . fmap (\c -> S.replicate (toInt $ view heroStartingNumber c) c)
+    . toList
+    $ cards
 
 mkBystanderDeck =
   sequence . fmap (mkCardInPlay All) $

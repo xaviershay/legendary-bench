@@ -39,10 +39,10 @@ newtype State = State
   { game :: TVar Game -- TODO: Handle multiple games at once
   }
 
-mkState :: IO State
-mkState = do
+mkState :: S.Seq Card -> IO State
+mkState cards = do
   rng <- liftIO newStdGen
-  x <- atomically . newTVar $ (mkGame rng)
+  x <- atomically . newTVar $ (mkGame rng cards)
   return $ State { game = x }
 
 instance FromHttpApiData PlayerId where
