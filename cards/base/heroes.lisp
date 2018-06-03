@@ -3,7 +3,13 @@
 
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(attack 1))
+    (add-play-effect @(let [location (card-location (player-location current-player "Deck") 0)]
+      (combine
+        (recruit 1)
+        (reveal location))))
+     ;   (combine
+     ;     (guard (lte card-cost (card-at location))
+     ;       (move location (player-location current-player "Hand")))))
     )
 
 (make-hero "Great Resonsibility" "Instinct" 2 5

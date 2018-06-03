@@ -37,7 +37,7 @@ data MoveDestination = Top | Front | Back | LocationIndex Int deriving (Show, Ge
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
 data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
-  deriving (Show, Generic, Eq, Enum, Bounded)
+  deriving (Show, Generic, Eq, Enum, Bounded, Read)
 
 newtype HeroType = HeroType T.Text
   deriving (Show, Generic, Eq, Monoid)
@@ -87,7 +87,9 @@ data UValue =
  | UFunc UEnv Name UExpr
  | UBoardFunc UExpr
  | UAction Action
+ | USpecificCard SpecificCard
  | UCardTemplate Card
+ | UPlayerId PlayerId
  | UList [UExpr]
  | UError Name
  deriving (Show)

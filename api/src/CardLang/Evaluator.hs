@@ -1,9 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module CardLang.Evaluator
   ( eval
   , evalWith
   , evalCards
+  , evalWithBoard
   , builtIns
   , fromU
   )
@@ -34,6 +37,9 @@ printValue x = showT x
 eval :: UExpr -> UValue
 eval = evalWith mempty
 
+evalWithBoard :: Board -> UExpr -> UValue
+evalWithBoard b = evalWith (set envBoard (Just b) mempty)
+
 evalCards :: UExpr -> Seq Card
 evalCards exp = let env = builtInEnv in
   view envCards $ execState (runExceptT (evalWith' exp)) env
@@ -59,6 +65,14 @@ evalWith' (UConst fn@(UFunc env' x body)) = do
   env <- get
 
   pure $ UFunc (env' <> env) x body
+evalWith' (UConst fn@(UBoardFunc expr)) = do
+  board <- view envBoard <$> get
+
+  case board of
+    Nothing -> pure fn
+    Just b -> evalWith' expr -- TODO: Setup environment from board
+    
+
 evalWith' (UConst (UList xs)) = do
   xs' <- sequenceA (map evalWith' xs)
 
@@ -114,6 +128,11 @@ builtIns = M.fromList
   [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
   , ("attack", ("Int" ~> "Action", builtInAttack))
   , ("recruit", ("Int" ~> "Action", builtInRecruit))
+  , ("current-player", ("PlayerId", builtInCurrentPlayer))
+  , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
+  , ("card-location", ("Location" ~> "Int" ~> "SpecificCard", builtInCardLocation))
+  , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
+  , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
   , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
   , ("make-hero-full", ("String"
                      ~> "String"
@@ -126,6 +145,32 @@ builtIns = M.fromList
                      ~> "Void",
                      builtInMakeHeroFull))
   ]
+
+builtInCurrentPlayer = UConst . UPlayerId <$> currentPlayer
+  
+builtInReveal = do
+  location <- argAt 0
+
+  return . UConst . UAction $ ActionReveal (TConst location)
+
+builtInCombine = do
+  a <- argAt 0
+  b <- argAt 1
+
+  return . UConst . UAction $ a <> b
+
+builtInCardLocation = do
+  loc <- argAt 0
+  index <- argAt 1
+
+  return . UConst . USpecificCard $ (loc, index)
+
+builtInPlayerLocation = do
+  pid <- argAt 0
+  sloc <- argAt 1
+
+  return . UConst . ULocation $ PlayerLocation pid sloc
+
 
 builtInAddPlayEffect :: EvalMonad UExpr
 builtInAddPlayEffect = do
@@ -212,6 +257,10 @@ instance FromU SummableInt where
   fromU (UInt x) = return x
   fromU x        = throwError ("Expected UInt, got " <> showT x)
 
+instance FromU Int where
+  fromU (UInt (Sum x)) = return x
+  fromU x        = throwError ("Expected UInt, got " <> showT x)
+
 instance FromU T.Text where
   fromU (UString x) = return x
   fromU x        = throwError ("Expected UString, got " <> showT x)
@@ -223,6 +272,23 @@ instance FromU Card where
 instance FromU Action where
   fromU (UAction x) = return x
   fromU x        = throwError ("Expected UAction, got " <> showT x)
+
+instance FromU SpecificCard where
+  fromU (USpecificCard x) = return x
+  fromU x        = throwError ("Expected USpecificCard, got " <> showT x)
+
+instance FromU Location where
+  fromU (ULocation x) = return x
+  fromU x        = throwError ("Expected ULocation, got " <> showT x)
+
+instance FromU ScopedLocation where
+  fromU (UString "Deck") = fromU (UString "PlayerDeck")
+  fromU (UString x) = return . read . T.unpack $ x
+  fromU x        = throwError ("Expected UString, got " <> showT x)
+
+instance FromU PlayerId where
+  fromU (UPlayerId x) = return x
+  fromU x        = throwError ("Expected UPlayerId, got " <> showT x)
 
 instance FromU UExpr where
   fromU x = return $ UConst x

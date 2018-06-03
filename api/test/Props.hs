@@ -51,6 +51,9 @@ instance Arbitrary T.Text where
   shrink x = fmap T.pack $ genericShrink (T.unpack x)
   arbitrary = T.pack <$> arbitrary
 
+instance Arbitrary UExpr where
+  shrink = const []
+
 instance Arbitrary Card where
   shrink = genericShrink
   arbitrary = oneof [genHero, genEnemy]

@@ -99,12 +99,13 @@ typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
 builtInTypeEnv :: WEnv
 builtInTypeEnv = WEnv $ M.map (Forall mempty . fst) builtIns
 
-boardFuncs = M.fromList
-  [ ("current-player", "PlayerId")
-  , ("player-location", "PlayerId" ~> "ScopedLocation" ~> "Location")
-  , ("card-at", "SpecificLocation" ~> "Card")
-  , ("cards-at", "Location" ~> WList "Card")
-  ]
+boardFuncs = mempty
+--boardFuncs = M.fromList
+--  [ ("current-player", "PlayerId")
+--  , ("player-location", "PlayerId" ~> "ScopedLocation" ~> "Location")
+--  , ("card-at", "SpecificLocation" ~> "Card")
+--  , ("cards-at", "Location" ~> WList "Card")
+--  ]
 
 boardFuncTypeEnv :: WEnv
 boardFuncTypeEnv = WEnv $ M.map (Forall mempty) boardFuncs

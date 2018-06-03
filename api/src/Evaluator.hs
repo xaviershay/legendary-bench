@@ -339,12 +339,14 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       if pid == pid' then
         do
+          board <- currentBoard
           card       <- requireCard location
           let cardCode = fromJust $ preview (cardTemplate . playCode) card
+          traceM . show $ cardCode
 
-          action <- case fromU $ eval cardCode of
+          action <- case fromU $ evalWithBoard board cardCode of
                          Right x -> return x
-                         Left _ -> lose "Unexpected state: board function doesn't evaluate to an action"
+                         Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
           return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                revealAndMove location (PlayerLocation pid Played) Front
