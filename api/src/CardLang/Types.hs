@@ -64,3 +64,7 @@ makeLenses ''UEnv
 instance Monoid UEnv where
   mempty = UEnv { _envVariables = mempty, _envBoard = Nothing }
   mappend a b = over envVariables (view envVariables a <>) b
+
+infixr 8 ~>
+(~>) :: MType -> MType -> MType
+a ~> b = WFun a b

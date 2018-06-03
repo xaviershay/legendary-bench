@@ -54,6 +54,11 @@ executables:
     - servant-server
     - wai
     - warp
+  lb-analyze:
+    main: Main.hs
+    source-dirs: analyze
+    dependencies:
+      - pretty-show
   benchmarks-exe:
     main: Main.hs
     source-dirs: benchmark

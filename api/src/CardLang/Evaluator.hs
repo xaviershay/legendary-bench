@@ -96,9 +96,25 @@ builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
 
 builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
-  [ ("add", (WFun (WConst "Int") (WFun (WConst "Int") (WConst "Int")), builtInAdd))
+  [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
+  , ("make-hero-full", ("String" ~> "String" ~> "String" ~> "String" ~> "Int" ~> "Int" ~> "String" ~> "String", builtInMakeHeroFull))
   ]
 
+builtInMakeHeroFull :: UEnv -> UExpr
+builtInMakeHeroFull env =
+  let name = lookupString "a0" in
+
+  UConst . UString $ name
+
+  where
+    lookupString name = case view (envVariables . at name) env of
+                         Nothing -> error $ "Not in env: " <> show name
+                         Just x -> case evalWith env x of
+                                     UString x -> x
+                                     y -> error $ "Not uint: " <> show y
+  
+
+  
 builtInAdd :: UEnv -> UExpr
 builtInAdd env = let
   x = lookupInt "a0"

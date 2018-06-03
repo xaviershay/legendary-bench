@@ -20,9 +20,6 @@ import CardLang.Types
 import CardLang.Evaluator
 import Utils
 
-(~>) :: MType -> MType -> MType
-a ~> b = WFun a b
-
 showType (WVar x) = x
 showType (WConst x) = x
 showType (WFun x y) = showType x <> " -> " <> showType y
@@ -86,7 +83,10 @@ data InferError =
     CannotUnify MType MType
   | OccursCheckFailed Name MType
   | UnknownIdentifier Name
-  deriving (Show, Eq)
+
+instance Show InferError where
+  show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
+  show (UnknownIdentifier n) = "Unknown identifier: " <> T.unpack n
 
 
 typecheck :: UExpr -> Either InferError MType
@@ -223,6 +223,8 @@ infer env (USequence (x:xs)) = do
   (s2, t2) <- infer env' $ USequence xs
 
   pure (s2, t2)
+
+infer env (UDef _ _) = pure (mempty, "Void")
 
 infer env (UApp f x) = do
   (s1, fTau) <- infer env f
