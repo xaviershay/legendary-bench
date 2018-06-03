@@ -36,7 +36,7 @@ evalWith' (USequence (x:xs)) = do
 
 evalWith' (UDef name expr) = do
   body <- evalWith' expr
-  modify (\x -> M.insert name (UConst body) x)
+  modify (\x -> x { envVariables = M.insert name (UConst body) (envVariables x)})
   pure UNone
 
 evalWith' (UConst fn@(UFunc env' x body)) = do
@@ -52,12 +52,12 @@ evalWith' (UConst v) = pure $ v
 evalWith' (UVar label) = do
   env <- get
 
-  evalWith' $ M.lookupDefault (UConst . UError $ "Unknown variable: " <> label) label env
+  evalWith' $ M.lookupDefault (UConst . UError $ "Unknown variable: " <> label) label (envVariables env)
 
 evalWith' (ULet (key, value) expr) = do
   env <- get
 
-  result <- withState (\x -> M.insert key value x) (evalWith' expr)
+  result <- withState (\x -> x { envVariables = M.insert key value (envVariables x)}) (evalWith' expr)
 
   put env
   pure $ result
@@ -85,7 +85,7 @@ evalWith' (UBuiltIn "add") = do
   evalWith' $ (snd . fromJust $ M.lookup "add" builtIns) $ env
 
 builtInEnv :: UEnv
-builtInEnv = M.mapWithKey (typeToFn 0) builtIns
+builtInEnv = UEnv { envVariables = M.mapWithKey (typeToFn 0) builtIns, envBoard = Nothing }
   where
     typeToFn :: Int -> Name -> (MType, UEnv -> UExpr) -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
@@ -103,7 +103,7 @@ builtInAdd env = let
   in UConst . UInt $ x + y
 
   where
-    lookupInt name = case M.lookup name env of
+    lookupInt name = case M.lookup name (envVariables env) of
                        Nothing -> error $ "Not in env: " <> show name
                        Just x -> case evalWith env x of
                                    UInt x -> x

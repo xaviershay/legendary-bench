@@ -72,7 +72,7 @@ escape = T.replace "\n" "\\n"
 
 testEval = testEvalWith mempty
 testEvalWith env expected input =
-  testCase (T.unpack . escape $ input) $ expected @=? query (M.fromList env) input
+  testCase (T.unpack . escape $ input) $ expected @=? query (mempty { envVariables = M.fromList env}) input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
