@@ -56,6 +56,42 @@ data Location = PlayerLocation PlayerId ScopedLocation
   | BystanderDeck
   deriving (Show, Generic, Eq)
 
+type Name = T.Text
+
+data UExpr =
+    UConst UValue
+  | UVar Name
+  | ULet (Name, UExpr) UExpr
+  | UDef Name UExpr
+  | UApp UExpr UExpr
+  | UBuiltIn Name
+  | UIf UExpr UExpr UExpr
+  | USequence [UExpr]
+  deriving (Show)
+
+data UEnv = UEnv
+  { _envVariables :: M.HashMap Name UExpr
+  , _envBoard :: Maybe Board
+  , _envCards :: S.Seq Card
+  } deriving (Show)
+
+instance Eq UEnv where
+  a == b = True
+
+data UValue =
+   UNone
+ | ULocation Location
+ | UInt SummableInt
+ | UString T.Text
+ | UBool Bool
+ | UFunc UEnv Name UExpr
+ | UBoardFunc UExpr
+ | UAction Action
+ | UCardTemplate Card
+ | UList [UExpr]
+ | UError Name
+ deriving (Show)
+
 data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
 data Card = HeroCard
@@ -65,6 +101,7 @@ data Card = HeroCard
   , _heroTeam :: HeroTeam
   , _heroDescription :: T.Text
   , _playEffect :: Action
+  , _playCode :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
   } | EnemyCard
@@ -240,6 +277,7 @@ data Action =
   ActionConcurrent [Action] |
 
   ActionAttack2 PlayerId SummableInt |
+  ActionRecruit PlayerId SummableInt |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -271,6 +309,9 @@ instance Eq Card where
 
 instance Eq CardInPlay where
   a == b = view cardId a == view cardId b
+
+deriving instance Eq UExpr
+deriving instance Eq UValue
 
 mkBoard :: Board
 mkBoard = Board

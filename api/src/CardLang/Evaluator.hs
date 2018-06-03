@@ -3,15 +3,17 @@
 module CardLang.Evaluator
   ( eval
   , evalWith
+  , evalCards
   , builtIns
   )
   where
 
 import Text.Show.Pretty (ppShow)
-import Control.Lens (view, set, at, non, element, preview)
-import Control.Monad.State (evalState, State, modify, put, get, withStateT)
+import Control.Lens (view, set, at, non, element, preview, over)
+import Control.Monad.State (evalState, State, modify, put, get, withStateT, execState)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text  as T
+import Data.Sequence ((<|), Seq)
 import Data.Maybe (fromJust)
 import Control.Monad.Except (throwError, runExceptT)
 
@@ -30,6 +32,10 @@ printValue x = showT x
 
 eval :: UExpr -> UValue
 eval = evalWith mempty
+
+evalCards :: UExpr -> Seq Card
+evalCards exp = let env = builtInEnv in
+  view envCards $ execState (runExceptT (evalWith' exp)) env
 
 evalWith :: UEnv -> UExpr -> UValue
 evalWith env exp = case evalState (runExceptT (evalWith' exp)) (builtInEnv <> env) of
@@ -64,14 +70,12 @@ evalWith' (UVar label) = do
   evalWith' $ view (envVariables . at label . non (UConst . UError $ "Unknown variable: " <> label)) env
 
 evalWith' (ULet (key, value) expr) = do
-  env <- get
+  oldVars <- currentVars
 
   modify (setNon (envVariables . at key) value)
   result <- evalWith' expr
 
-  -- TODO: Restrict to only replacing envVars, not the whole thing? This would
-  -- mean you could make cards inside let blocks, probably what we want.
-  put env
+  modify (set envVariables oldVars)
 
   pure $ result
 
@@ -107,7 +111,8 @@ builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
 builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
   [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
-  , ("attack", ("Int" ~> "Action", builtInAdd))
+  , ("attack", ("Int" ~> "Action", builtInAttack))
+  , ("recruit", ("Int" ~> "Action", builtInRecruit))
   , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
   , ("make-hero-full", ("String"
                      ~> "String"
@@ -125,25 +130,18 @@ builtInAddPlayEffect :: EvalMonad UExpr
 builtInAddPlayEffect = do
   env <- get
 
-  traceM $ ppShow env
-
   effect   <- argAt 0
   template <- argAt 1
 
   action <- evalWith' effect
 
   case fromU action of
-    Right action' -> return . UConst . UCardTemplate $ set playEffect action' template
+    Right action' -> return . UConst . UCardTemplate $ set playCode action' template
     Left x -> throwError x
-  
-  --return . UConst . UCardTemplate $ set playEffect action template
   
 builtInAdd :: EvalMonad UExpr
 builtInAdd = do
   env <- get
-
-  traceM "========================="
-  traceM $ ppShow env
 
   x <- argAt 0
   y <- argAt 1
@@ -156,6 +154,13 @@ builtInAttack = do
   pid    <- currentPlayer
 
   return . UConst . UAction $ ActionAttack2 pid amount
+
+builtInRecruit :: EvalMonad UExpr
+builtInRecruit = do
+  amount <- argAt 0
+  pid    <- currentPlayer
+
+  return . UConst . UAction $ ActionRecruit pid amount
 
 builtInMakeHeroFull = do
   name     <- argAt 0
@@ -176,9 +181,17 @@ builtInMakeHeroFull = do
                   , _heroStartingNumber = amount
                   , _heroDescription = desc
                   , _playEffect = ActionNone
+                  , _playCode = UConst . UAction $ ActionNone
                   }
 
-  UConst <$> evalWith' (UApp callback template)
+  template' <- evalWith' (UApp callback template)
+
+  case fromU template' of
+    Right x -> do
+      modify (over envCards (x <|))
+      return . UConst $ UNone
+
+    Left y -> throwError y
 
 currentVars = view envVariables <$> get
 currentPlayer = do

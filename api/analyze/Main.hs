@@ -13,9 +13,10 @@ main = do
 
   contents <- T.readFile path
 
-  printAst contents
+  --printAst contents
   --printType contents 
   printEval contents 
+  printCards contents 
 
 printAst contents =
   case parse contents of
@@ -28,6 +29,13 @@ printEval contents =
     Right ast -> case typecheck ast of
       Left error -> putStrLn . show $ error
       Right _ -> putStrLn . ppShow $ eval ast
+
+printCards contents =
+  case parse contents of
+    Left error -> putStrLn $ "Parse error: " <> error
+    Right ast -> case typecheck ast of
+      Left error -> putStrLn . show $ error
+      Right _ -> putStrLn . ppShow $ evalCards ast
 
 printType contents =
   case parse contents of

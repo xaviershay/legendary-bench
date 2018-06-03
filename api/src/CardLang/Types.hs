@@ -16,41 +16,6 @@ import Data.String (IsString, fromString)
 import Utils
 import Types
 
-type Name = T.Text
-
-data UExpr =
-    UConst UValue
-  | UVar Name
-  | ULet (Name, UExpr) UExpr
-  | UDef Name UExpr
-  | UApp UExpr UExpr
-  | UBuiltIn Name
-  | UIf UExpr UExpr UExpr
-  | USequence [UExpr]
-  deriving (Show, Eq)
-
-data UEnv = UEnv
-  { _envVariables :: M.HashMap Name UExpr
-  , _envBoard :: Maybe Board
-  , _envCards :: S.Seq Card
-  } deriving (Show)
-
-instance Eq UEnv where
-  a == b = True
-
-data UValue =
-   UNone
- | ULocation Location
- | UInt SummableInt
- | UString T.Text
- | UBool Bool
- | UFunc UEnv Name UExpr
- | UBoardFunc UExpr
- | UAction Action
- | UCardTemplate Card
- | UList [UExpr]
- | UError Name
- deriving (Eq, Show)
 
 data MType =
     WVar Name
