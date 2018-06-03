@@ -59,12 +59,18 @@ vec' p = do
 
   return atoms
 
-myParser = withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
+boardFunc expr = SCons (A (ASymbol "board-fn")) (SCons expr SNil)
+addAtReader = addReader '@' (\ parse -> fmap boardFunc parse)
+myParser = addAtReader $ withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
 toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (AString x)) = Right . UConst . UString $ x
 toExpr (A (ABool x)) = Right . UConst . UBool $ x
+toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
+  expr <- toExpr body
+
+  return . UConst $ UBoardFunc expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do

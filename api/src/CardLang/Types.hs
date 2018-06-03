@@ -31,6 +31,7 @@ data UValue =
  | UString T.Text
  | UBool Bool
  | UFunc UEnv Name UExpr
+ | UBoardFunc UExpr
  | UList [UExpr]
  | UError Name
  deriving (Eq, Show)

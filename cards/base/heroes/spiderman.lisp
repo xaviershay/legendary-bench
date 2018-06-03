@@ -2,13 +2,21 @@
 
   (make-hero "Astonishing Strength" "Strength" 2 5
       "Reveal top card of deck, if cost ≤ 2 then draw it."
-      (recruit 1))
+      @(let [location (player-location current-player "Deck" 0)]
+        (combine [
+          (recruit 1)
+          (reveal location)
+          (guard (<= card-cost (card-at location))
+            (move location (player-location current-player "Hand")))
+        ])))
 
   (make-hero "Great Resonsibility" "Instinct" 2 5
       "Reveal top card of deck, if cost ≤ 2 then draw it."
       (attack 1))
 
 )
+
+(defn cards-for-current-player [location board] [])
 
 (defn filter-by-hero-type [t cs] (filter (fn [c] (== (hero-type c) t)) cs)
 ;(defn filter-by-hero-type (filter #(== (hero-type %))

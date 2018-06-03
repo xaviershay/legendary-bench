@@ -115,6 +115,9 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
   , testEval (UInt 1) "(if true 1 2)"
   , testEval (UInt 2) "(if false 1 2)"
+  , testEval (UBoardFunc (UConst . UInt . Sum $ 1)) "(board-fn 1)"
+  , testEval (UBoardFunc (UConst . UInt . Sum $ 1)) "@(1)"
+  , testEval (UBoardFunc (UVar "current-player")) "@(current-player)"
   ]
 
 --focus = defaultMain test_TypeInference

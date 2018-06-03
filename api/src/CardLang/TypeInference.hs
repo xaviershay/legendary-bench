@@ -20,6 +20,8 @@ import CardLang.Types
 import CardLang.Evaluator
 import Utils
 
+(~>) :: MType -> MType -> MType
+a ~> b = WFun a b
 
 showType (WVar x) = x
 showType (WConst x) = x
@@ -33,6 +35,10 @@ instance Monoid Subst where
   mappend s1@(Subst a) s2@(Subst b) = Subst (a `M.union` b')
     where
       Subst b' = applySubst s1 s2
+
+instance Monoid WEnv where
+  mempty = WEnv mempty
+  mappend (WEnv a) (WEnv b) = WEnv (a <> b)
 
 class Substitutable a where
   applySubst :: Subst -> a -> a
@@ -88,6 +94,16 @@ typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
 
 builtInTypeEnv :: WEnv
 builtInTypeEnv = WEnv $ M.map (Forall mempty . fst) builtIns
+
+boardFuncs = M.fromList
+  [ ("current-player", "PlayerId")
+  , ("player-location", "PlayerId" ~> "ScopedLocation" ~> "Location")
+  , ("card-at", "SpecificLocation" ~> "Card")
+  , ("cards-at", "Location" ~> WList "Card")
+  ]
+
+boardFuncTypeEnv :: WEnv
+boardFuncTypeEnv = WEnv $ M.map (Forall mempty) boardFuncs
 
 runInfer :: Infer a -> Either InferError a
 runInfer (Infer inf) = evalState (runExceptT inf) typeNames
@@ -159,6 +175,7 @@ fresh = drawFromSupply >>= \case
 
 extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
 
+
 infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UString _)) = wconst "String"
@@ -179,6 +196,12 @@ infer env (UConst (UList (a:as))) = do
   s3 <- unify (WList thisMType, restMType)
 
   pure (s3, WList $ applySubst s3 thisMType)
+
+infer env (UConst (UBoardFunc exp)) = do
+  -- TODO: Require exp type to be Action?
+  (s, tau) <- infer (env <> boardFuncTypeEnv) exp
+
+  pure (s, WFun "BoardF" tau)
 
 infer env (UConst (UFunc _ name exp)) = do
   tau <- fresh
