@@ -1,8 +1,11 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module CardLang.Types
   ( module CardLang.Types
   , module Types
   ) where
 
+import           Control.Lens
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 import Data.String (IsString, fromString)
@@ -24,16 +27,12 @@ data UExpr =
   deriving (Show, Eq)
 
 data UEnv = UEnv
-  { envVariables :: M.HashMap Name UExpr
-  , envBoard :: Maybe Board
+  { _envVariables :: M.HashMap Name UExpr
+  , _envBoard :: Maybe Board
   } deriving (Show)
 
 instance Eq UEnv where
   a == b = True
-
-instance Monoid UEnv where
-  mempty = UEnv { envVariables = mempty, envBoard = Nothing }
-  mappend a b = a { envVariables = (envVariables a) <> (envVariables b) }
 
 data UValue =
    UNone
@@ -59,3 +58,9 @@ instance IsString MType where
   fromString = WConst . T.pack
 
 type BuiltIn = (MType, UEnv -> UExpr)
+
+makeLenses ''UEnv
+
+instance Monoid UEnv where
+  mempty = UEnv { _envVariables = mempty, _envBoard = Nothing }
+  mappend a b = over envVariables (view envVariables a <>) b

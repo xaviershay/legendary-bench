@@ -7,6 +7,7 @@ module CardLang.Evaluator
   )
   where
 
+import Control.Lens (view, set, at, non)
 import Control.Monad.State (evalState, State, modify, put, get, withState)
 import qualified Data.HashMap.Strict  as M
 import Data.Maybe (fromJust)
@@ -15,6 +16,8 @@ import Utils
 
 import CardLang.Types
 import Debug.Trace
+
+setNon lens value = set lens (Just value)
 
 printValue (UConst x) = case x of
                           (UInt (Sum n)) -> showT n
@@ -36,7 +39,7 @@ evalWith' (USequence (x:xs)) = do
 
 evalWith' (UDef name expr) = do
   body <- evalWith' expr
-  modify (\x -> x { envVariables = M.insert name (UConst body) (envVariables x)})
+  modify (setNon (envVariables . at name) (UConst body))
   pure UNone
 
 evalWith' (UConst fn@(UFunc env' x body)) = do
@@ -52,12 +55,12 @@ evalWith' (UConst v) = pure $ v
 evalWith' (UVar label) = do
   env <- get
 
-  evalWith' $ M.lookupDefault (UConst . UError $ "Unknown variable: " <> label) label (envVariables env)
+  evalWith' $ view (envVariables . at label . non (UConst . UError $ "Unknown variable: " <> label)) env
 
 evalWith' (ULet (key, value) expr) = do
   env <- get
 
-  result <- withState (\x -> x { envVariables = M.insert key value (envVariables x)}) (evalWith' expr)
+  result <- withState (setNon (envVariables . at key) value) (evalWith' expr)
 
   put env
   pure $ result
@@ -85,7 +88,7 @@ evalWith' (UBuiltIn "add") = do
   evalWith' $ (snd . fromJust $ M.lookup "add" builtIns) $ env
 
 builtInEnv :: UEnv
-builtInEnv = UEnv { envVariables = M.mapWithKey (typeToFn 0) builtIns, envBoard = Nothing }
+builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
   where
     typeToFn :: Int -> Name -> (MType, UEnv -> UExpr) -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
@@ -103,7 +106,7 @@ builtInAdd env = let
   in UConst . UInt $ x + y
 
   where
-    lookupInt name = case M.lookup name (envVariables env) of
+    lookupInt name = case view (envVariables . at name) env of
                        Nothing -> error $ "Not in env: " <> show name
                        Just x -> case evalWith env x of
                                    UInt x -> x

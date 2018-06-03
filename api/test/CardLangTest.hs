@@ -5,6 +5,7 @@ module CardLangTest where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Control.Lens (set)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 
@@ -72,7 +73,7 @@ escape = T.replace "\n" "\\n"
 
 testEval = testEvalWith mempty
 testEvalWith env expected input =
-  testCase (T.unpack . escape $ input) $ expected @=? query (mempty { envVariables = M.fromList env}) input
+  testCase (T.unpack . escape $ input) $ expected @=? query (set envVariables (M.fromList env) mempty) input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
