@@ -9,7 +9,7 @@ import CardLang.Evaluator
 import Utils
 
 main = do
-  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes/spiderman.lisp"
+  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
 
   contents <- T.readFile path
 

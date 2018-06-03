@@ -17,7 +17,7 @@ import CardLang.Evaluator
 
 main :: IO ()
 main = do
-  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes/spiderman.lisp"
+  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
 
   contents <- T.readFile path
   cards <- readCards contents

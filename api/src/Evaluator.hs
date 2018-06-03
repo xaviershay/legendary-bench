@@ -30,6 +30,8 @@ import           Random
 import           Types
 import           Utils
 
+import CardLang.Evaluator
+
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
 
@@ -189,10 +191,16 @@ apply (ActionMoney qp pi) = do
   amount <- query pi
 
   apply (ApplyResources pid $ set money amount mempty)
+
+apply (ActionRecruit pid amount) = do
+  apply (ApplyResources pid $ set money amount mempty)
+
 apply (ActionAttack qp pi) = do
   pid <- query qp
   amount <- query pi
 
+  apply (ApplyResources pid $ set attack amount mempty)
+apply (ActionAttack2 pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 
 apply a@(ApplyResources (PlayerId id) rs) = do
@@ -332,11 +340,15 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       if pid == pid' then
         do
           card       <- requireCard location
-          let cardEffect = view (cardTemplate . playEffect) card
+          let cardCode = fromJust $ preview (cardTemplate . playCode) card
+
+          action <- case fromU $ eval cardCode of
+                         Right x -> return x
+                         Left _ -> lose "Unexpected state: board function doesn't evaluate to an action"
 
           return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                revealAndMove location (PlayerLocation pid Played) Front
-            <> cardEffect
+            <> action
             <> a
       else
         f mempty

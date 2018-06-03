@@ -5,6 +5,7 @@ module CardLang.Evaluator
   , evalWith
   , evalCards
   , builtIns
+  , fromU
   )
   where
 
