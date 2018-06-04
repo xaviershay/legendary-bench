@@ -1,24 +1,27 @@
 (defn make-hero [name type cost amount desc post]
   (make-hero-full "Spider-Man" "Spider Friends" name type cost amount desc post))
 
-(def spiderman-action 
-  @(let [location (card-location (player-location current-player "Deck") 0)]
+(defn spiderman-action [custom]
+  (let [location (card-location (player-location current-player "Deck") 0)]
     (combine
-      @(reveal location)
-      @(if (<= (card-cost (card-at location)) 2)
-        (move location (player-location current-player "Hand"))
-        noop))))
+      custom
+      (combine
+        (reveal location)
+        (if (<= (card-cost (card-at location)) 2)
+          (move location (player-location current-player "Hand"))
+          noop)))))
 
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(combine
-        @(attack 1)
-        spiderman-action)))
+    (add-play-effect @(spiderman-action (attack 1))))
 
 (make-hero "Great Resonsibility" "Instinct" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(combine @(recruit 1) spiderman-action))
-    )
+    (add-play-effect @(spiderman-action (recruit 1))))
+
+(make-hero "Web Shooters" "Instinct" 2 5
+    "Rescue a Bystander.\nReveal top card of deck, if cost ≤ 2 then draw it."
+    (add-play-effect @(spiderman-action (rescue-bystander 1))))
 
 ;(defn make-hero [name type cost amount desc post]
 ;  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))

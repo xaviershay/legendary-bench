@@ -46,7 +46,7 @@ quotedString = do
   return string
   where
     quotedStringChar = escapedChar <|> normalChar
-    escapedChar = (char '\\') *> (oneOf ['\\', '"'])
+    escapedChar = (char '\\') *> (oneOf ['\\', '"', 'n'])
     normalChar = noneOf "\""
 
 vec p = do

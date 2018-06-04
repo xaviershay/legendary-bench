@@ -142,6 +142,7 @@ builtIns = M.fromList
   , ("noop", ("Action", builtInNoop))
   , ("attack", ("Int" ~> "Action", builtInAttack))
   , ("recruit", ("Int" ~> "Action", builtInRecruit))
+  , ("rescue-bystander", ("Int" ~> "Action", builtInRescue))
   , ("current-player", ("PlayerId", builtInCurrentPlayer))
   , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
   , ("move", ("SpecificCard" ~> "Location" ~> "Action", builtInMove))
@@ -149,7 +150,7 @@ builtIns = M.fromList
   , ("card-at", ("SpecificCard" ~> "CardTemplate", builtInCardAt))
   , ("card-cost", ("CardTemplate" ~> "Int", builtInCardAttribute heroCost))
   , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
-  , ("combine", (WBoardF "Action" ~> WBoardF "Action" ~> "Action", builtInCombine))
+  , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
   , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
   , ("make-hero-full", ("String"
                      ~> "String"
@@ -200,16 +201,7 @@ builtInCombine = do
   a <- argAt 0
   b <- argAt 1
 
-  a' <- fromU <$> evalWith' a
-  b' <- fromU <$> evalWith' b
-
-  --traceM . show $ (a' :: Either T.Text Action)
-  --traceM . show $ (b' :: Either T.Text Action)
-
-  let Right a'' = a'
-  let Right b'' = b'
-
-  returnConst $ a'' <> (b'' :: Action)
+  returnConst $ a <> (b :: Action)
 
 builtInCardLocation = do
   loc <- argAt 0
@@ -263,6 +255,17 @@ builtInRecruit = do
   pid    <- currentPlayer
 
   return . UConst . UAction $ ActionRecruit pid amount
+
+builtInRescue = do
+  amount <- argAt 0
+  pid    <- currentPlayer
+
+  return . UConst . UAction $ ActionRecruit pid amount
+  returnConst (ActionAllowFail $ ActionMove
+                    (TSpecificCard (TConst BystanderDeck) (TConst 0))
+                    (TPlayerLocation (TConst pid) (TConst Victory))
+                    (TConst Front)
+                  )
 
 builtInMakeHeroFull = do
   name     <- argAt 0
