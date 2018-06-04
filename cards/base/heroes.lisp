@@ -1,3 +1,5 @@
+(defn guard [cond action] (if cond action noop))
+
 (defn make-hero [name type cost amount desc post]
   (make-hero-full "Spider-Man" "Spider Friends" name type cost amount desc post))
 
@@ -5,11 +7,9 @@
   (let [location (card-location (player-location current-player "Deck") 0)]
     (combine
       custom
-      (combine
-        (reveal location)
-        (if (<= (card-cost (card-at location)) 2)
-          (move location (player-location current-player "Hand"))
-          noop)))))
+      (reveal location)
+      (guard (<= (card-cost (card-at location)) 2)
+        (move location (player-location current-player "Hand"))))))
 
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
@@ -22,6 +22,25 @@
 (make-hero "Web Shooters" "Instinct" 2 5
     "Rescue a Bystander.\nReveal top card of deck, if cost ≤ 2 then draw it."
     (add-play-effect @(spiderman-action (rescue-bystander 1))))
+
+;(hero-set "Black Widow" "Avengers")
+;
+;(make-hero
+;  "Dangerous Rescue" "Covert" 3 5
+;  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
+;  (append
+;    (attack 2)
+;    (choose-card
+;      "Choose a card from hand or discard to KO"
+;      (concat-map cards-for-current-player ["Hand" "Discard"])
+;      #(append (ko %) (rescue-bystander 1)))))
+;
+;(make-hero
+;  "Mission Accomplished" "Tech" 2 5
+;  "Draw a card.\n|tech|: Rescue a Bystander."
+;  (append
+;    (draw 1)
+;    (guard (played "Tech") rescue-bystander)))
 
 ;(defn make-hero [name type cost amount desc post]
 ;  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))
@@ -100,24 +119,6 @@
 ;
 ;)
 ;
-;(hero-set "Black Widow" "Avengers")
-;
-;(make-hero
-;  "Dangerous Rescue" "Covert" 3 5
-;  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
-;  (append
-;    (attack 2)
-;    (choose-card
-;      "Choose a card from hand or discard to KO"
-;      (concat-map cards-for-current-player ["Hand" "Discard"])
-;      #(append (ko %) (rescue-bystander 1)))))
-;
-;(make-hero
-;  "Mission Accomplished" "Tech" 2 5
-;  "Draw a card.\n|tech|: Rescue a Bystander."
-;  (append
-;    (draw 1)
-;    (guard (played "Tech") rescue-bystander)))
 ;
 ;(hero-set "Cyclops" "X-Men")
 ;

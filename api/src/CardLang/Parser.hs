@@ -83,6 +83,7 @@ toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: rs) = do
 toExpr (A (ASymbol "if") ::: cond ::: lhs ::: rhs ::: Nil) =
   UIf <$> toExpr cond <*> toExpr lhs <*> toExpr rhs
 
+toExpr (A (ASymbol "combine") ::: L args) = convertCombine args
 toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)
@@ -103,6 +104,13 @@ convertFn (A (ASymbol x):xs) f = do
   body <- convertFn xs f
 
   return . UConst $ UFunc mempty x body
+
+convertCombine [x] = toExpr x
+convertCombine (x:xs) = do
+  x' <- toExpr x
+  y' <- convertCombine xs
+
+  return $ UApp (UApp (UVar "combine") x') y'
 
 convertApp [A (ASymbol x)] = return . UVar $ x
 convertApp [a] = toExpr a
