@@ -25,9 +25,18 @@
 (hero-set "Black Widow" "Avengers")
 
 (defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
+(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
+(defn filter [f xs] (reduce
+                      (fn [a x] (concat [a (if (f x) [x] [])]))
+                      []
+                      xs))
 
 (defn cards-at-current-player-location [scope]
   (cards-at (player-location current-player scope)))
+
+(defn any [f xs] (> 0 (length (filter f xs))))
+(defn played [type]
+  (any (is-type type) (cards-at (player-location current-player "Played"))))
 
 (make-hero
   "Dangerous Rescue" "Covert" 3 5
@@ -42,12 +51,12 @@
          noop))))
         ;#(append (ko %) (rescue-bystander 1)))))
 ;
-;(make-hero
-;  "Mission Accomplished" "Tech" 2 5
-;  "Draw a card.\n|tech|: Rescue a Bystander."
-;  (append
-;    (draw 1)
-;    (guard (played "Tech") rescue-bystander)))
+(make-hero
+  "Mission Accomplished" "Tech" 2 5
+  "Draw a card.\n|tech|: Rescue a Bystander."
+  (add-play-effect @(combine
+    (draw 1)
+    (guard (played "Tech") (rescue-bystander 1)))))
 
 ;(defn make-hero [name type cost amount desc post]
 ;  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))

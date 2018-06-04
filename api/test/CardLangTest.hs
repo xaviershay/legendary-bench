@@ -15,7 +15,6 @@ import Utils
 import CardLang.Evaluator
 import CardLang.Types
 import CardLang.TypeInference
-import CardLang.TypeInference2
 import CardLang.Parser (parse)
 
 builtInDefs = builtIns

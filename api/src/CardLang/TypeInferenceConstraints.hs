@@ -4,7 +4,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module CardLang.TypeInference2
+-- !!!!!!!!!!!!!!!!!!!!!!! UNUSED !!!!!!!!!!!!!!
+-- This is a WIP bit of code to adapt type inference to a constraint generation scheme outlined at https://kseo.github.io/posts/2017-01-02-hindley-milner-inference-with-constraints.html
+-- The easy parts work (equality constraints), but I haven't yet implemented
+-- implicit constraints that are necessary for let bindings to work.
+--
+-- It's trivial to change the tests to use this module instead, and the failing
+-- tests show the work that remains.
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+module CardLang.TypeInferenceConstraints
   ( inferExpr
   , mkTypeEnv
   , apply
