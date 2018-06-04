@@ -1,7 +1,6 @@
 (defn guard [cond action] (if cond action noop))
 
-(defn make-hero [name type cost amount desc post]
-  (make-hero-full "Spider-Man" "Spider Friends" name type cost amount desc post))
+(hero-set "Spider-Man" "Spider Friends")
 
 (defn spiderman-action [custom]
   (let [location (card-location (player-location current-player "Deck") 0)]

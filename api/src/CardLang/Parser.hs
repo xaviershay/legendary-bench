@@ -7,6 +7,7 @@ import           Control.Applicative     ((<|>))
 import           Data.SCargot
 import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
+import           Data.String             (IsString, fromString)
 import qualified Data.Text               as T
 import           Text.Parsec             (alphaNum, between, char, digit, many,
                                           many1, noneOf, oneOf, string, try)
@@ -21,6 +22,9 @@ data Atom =
   | AString T.Text
   | ASymbol T.Text
   deriving (Show, Eq)
+
+instance IsString Atom where
+  fromString = ASymbol . T.pack
 
 parse :: T.Text -> Either String UExpr
 parse x = USequence <$> decode myParser x
@@ -67,6 +71,21 @@ toExpr :: SExpr Atom -> Either String UExpr
 toExpr (A (AInt x)) = Right . UConst . UInt . Sum $ x
 toExpr (A (AString x)) = Right . UConst . UString $ x
 toExpr (A (ABool x)) = Right . UConst . UBool $ x
+
+-- This needs to be done as a macro because if done as a function the defn will
+-- not be available in the outer environment. Could consider changing semantics
+-- so that this wouldn't be needed, but not sure whether that's a good idea or
+-- not yet.
+toExpr (A (ASymbol "hero-set") ::: name ::: team ::: Nil) = do
+  let makeHeroArgs = ["name", "type", "cost", "amount", "desc", "post"]
+  let expanded = L [ "defn"
+                   , "make-hero"
+                   , L ("list":makeHeroArgs)
+                   , L ("make-hero-full": name: team:makeHeroArgs)
+                   ]
+
+  toExpr expanded
+
 toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   expr <- toExpr body
 
