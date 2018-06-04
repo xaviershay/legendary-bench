@@ -1,28 +1,31 @@
 (defn make-hero [name type cost amount desc post]
   (make-hero-full "Spider-Man" "Spider Friends" name type cost amount desc post))
 
+(def spiderman-action 
+  @(let [location (card-location (player-location current-player "Deck") 0)]
+    (combine
+      @(reveal location)
+      @(if (<= (card-cost (card-at location)) 2)
+        (move location (player-location current-player "Hand"))
+        noop))))
+
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(let [location (card-location (player-location current-player "Deck") 0)]
-      (combine
-        (recruit 1)
-        (reveal location))))
-     ;   (combine
-     ;     (guard (lte card-cost (card-at location))
-     ;       (move location (player-location current-player "Hand")))))
-    )
+    (add-play-effect @(combine
+        @(attack 1)
+        spiderman-action)))
 
 (make-hero "Great Resonsibility" "Instinct" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(recruit 1))
+    (add-play-effect @(combine @(recruit 1) spiderman-action))
     )
 
-(defn make-hero [name type cost amount desc post]
-  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))
-
-(make-hero "Diving Block" "Tech" 6 3
-  "If you would gain a Wound, you may reveal this card and draw a card instead."
-  (add-play-effect @(attack 4))
+;(defn make-hero [name type cost amount desc post]
+;  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))
+;
+;(make-hero "Diving Block" "Tech" 6 3
+;  "If you would gain a Wound, you may reveal this card and draw a card instead."
+;  (add-play-effect @(attack 4))
 ;  {
 ;    "play" (attack 4)
 ;    "gain-card" @(fn [continue player source card]
@@ -31,7 +34,7 @@
 ;                       (append [(reveal self) (draw (owner self) 1)])
 ;                       continue)))
 ;  }
-)
+;)
 ;
 ;  (make-hero "Astonishing Strength" "Strength" 2 5
 ;      "Reveal top card of deck, if cost ≤ 2 then draw it."

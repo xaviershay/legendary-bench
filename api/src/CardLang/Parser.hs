@@ -33,7 +33,7 @@ pAtom =  parseInt
 
 parseInt = ((AInt . read) <$> many1 digit)
 parseBool = ABool <$> (parseSpecific "true" True <|> parseSpecific "false" False)
-parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> char '-'))
+parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>"))
 parseString = AString . T.pack <$> quotedString
 
 parseSpecific match value = do
@@ -70,7 +70,7 @@ toExpr (A (ABool x)) = Right . UConst . UBool $ x
 toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   expr <- toExpr body
 
-  return . UConst $ UBoardFunc expr
+  return . UConst $ UBoardFunc mempty expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do

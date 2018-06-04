@@ -85,7 +85,7 @@ data UValue =
  | UString T.Text
  | UBool Bool
  | UFunc UEnv Name UExpr
- | UBoardFunc UExpr
+ | UBoardFunc UEnv UExpr
  | UAction Action
  | USpecificCard SpecificCard
  | UCardTemplate Card

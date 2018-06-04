@@ -342,7 +342,6 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           board <- currentBoard
           card       <- requireCard location
           let cardCode = fromJust $ preview (cardTemplate . playCode) card
-          traceM . show $ cardCode
 
           action <- case fromU $ evalWithBoard board cardCode of
                          Right x -> return x

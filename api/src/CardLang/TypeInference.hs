@@ -203,7 +203,7 @@ infer env (UConst (UList (a:as))) = do
 
   pure (s3, WList $ applySubst s3 thisMType)
 
-infer env (UConst (UBoardFunc exp)) = do
+infer env (UConst (UBoardFunc _ exp)) = do
   -- TODO: Require exp type to be Action?
   (s, tau) <- infer (env <> boardFuncTypeEnv) exp
 

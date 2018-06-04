@@ -13,8 +13,8 @@ module CardLang.Evaluator
   where
 
 import Text.Show.Pretty (ppShow)
-import Control.Lens (view, set, at, non, element, preview, over)
-import Control.Monad.State (evalState, State, modify, put, get, withStateT, execState)
+import Control.Lens (view, set, at, non, element, preview, over, ix)
+import Control.Monad.State (evalState, State, modify, put, get, withStateT, execState, runState)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text  as T
 import Data.Sequence ((<|), Seq)
@@ -42,7 +42,7 @@ evalWithBoard b = evalWith (set envBoard (Just b) mempty)
 
 evalCards :: UExpr -> Seq Card
 evalCards exp = let env = builtInEnv in
-  view envCards $ execState (runExceptT (evalWith' exp)) env
+    view envCards $ execState (runExceptT (evalWith' exp)) env
 
 evalWith :: UEnv -> UExpr -> UValue
 evalWith env exp = case evalState (runExceptT (evalWith' exp)) (builtInEnv <> env) of
@@ -65,12 +65,16 @@ evalWith' (UConst fn@(UFunc env' x body)) = do
   env <- get
 
   pure $ UFunc (env' <> env) x body
-evalWith' (UConst fn@(UBoardFunc expr)) = do
+evalWith' (UConst fn@(UBoardFunc env' expr)) = do
+  env <- get
   board <- view envBoard <$> get
 
   case board of
-    Nothing -> pure fn
-    Just b -> evalWith' expr -- TODO: Setup environment from board
+    Nothing -> pure (UBoardFunc (env' <> env) expr)
+    Just b -> do
+      modify (env' <>)
+      evalWith' expr -- TODO: Setup environment from board
+      -- TODO: Put env back the way we found it?
     
 
 evalWith' (UConst (UList xs)) = do
@@ -121,18 +125,31 @@ builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
   where
     typeToFn :: Int -> Name -> BuiltIn -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
+    typeToFn n key (WBoardF mtype, _) = UBuiltIn key
     typeToFn n key (WConst _, _) = UBuiltIn key
 
 builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
   [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
+  , ("+", ("Int" ~> "Int" ~> "Int", builtInAdd))
+  , ("=<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
+  , ("<=", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
+  , ("<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<)))
+  , (">", ("Int" ~> "Int" ~> "Bool", builtInComparison (>)))
+  , (">=", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
+  , ("=>", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
+  , ("==", ("Int" ~> "Int" ~> "Bool", builtInComparison (==)))
+  , ("noop", ("Action", builtInNoop))
   , ("attack", ("Int" ~> "Action", builtInAttack))
   , ("recruit", ("Int" ~> "Action", builtInRecruit))
   , ("current-player", ("PlayerId", builtInCurrentPlayer))
   , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
+  , ("move", ("SpecificCard" ~> "Location" ~> "Action", builtInMove))
   , ("card-location", ("Location" ~> "Int" ~> "SpecificCard", builtInCardLocation))
+  , ("card-at", ("SpecificCard" ~> "CardTemplate", builtInCardAt))
+  , ("card-cost", ("CardTemplate" ~> "Int", builtInCardAttribute heroCost))
   , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
-  , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
+  , ("combine", (WBoardF "Action" ~> WBoardF "Action" ~> "Action", builtInCombine))
   , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
   , ("make-hero-full", ("String"
                      ~> "String"
@@ -146,24 +163,59 @@ builtIns = M.fromList
                      builtInMakeHeroFull))
   ]
 
+returnConst :: FromU a => a -> EvalMonad UExpr
+returnConst = return . UConst . toU
+
+builtInCardAt = do
+  sloc@(location, index) <- argAt 0
+
+  card <- preview (cardsAtLocation location . ix index) <$> currentBoard
+
+  case card of
+    Just c -> return . UConst . toU $ view cardTemplate c
+    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
+
+
+builtInCardAttribute lens = do
+  template <- argAt 0
+
+  returnConst $ view lens template
+
 builtInCurrentPlayer = UConst . UPlayerId <$> currentPlayer
   
 builtInReveal = do
   location <- argAt 0
 
-  return . UConst . UAction $ ActionReveal (TConst location)
+  returnConst $ ActionReveal (TConst location)
+
+builtInMove = do
+  from <- argAt 0
+  to <- argAt 1
+
+  returnConst $ ActionMove (TConst from) (TConst to) (TConst Front)
+
+builtInNoop = return . UConst . toU $ ActionNone
 
 builtInCombine = do
   a <- argAt 0
   b <- argAt 1
 
-  return . UConst . UAction $ a <> b
+  a' <- fromU <$> evalWith' a
+  b' <- fromU <$> evalWith' b
+
+  --traceM . show $ (a' :: Either T.Text Action)
+  --traceM . show $ (b' :: Either T.Text Action)
+
+  let Right a'' = a'
+  let Right b'' = b'
+
+  returnConst $ a'' <> (b'' :: Action)
 
 builtInCardLocation = do
   loc <- argAt 0
   index <- argAt 1
 
-  return . UConst . USpecificCard $ (loc, index)
+  returnConst $ ((loc, index) :: SpecificCard)
 
 builtInPlayerLocation = do
   pid <- argAt 0
@@ -187,12 +239,16 @@ builtInAddPlayEffect = do
   
 builtInAdd :: EvalMonad UExpr
 builtInAdd = do
-  env <- get
-
   x <- argAt 0
   y <- argAt 1
 
   return . UConst . UInt $ x + y
+
+builtInComparison f = do
+  x <- argAt 0
+  y <- argAt 1
+
+  return . UConst . UBool $ f x (y :: Int)
 
 builtInAttack :: EvalMonad UExpr
 builtInAttack = do
@@ -250,41 +306,58 @@ currentPlayer = do
         Nothing -> throwError "No current player"
         Just p -> return p
 
+currentBoard = do
+  board <- view envBoard <$> get
+
+  case board of
+    Nothing -> throwError "Board function called outside of context"
+    Just b -> return b
+
 class FromU a where
   fromU :: UValue -> Either T.Text a
+  toU :: a -> UValue
 
 instance FromU SummableInt where
   fromU (UInt x) = return x
   fromU x        = throwError ("Expected UInt, got " <> showT x)
+  toU = UInt
 
 instance FromU Int where
   fromU (UInt (Sum x)) = return x
   fromU x        = throwError ("Expected UInt, got " <> showT x)
+  toU = UInt . Sum
 
 instance FromU T.Text where
   fromU (UString x) = return x
   fromU x        = throwError ("Expected UString, got " <> showT x)
+  toU = UString
 
 instance FromU Card where
   fromU (UCardTemplate x) = return x
   fromU x        = throwError ("Expected UCardTemplate, got " <> showT x)
+  toU = UCardTemplate
 
 instance FromU Action where
   fromU (UAction x) = return x
   fromU x        = throwError ("Expected UAction, got " <> showT x)
+  toU = UAction
 
 instance FromU SpecificCard where
   fromU (USpecificCard x) = return x
   fromU x        = throwError ("Expected USpecificCard, got " <> showT x)
+  toU = USpecificCard
 
 instance FromU Location where
   fromU (ULocation x) = return x
   fromU x        = throwError ("Expected ULocation, got " <> showT x)
+  toU = ULocation
 
 instance FromU ScopedLocation where
   fromU (UString "Deck") = fromU (UString "PlayerDeck")
   fromU (UString x) = return . read . T.unpack $ x
   fromU x        = throwError ("Expected UString, got " <> showT x)
+  toU PlayerDeck = UString "Deck"
+  toU x = UString . showT $ x
 
 instance FromU PlayerId where
   fromU (UPlayerId x) = return x
