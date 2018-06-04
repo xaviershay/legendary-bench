@@ -191,7 +191,6 @@ fresh = drawFromSupply >>= \case
 
 extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
 
-
 infer :: WEnv -> UExpr -> Infer (Subst, MType)
 infer env (UConst (UInt _)) = wconst "Int"
 infer env (UConst (UString _)) = wconst "String"
