@@ -22,7 +22,11 @@ import Utils
 
 showType (WVar x) = x
 showType (WConst x) = x
-showType (WFun x y) = showType x <> " -> " <> showType y
+showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType y
+  where
+    isFun (WFun{}) = True
+    isFun _ = False
+    maybeBracket cond x = if cond then "(" <> x <> ")" else x
 showType (WList x) = "[" <> showType x <> "]"
 showType (WBoardF x) = "@:" <> showType x
 
@@ -218,6 +222,9 @@ infer env (UConst (UFunc _ name exp)) = do
       env' = extendEnv env (name, sigma)
   (s, tau') <- infer env' exp
 
+  let fnTau = WFun (applySubst s tau) tau'
+  --traceM . show $ (s, tau')
+
   pure (s, WFun (applySubst s tau) tau')
 
 -- A sequence can contain heterogenous types. Only the final one is used.
@@ -262,14 +269,19 @@ infer env (ULet (name, e0) e1) = do
 
 infer env (UIf cond lhs rhs) = do
   (scond, tau) <- infer env cond
-  s1 <- unify (tau, WConst "Bool")
+  (slhs, lhsTau) <- infer (applySubst scond env) lhs
+  (srhs, rhsTau) <- infer (applySubst slhs env) rhs
 
-  (slhs, lhsTau) <- infer env lhs
-  (srhs, rhsTau) <- infer env rhs
 
-  s2 <- unify (lhsTau, rhsTau)
+  s4 <- unify (tau, WConst "Bool")
+  s5 <- unify (lhsTau, rhsTau)
 
-  pure (s2 <> s1, rhsTau)
+  let s1 = scond
+  let s2 = slhs
+  let s3 = srhs
+  let allSubs = s5 <> s4 <> s3 <> s2 <> s1
+
+  pure (allSubs, applySubst s5 lhsTau)
 
 infer env x = error . show $ "Unknown form in infer: " <> show x
 

@@ -69,11 +69,21 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "Int" "(reduce (fn [sum n] (add sum n)) 0 [1 2 3])"
   , testInfer "Int" "(reduce (fn [sum n] (add sum n)) 0 [])"
   , testInfer "[Int]" "(reduce (fn [a x] (concat [a [x]])) [] [1])"
-  , testInfer "a -> b -> [a] -> [b]" "(fn [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))"
+  , testInfer "(a -> b) -> [a] -> [b]" "(fn [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))"
   , testInfer "[Int]" "(concat [[1] []])"
   , testInfer "[Int]" "(concat [[] [1]])"
   , testInfer "[a]" "(concat [[] []])"
   , testInfer "String -> [SpecificCard]" "(fn [scope] (cards-at (player-location current-player scope)))"
+  , testInfer "(a -> b) -> [a] -> [b]" "(defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs)) map"
+  , testInfer "[a] -> Int" "(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) length"
+  , testInfer "(a -> Bool) -> [a] -> [a]" "(fn [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs))"
+  , testInfer "(a -> Bool) -> [a] -> [a]" "(fn [f xs] (reduce (fn [a x] (if (f x) [x] [x])) [] xs))"
+  , testInfer "(Int -> Bool) -> Int -> Int" "(fn [f x] (if (f x) x 1))"
+  , testInfer "[a] -> a -> [a]" "(fn [a x] (concat [a (if (<= 0 1) [x] [])]))"
+  , testInfer "[Int]" "(if true [1] [])"
+  , testInfer "[Int]" "(if true [] [1])"
+  , testInfer "Int -> Int" "(fn [x] (if (<= x 0) x x))"
+  , testInfer "Int -> Int" "(fn [x] (if (<= x 0) x x))"
   ]
 
 -- Replace newlines so test output renders nicely
@@ -135,8 +145,10 @@ test_ListQuery = testGroup "List Query"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
   ]
 
---focus = defaultMain test_TypeInference
-focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
+focus = defaultMain test_TypeInference
+--focus = defaultMain $   testInfer "(a -> Bool) -> [a] -> [a]" "(fn [f xs] (reduce (fn [a x] (if (f x) [x] [])) [] xs))"
+--focus = defaultMain $ testInfer "Int -> Int" "(fn [x] (if (<= x 0) x x))"
+--focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
 --focus = defaultMain $ testInfer "[Int]" "(reduce (fn [a x] (concat [a [x]])) [] [1])"
 --
 -- NOTE: this is wrong. Should be [a] -> a -> [a]
