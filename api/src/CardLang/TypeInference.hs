@@ -99,7 +99,6 @@ instance Show InferError where
   show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
   show (UnknownIdentifier n) = "Unknown identifier: " <> T.unpack n
 
-
 typecheck :: UExpr -> Either InferError MType
 typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
 
