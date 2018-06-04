@@ -279,9 +279,11 @@ data Action =
   ActionTagged T.Text Action |
   ActionTrace T.Text |
   ActionConcurrent [Action] |
+  ActionChooseCard T.Text [SpecificCard] UExpr Action |
 
   ActionAttack2 PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
+  ActionKO SpecificCard |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -293,7 +295,7 @@ data Action =
   ActionKOHero |
   ActionDiscard PlayerId
 
-  deriving (Generic, Eq, Show)
+  deriving (Generic, Show)
 
 instance Monoid Action where
   mempty = ActionNone
@@ -316,6 +318,7 @@ instance Eq CardInPlay where
 
 deriving instance Eq UExpr
 deriving instance Eq UValue
+deriving instance Eq Action
 
 mkBoard :: Board
 mkBoard = Board

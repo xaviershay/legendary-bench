@@ -52,9 +52,12 @@ instance Substitutable MType where
   applySubst s c@(WConst {}) = c
   applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
   applySubst s (WBoardF x) = WBoardF (applySubst s x)
+  applySubst s (WList x) = WList (applySubst s x)
+  applySubst a b = error $ "applySubst error " <> show a <> ", " <> show b
 
 freeMType :: MType -> Set.Set Name
 freeMType (WBoardF x) = freeMType x
+freeMType (WList x) = freeMType x
 freeMType (WConst _) = mempty
 freeMType (WVar x) = Set.singleton x
 freeMType (WFun x y) = freeMType x <> freeMType y
@@ -97,7 +100,10 @@ typecheck :: UExpr -> Either InferError MType
 typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
 
 builtInTypeEnv :: WEnv
-builtInTypeEnv = WEnv $ M.map (Forall mempty . fst) builtIns
+builtInTypeEnv = WEnv $ M.fromList
+  [ ("reduce", Forall (Set.fromList ["a", "b"]) (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b"))
+  , ("concat", Forall (Set.fromList ["a"]) (WList (WList "a") ~> WList "a"))
+  ] <> M.map (Forall mempty . fst) builtIns
 
 boardFuncs = mempty
 --boardFuncs = M.fromList
@@ -192,16 +198,13 @@ infer env (UConst (UList [])) = do
 
   pure (mempty, WList tau)
 
--- TODO: I'm not confident this is correct, but seems to work for limited test
--- cases. In particular, s1..3 should probably be applied to more things. Left
--- off for now until I get test cases that break it.
 infer env (UConst (UList (a:as))) = do
   (s, thisMType) <- infer env a
   (s2, restMType) <- infer env (UConst (UList as))
 
-  s3 <- unify (WList thisMType, restMType)
+  s3 <- unify (applySubst s2 (WList thisMType), restMType)
 
-  pure (s3, WList $ applySubst s3 thisMType)
+  pure (s3 <> s2 <> s, WList $ applySubst s3 thisMType)
 
 infer env (UConst (UBoardFunc _ exp)) = do
   -- TODO: Require exp type to be Action?
@@ -237,12 +240,15 @@ infer env (UApp f x) = do
   (s2, xTau) <- infer (applySubst s1 env) x
   fxTau <- fresh
   s3 <- unify (applySubst s2 fTau, WFun xTau fxTau)
+  --traceM . T.unpack $ "Unified\n  " <> showType (applySubst s2 fTau) <> "\n  " <> showType (WFun xTau fxTau) <> "\n  " <> 
+  --   showType (applySubst s3 (WFun xTau fxTau))
   let s = s3 <> s2 <> s1
   pure (s, applySubst s3 fxTau)
 
 infer env (UVar name) = do
   sigma <- lookupEnv env name
   tau <- instantiate sigma
+  --traceM . T.unpack $ "Instantiated " <> showT name <> ": " <> showType tau
 
   return (mempty, tau)
 infer env (ULet (name, e0) e1) = do

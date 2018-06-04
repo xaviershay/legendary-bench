@@ -22,17 +22,25 @@
     "Rescue a Bystander.\nReveal top card of deck, if cost ≤ 2 then draw it."
     (add-play-effect @(spiderman-action (rescue-bystander 1))))
 
-;(hero-set "Black Widow" "Avengers")
-;
-;(make-hero
-;  "Dangerous Rescue" "Covert" 3 5
-;  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
-;  (append
-;    (attack 2)
-;    (choose-card
-;      "Choose a card from hand or discard to KO"
-;      (concat-map cards-for-current-player ["Hand" "Discard"])
-;      #(append (ko %) (rescue-bystander 1)))))
+(hero-set "Black Widow" "Avengers")
+
+(defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
+
+(defn cards-at-current-player-location [scope]
+  (cards-at (player-location current-player scope)))
+
+(make-hero
+  "Dangerous Rescue" "Covert" 3 5
+ "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
+  (add-play-effect
+    @(combine
+       (attack 2)
+       (choose-card
+         "Choose a card from hand or discard to KO"
+         (concat (map cards-at-current-player-location ["Hand" "Discard"]))
+         (fn [card] (combine (ko card) (rescue-bystander 1)))
+         noop))))
+        ;#(append (ko %) (rescue-bystander 1)))))
 ;
 ;(make-hero
 ;  "Mission Accomplished" "Tech" 2 5

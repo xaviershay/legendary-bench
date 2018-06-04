@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module CardLang.Evaluator
   ( eval
@@ -9,17 +10,21 @@ module CardLang.Evaluator
   , evalWithBoard
   , builtIns
   , fromU
+  , toU
   )
   where
 
-import Text.Show.Pretty (ppShow)
-import Control.Lens (view, set, at, non, element, preview, over, ix)
-import Control.Monad.State (evalState, State, modify, put, get, withStateT, execState, runState)
+import           Control.Lens         (at, element, ix, non, over, preview, set,
+                                       view)
+import           Control.Monad        (foldM)
+import           Control.Monad.Except (runExceptT, throwError)
+import           Control.Monad.State  (State, evalState, execState, get, modify,
+                                       put, runState, withStateT)
 import qualified Data.HashMap.Strict  as M
-import qualified Data.Text  as T
-import Data.Sequence ((<|), Seq)
-import Data.Maybe (fromJust)
-import Control.Monad.Except (throwError, runExceptT)
+import           Data.Maybe           (fromJust)
+import           Data.Sequence        (Seq, (<|))
+import qualified Data.Text            as T
+import           Text.Show.Pretty     (ppShow)
 
 import Types
 import Utils
@@ -126,7 +131,10 @@ builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
     typeToFn :: Int -> Name -> BuiltIn -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
     typeToFn n key (WBoardF mtype, _) = UBuiltIn key
+    typeToFn n key (WList _, _) = UBuiltIn key
     typeToFn n key (WConst _, _) = UBuiltIn key
+    typeToFn n key (WVar _, _) = UBuiltIn key
+    typeToFn n key (x, _) = error $ "Unknown in typeToFn: " <> show x
 
 builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
@@ -139,18 +147,29 @@ builtIns = M.fromList
   , (">=", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
   , ("=>", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
   , ("==", ("Int" ~> "Int" ~> "Bool", builtInComparison (==)))
+  -- TODO: These variables likely not good enough? Probably able to clash with
+  -- other reduce that should resolve differently! Could fix by making this
+  -- type statement run in the Infer monad to generate fresh tau each time.
+  -- EDIT: No actually we probably just need to a) Have proper forall binding, b) instantiate it
+  -- EDIT2: Yup, currently hard coded in TypeInference.hs, need to fix
+  , ("reduce", (("_b" ~> "_a" ~> "_b") ~> "_b" ~> WList "_a" ~> "_b", builtInReduce))
+  , ("concat", (WList (WList "_x") ~> WList "_x",  builtInConcat))
+
   , ("noop", ("Action", builtInNoop))
   , ("attack", ("Int" ~> "Action", builtInAttack))
   , ("recruit", ("Int" ~> "Action", builtInRecruit))
   , ("rescue-bystander", ("Int" ~> "Action", builtInRescue))
   , ("current-player", ("PlayerId", builtInCurrentPlayer))
   , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
+  , ("ko", ("SpecificCard" ~> "Action", builtInKo))
   , ("move", ("SpecificCard" ~> "Location" ~> "Action", builtInMove))
   , ("card-location", ("Location" ~> "Int" ~> "SpecificCard", builtInCardLocation))
   , ("card-at", ("SpecificCard" ~> "CardTemplate", builtInCardAt))
   , ("card-cost", ("CardTemplate" ~> "Int", builtInCardAttribute heroCost))
+  , ("cards-at", ("Location" ~> WList "SpecificCard", builtInCardsAt))
   , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
   , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
+  , ("choose-card", ("String" ~> WList "SpecificCard" ~> ("SpecificCard" ~> "Action") ~> "Action" ~> "Action", builtInChooseCard))
   , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
   , ("make-hero-full", ("String"
                      ~> "String"
@@ -167,6 +186,39 @@ builtIns = M.fromList
 returnConst :: FromU a => a -> EvalMonad UExpr
 returnConst = return . UConst . toU
 
+builtInConcat = do
+  xs :: [UExpr] <- argAt 0
+  xs' :: [UValue] <- sequence . fmap evalWith' $ xs
+
+  case sequence $ map fromU xs' of
+    Right (xs'' :: [[UExpr]]) -> return . UConst . UList $ mconcat xs''
+    Left y -> throwError $ "Unexpected error in concat: " <> showT y
+
+
+builtInReduce = do
+  f       <- argAt 0
+  initial <- argAt 1
+  xs      <- argAt 2
+
+  let f' = UConst f
+  let initial' = UConst initial
+  let xs' = xs :: [UExpr]
+
+  value <- foldM (folder f') initial' xs
+
+  return value
+
+  where
+    folder :: UExpr -> UExpr -> UExpr -> EvalMonad UExpr
+    folder f accum x = UConst <$> evalWith' (UApp (UApp f accum) x)
+
+builtInCardsAt = do
+  loc <- argAt 0
+
+  cards <- view (cardsAtLocation loc) <$> currentBoard
+
+  return . UConst . UList . fmap (UConst . USpecificCard) $ zip (repeat loc) [0..length cards -1]
+
 builtInCardAt = do
   sloc@(location, index) <- argAt 0
 
@@ -176,6 +228,19 @@ builtInCardAt = do
     Just c -> return . UConst . toU $ view cardTemplate c
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
+builtInChooseCard = do
+  pid <- currentPlayer
+
+  desc <- argAt 0
+  fromExprs <- argAt 1
+  onChoose <- argAt 2
+  onPass <- argAt 3
+
+  from <- sequence . fmap evalWith' $ fromExprs
+
+  case sequence $ fmap fromU from of
+    Right from' -> returnConst $ ActionChooseCard desc from' onChoose onPass
+    Left y -> throwError y
 
 builtInCardAttribute lens = do
   template <- argAt 0
@@ -188,6 +253,11 @@ builtInReveal = do
   location <- argAt 0
 
   returnConst $ ActionReveal (TConst location)
+
+builtInKo = do
+  location <- argAt 0
+
+  returnConst $ ActionKO location
 
 builtInMove = do
   from <- argAt 0
@@ -368,6 +438,13 @@ instance FromU PlayerId where
 
 instance FromU UExpr where
   fromU x = return $ UConst x
+
+instance FromU UValue where
+  fromU = return
+
+instance FromU [UExpr] where
+  fromU (UList xs) = return xs
+  fromU x        = throwError ("Expected UList, got " <> showT x)
 
 argAt :: FromU a => Int -> EvalMonad a
 argAt index = do

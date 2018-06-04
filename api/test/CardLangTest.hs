@@ -66,6 +66,14 @@ test_TypeInference = testGroup "Type Inference"
   , testInfer "Int" "(if false 1 2)"
   , testInfer "Int" "(defn foo [x] x) (if (foo false) (foo 1) (foo 2))"
   , testInferFail (CannotUnify "Bool" "Int") "(if false false 2)"
+  , testInfer "Int" "(reduce (fn [sum n] (add sum n)) 0 [1 2 3])"
+  , testInfer "Int" "(reduce (fn [sum n] (add sum n)) 0 [])"
+  , testInfer "[Int]" "(reduce (fn [a x] (concat [a [x]])) [] [1])"
+  , testInfer "a -> b -> [a] -> [b]" "(fn [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))"
+  , testInfer "[Int]" "(concat [[1] []])"
+  , testInfer "[Int]" "(concat [[] [1]])"
+  , testInfer "[a]" "(concat [[] []])"
+  , testInfer "String -> [SpecificCard]" "(fn [scope] (cards-at (player-location current-player scope)))"
   ]
 
 -- Replace newlines so test output renders nicely
@@ -117,10 +125,25 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 3) "(let [x 1] (defn y [z] (add z x)) (y 2))"
   , testEval (UInt 1) "(if true 1 2)"
   , testEval (UInt 2) "(if false 1 2)"
+  , testEval (UInt 6) "(reduce (fn [sum n] (add sum n)) 0 [1 2 3])"
+  , testEval (UList [UConst $ UInt 1, UConst $ UInt 2]) "(concat [[1] [2]])"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "(board-fn 1)"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
   , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
+  , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
+      "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
+  , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
   ]
 
 --focus = defaultMain test_TypeInference
 focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
+--focus = defaultMain $ testInfer "[Int]" "(reduce (fn [a x] (concat [a [x]])) [] [1])"
+--
+-- NOTE: this is wrong. Should be [a] -> a -> [a]
+--focus = defaultMain $ testInfer "[a] -> a -> [a]" "(fn [a x] (concat [a [x]]))"
+--
+-- NOTE: a -> [b] here: should be a -> [a] right?
+--focus = defaultMain $ testInfer "a -> [b]" "((fn [a x] (concat [a [x]])) [])"
+--focus = defaultMain $ testInfer "[a]" "(((fn [a x] (concat [a [x]])) []) [1])"
+--focus = defaultMain $ testInfer "[Int]" "(concat [[1] [2]])"
+--focus = defaultMain $ testInfer "[[a]] -> [a]" "(concat [1 [2]])"

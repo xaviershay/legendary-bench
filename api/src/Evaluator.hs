@@ -202,6 +202,8 @@ apply (ActionAttack qp pi) = do
   apply (ApplyResources pid $ set attack amount mempty)
 apply (ActionAttack2 pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
+-- Implemented as a separate action so that we don't lose semantic meaning of "KO"
+apply (ActionKO location) = apply (ActionMove (TConst location) (TConst KO) (TConst Front))
 
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -324,6 +326,22 @@ apply ActionStartTurn = do
       not . null . view (cardsAtLocation l) $ board
 
 apply (ActionTagged reason action) = tag reason (apply action)
+
+apply a@(ActionChooseCard desc options expr pass) = applyChoices f
+  where
+    f (ChoosePass :<| _) = return pass
+    f (ChooseCard location :<| _) = do
+      if elem location options then
+        do
+          board <- currentBoard
+          case fromU $ evalWithBoard board (UApp expr (UConst $ toU location)) of
+             Right x -> return x
+             Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+
+      else
+        return mempty
+    f _ = wait a desc
+
 
 apply a@(ActionPlayerTurn _) = applyChoices f
   where

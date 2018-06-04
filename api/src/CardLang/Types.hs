@@ -12,6 +12,7 @@ import qualified Data.Sequence        as S
 import Control.Monad.State
 import Control.Monad.Except
 import Data.String (IsString, fromString)
+import Data.Char (isUpper)
 
 import Utils
 import Types
@@ -27,7 +28,9 @@ data MType =
   deriving (Eq, Show)
 
 instance IsString MType where
-  fromString = WConst . T.pack
+  fromString x@(h:_) 
+    | isUpper h  = WConst . T.pack $ x
+    | True       = WVar . T.pack $ x
 
 type EvalMonad a = (ExceptT T.Text (State UEnv)) a
 type BuiltIn = (MType, EvalMonad UExpr)
