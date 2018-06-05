@@ -204,6 +204,10 @@ apply (ActionAttack2 pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply (ActionMove (TConst location) (TConst KO) (TConst Front))
+apply (ActionDraw pid) = apply (ActionMove
+  (TConst ((PlayerLocation pid PlayerDeck), 0))
+  (TConst (PlayerLocation pid Hand))
+  (TConst Front))
 
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -360,8 +364,9 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           board <- currentBoard
           card       <- requireCard location
           let cardCode = fromJust $ preview (cardTemplate . playCode) card
+          let ret = evalWithBoard board cardCode
 
-          action <- case fromU $ evalWithBoard board cardCode of
+          action <- case fromU $ ret of
                          Right x -> return x
                          Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 

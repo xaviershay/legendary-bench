@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric     #-} {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -14,7 +13,7 @@ import           Control.Monad.Except
 import           Control.Monad.Writer (WriterT)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
-import           Data.List            (nub)
+import           Data.List            (nub, intercalate)
 import qualified Data.Sequence        as S
 import qualified Data.Text            as T
 import           GHC.Generics hiding (to)
@@ -73,7 +72,13 @@ data UEnv = UEnv
   { _envVariables :: M.HashMap Name UExpr
   , _envBoard :: Maybe Board
   , _envCards :: S.Seq Card
-  } deriving (Show)
+  , _envBuiltIn :: M.HashMap Name UExpr
+  }
+
+instance Show UEnv where
+  -- Important not to naively dump out envVariables, since they contain cyclic
+  -- references to the env...
+  show x = "[UEnv ...]"
 
 instance Eq UEnv where
   a == b = True
@@ -284,6 +289,7 @@ data Action =
   ActionAttack2 PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
   ActionKO SpecificCard |
+  ActionDraw PlayerId |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |

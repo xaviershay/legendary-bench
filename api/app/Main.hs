@@ -8,6 +8,8 @@ import qualified Data.Text       as T
 import qualified Data.Text.IO    as T
 import qualified Data.Sequence   as S
 
+import Control.Monad (forM)
+
 import Api
 import Types
 import Utils
@@ -21,6 +23,9 @@ main = do
 
   contents <- T.readFile path
   cards <- readCards contents
+
+  forM cards $ \x -> do
+    putStrLn $ ppShow x
 
   let port = 8080
   state <- mkState cards

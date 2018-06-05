@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 module CardLang.Evaluator
   ( eval
@@ -15,7 +16,7 @@ module CardLang.Evaluator
   where
 
 import           Control.Lens         (at, element, ix, non, over, preview, set,
-                                       view)
+                                       view, Traversal')
 import           Control.Monad        (foldM)
 import           Control.Monad.Except (runExceptT, throwError)
 import           Control.Monad.State  (State, evalState, execState, get, modify,
@@ -25,6 +26,7 @@ import           Data.Maybe           (fromJust)
 import           Data.Sequence        (Seq, (<|))
 import qualified Data.Text            as T
 import           Text.Show.Pretty     (ppShow)
+import Data.Maybe (catMaybes)
 
 import Types
 import Utils
@@ -90,8 +92,10 @@ evalWith' (UConst (UList xs)) = do
 evalWith' (UConst v) = pure $ v
 evalWith' (UVar label) = do
   env <- get
-
-  evalWith' $ view (envVariables . at label . non (UConst . UError $ "Unknown variable: " <> label)) env
+  let err = UError $ "Unknown variable: " <> label
+  case catMaybes $ [view (envVariables . at label) env, view (envBuiltIn . at label) env] of
+    (x:_) -> trace ("found " <> show label) $ evalWith' x
+    [] -> return err
 
 evalWith' (ULet (key, value) expr) = do
   oldVars <- currentVars
@@ -108,7 +112,10 @@ evalWith' (UApp fexp arg) = do
 
   case fn of
     (UFunc env' argname body) -> do
-      modify (\x -> env' <> x) >> evalWith' (ULet (argname, arg) body)
+      modify (env' <>) >> do
+        vars <- currentVars
+        traceM . ppShow . M.keys $ vars
+        evalWith' (ULet (argname, arg) body)
 
     _ -> pure . UError $ (printValue fexp) <> " is not a function"
 
@@ -126,7 +133,7 @@ evalWith' (UBuiltIn x) = do
   evalWith' expr
 
 builtInEnv :: UEnv
-builtInEnv = set envVariables (M.mapWithKey (typeToFn 0) builtIns) mempty
+builtInEnv = set envBuiltIn (M.mapWithKey (typeToFn 0) builtIns) mempty
   where
     typeToFn :: Int -> Name -> BuiltIn -> UExpr
     typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
@@ -146,7 +153,7 @@ builtIns = M.fromList
   , (">", ("Int" ~> "Int" ~> "Bool", builtInComparison (>)))
   , (">=", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
   , ("=>", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
-  , ("==", ("Int" ~> "Int" ~> "Bool", builtInComparison (==)))
+  , ("==", ("a" ~> "a" ~> "Bool", builtInEq))
   -- TODO: These variables likely not good enough? Probably able to clash with
   -- other reduce that should resolve differently! Could fix by making this
   -- type statement run in the Infer monad to generate fresh tau each time.
@@ -162,10 +169,11 @@ builtIns = M.fromList
   , ("current-player", ("PlayerId", builtInCurrentPlayer))
   , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
   , ("ko", ("SpecificCard" ~> "Action", builtInKo))
+  , ("draw", ("Int" ~> "Action", builtInDraw))
   , ("move", ("SpecificCard" ~> "Location" ~> "Action", builtInMove))
   , ("card-location", ("Location" ~> "Int" ~> "SpecificCard", builtInCardLocation))
-  , ("card-at", ("SpecificCard" ~> "CardTemplate", builtInCardAt))
-  , ("card-cost", ("CardTemplate" ~> "Int", builtInCardAttribute heroCost))
+  , ("card-cost", ("SpecificCard" ~> "Int", builtInCardAttribute heroCost))
+  , ("card-type", ("SpecificCard" ~> "String", builtInCardAttribute heroType))
   , ("cards-at", ("Location" ~> WList "SpecificCard", builtInCardsAt))
   , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
   , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
@@ -242,10 +250,15 @@ builtInChooseCard = do
     Right from' -> returnConst $ ActionChooseCard desc from' onChoose onPass
     Left y -> throwError y
 
+builtInCardAttribute :: FromU a => Traversal' Card a -> EvalMonad UExpr
 builtInCardAttribute lens = do
-  template <- argAt 0
+  sloc@(location, index) <- argAt 0
 
-  returnConst $ view lens template
+  attr <- preview (cardsAtLocation location . ix index . cardTemplate . lens) <$> currentBoard
+
+  case attr of
+    Just c -> return . UConst . toU $ c
+    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
 builtInCurrentPlayer = UConst . UPlayerId <$> currentPlayer
   
@@ -259,13 +272,19 @@ builtInKo = do
 
   returnConst $ ActionKO location
 
+builtInDraw = do
+  pid <- currentPlayer
+  amount <- argAt 0
+
+  returnConst . mconcat . replicate amount $ ActionDraw pid
+
 builtInMove = do
   from <- argAt 0
   to <- argAt 1
 
   returnConst $ ActionMove (TConst from) (TConst to) (TConst Front)
 
-builtInNoop = return . UConst . toU $ ActionNone
+builtInNoop = return . UConst . UAction $ ActionNone
 
 builtInCombine = do
   a <- argAt 0
@@ -311,6 +330,12 @@ builtInComparison f = do
   y <- argAt 1
 
   return . UConst . UBool $ f x (y :: Int)
+
+builtInEq = do
+  x <- argAt 0
+  y <- argAt 1
+
+  return . UConst . UBool $ x == (y :: UValue)
 
 builtInAttack :: EvalMonad UExpr
 builtInAttack = do
@@ -431,6 +456,9 @@ instance FromU ScopedLocation where
   fromU x        = throwError ("Expected UString, got " <> showT x)
   toU PlayerDeck = UString "Deck"
   toU x = UString . showT $ x
+
+instance FromU HeroType where
+  toU (HeroType x) = UString x
 
 instance FromU PlayerId where
   fromU (UPlayerId x) = return x

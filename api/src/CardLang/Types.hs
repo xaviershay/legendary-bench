@@ -38,8 +38,9 @@ type BuiltIn = (MType, EvalMonad UExpr)
 makeLenses ''UEnv
 
 instance Monoid UEnv where
-  mempty = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty }
-  mappend a b = over envVariables (view envVariables a <>) b
+  mempty = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
+  -- Union is left biased, so make sure start with b
+  mappend a b = over envVariables (view envVariables b `M.union`) a
 
 infixr 8 ~>
 (~>) :: MType -> MType -> MType

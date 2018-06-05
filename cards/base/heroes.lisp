@@ -7,8 +7,7 @@
     (combine
       custom
       (reveal location)
-      (guard (<= (card-cost (card-at location)) 2)
-        (move location (player-location current-player "Hand"))))))
+      (guard (<= (card-cost location) 2) (draw 1)))))
 
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
@@ -35,12 +34,16 @@
   (cards-at (player-location current-player scope)))
 
 (defn any [f xs] (> 0 (length (filter f xs))))
-(defn played [type]
-  (any (is-type type) (cards-at (player-location current-player "Played"))))
+(defn is-type [t c] (== t (card-type c)))
+;(defn is-type [t c] (== t (card-type c)))
+(defn played [type] (any (fn [x] (== x "a")) ["b" "a"]))
+;(defn played [type]
+  ;(any (is-type type) (cards-at (player-location current-player "Played"))))
 
 (make-hero
   "Dangerous Rescue" "Covert" 3 5
  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
+  ;     (add-play-effect @(attack 2)))
   (add-play-effect
     @(combine
        (attack 2)
@@ -48,8 +51,9 @@
          "Choose a card from hand or discard to KO"
          (concat (map cards-at-current-player-location ["Hand" "Discard"]))
          (fn [card] (combine (ko card) (rescue-bystander 1)))
-         noop))))
-        ;#(append (ko %) (rescue-bystander 1)))))
+         noop)
+       )))
+  ;      ;#(append (ko %) (rescue-bystander 1)))))
 ;
 (make-hero
   "Mission Accomplished" "Tech" 2 5

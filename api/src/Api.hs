@@ -106,13 +106,15 @@ handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
 handleChoice gameId playerId choice = do
   State{game = gvar} <- ask
 
+  g <- liftIO . atomically . readTVar $ gvar
+  liftIO . putStrLn . show $ view (gameState . currentAction) g
   liftIO . atomically . modifyTVar gvar $
     over gameState (applyChoice playerId choice)
 
   g <- liftIO . atomically . readTVar $ gvar
 
   --liftIO $ sequence (fmap (putStrLn . show) $ view (gameState . actionLog) g)
-  --liftIO . putStrLn . show $ view (gameState . currentAction) g
+  liftIO . putStrLn . show $ view (gameState . currentAction) g
 
   return ()
 

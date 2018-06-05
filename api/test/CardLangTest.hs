@@ -94,7 +94,7 @@ escape = T.replace "\n" "\\n"
 
 testEval = testEvalWith mempty
 testEvalWith env expected input =
-  testCase (T.unpack . escape $ input) $ expected @=? query (set envVariables (M.fromList env) mempty) input
+  testCase (T.unpack . escape $ input) $ expected @=? query (set envBuiltIn (M.fromList env) mempty) input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
@@ -146,8 +146,18 @@ test_ListQuery = testGroup "List Query"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
+  , testEval (UBool True) "(defn any [f xs] (> 0 (length (filter f xs)))) (any (fn [x] True) [1])"
   ]
 
-focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
+--focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
+
+filterCode = "(defn filter [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs)) "
+lengthCode = "(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) "
+anyCode = "(defn any [f2 xss] (> 0 (length (filter f2 xss)))) "
+--focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(< 0 1)"
+focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
+--focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(length (filter (> 0) [0 1]))"
+--focus = defaultMain $ testEval (UBool True) $ filterCode <> " (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) (defn any [f xs] (> 0 (length (filter f xs)))) (any (fn [x] true) [1])"
+
 --focus = defaultMain $ testInfer "Int" "(def y (fn [z] z)) (def x (y 2)) x"
 --focus = defaultMain $ testInfer "Int" "(let [y (fn [z] z)] (let [x (y 2)] x))"

@@ -106,6 +106,7 @@ builtInTypeEnv :: WEnv
 builtInTypeEnv = WEnv $ M.fromList
   [ ("reduce", Forall (Set.fromList ["a", "b"]) (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b"))
   , ("concat", Forall (Set.fromList ["a"]) (WList (WList "a") ~> WList "a"))
+  , ("==", Forall (Set.fromList ["a"]) ("a" ~> "a" ~> "Bool"))
   ] <> M.map (Forall mempty . fst) builtIns
 
 boardFuncs = mempty
