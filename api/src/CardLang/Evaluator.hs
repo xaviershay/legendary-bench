@@ -62,6 +62,7 @@ showCode (UConst (UFunc  env name expr)) = "(fn {" <> T.intercalate ", " (fmap f
 showCode (UConst (UBoardFunc _ expr)) = "@" <> showCode expr
 showCode (UConst (UInt (Sum x))) = showT x
 showCode (UConst (UString x)) = x
+showCode (UConst UNone) = "()"
 showCode (UConst (UList xs)) = "[" <> T.intercalate " " (fmap showCode xs) <> "]"
 showCode (UConst x) = "!!! UNKNOWN " <> showT (UConst x)
 showCode (UVar x) = "VAR " <> x
@@ -87,22 +88,14 @@ eval :: UExpr -> EvalMonad UValue
 eval expr = do
   level <- ask
   vars <- currentVars
-  --traceM ">> ====="
   --traceM . T.unpack $ showT level <> ": " <> (T.replicate level " ") <> showCode expr <> "  | " <> showEnvOneLine vars
-  --traceM . T.unpack $ "About to " <> showT level <> ": " <> (T.replicate level " ") <> showCode expr
-  --traceM "Env before:"
-  --traceEnv
-  --traceM ""
-  if level > 1000 then
+  if level > 10000 then
     throwError "Execution exceeded stack"
   else
     do
       r <- local (+ 1) $ eval' expr
 
       --traceMT $ showT level <> ": " <> (T.replicate level " ") <> "==> " <> showCode (UConst r)
-   --   traceM "Env after:"
-   --   traceEnv
-   --   traceM "<< ====="
 
       return r
 
@@ -156,10 +149,11 @@ eval' (ULet (key, value) expr) = do
 
 eval' (UApp fexp arg) = do
   fn <- eval fexp
+  arg' <- UConst <$> eval arg
 
   case fn of
     (UFunc env' argname body) -> do
-      withVars (view envVariables env') $ eval (ULet (argname, arg) body)
+      withVars (view envVariables env') $ eval (ULet (argname, arg') body)
 
     x -> pure . UError $ (showT x) <> " is not a function"
 

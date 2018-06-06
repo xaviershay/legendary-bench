@@ -191,7 +191,7 @@ test_CardsIntegration = do
 
   let cases = toList $ fmap (forCard $ fakeBoard cards) cards
 
-  return $ testGroup "Card loading" cases
+  return $ testGroup "Card smoke tests" cases
 
   where
     fakeBoard :: S.Seq Card -> Board
@@ -204,20 +204,9 @@ test_CardsIntegration = do
                        Right x ->  True @=? (ActionNone /= x)
                        Left y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
---focus = test_CardsIntegration >>= defaultMain
---focus = defaultMain $ testEval (UInt 10) "(add 1 (add 4 5))"
---focus = defaultMain $ testEval (UInt 1) "(add 1 2)"
---focus = defaultMain $ testEval (UInt 10) "(((fn [_a0] (fn [_a1] biAdd)) 1) (((fn [_a0] (fn [_a1] biAdd)) 4) 5))"
-filterCode = "(defn filter [f_f f_xs] (reduce (fn [f_ra f_rx] (concat [f_ra (if (f_f f_rx) [f_rx] [])])) [] f_xs)) "
+focus = test_CardsIntegration >>= defaultMain
+
+-- TODO: Move these into prelude.lisp
+filterCode = "(defn filter [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs)) "
 lengthCode = "(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) "
 anyCode = "(defn any [f xs] (> (length (filter f xs)) 0)) "
---focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(> (length []) 0)"
-focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
---focus = defaultMain $ testEval (UInt 2) $ lengthCode <> "(length [3 4])"
---focus = defaultMain $ testEval (UInt 10) $ "(add (add 1 2 ) (add 3 4))"
---focus = defaultMain $ testEval (UInt 2) $ "(reduce (fn [a x] (add 1 2)) 3 [1])"
---focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(length (filter (> 0) [0 1]))"
---focus = defaultMain $ testEval (UBool True) $ filterCode <> " (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) (defn any [f xs] (> 0 (length (filter f xs)))) (any (fn [x] true) [1])"
-
---focus = defaultMain $ testInfer "Int" "(def y (fn [z] z)) (def x (y 2)) x"
---focus = defaultMain $ testInfer "Int" "(let [y (fn [z] z)] (let [x (y 2)] x))"
