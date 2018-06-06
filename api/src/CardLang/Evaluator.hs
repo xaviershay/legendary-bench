@@ -93,7 +93,7 @@ eval expr = do
   --traceM "Env before:"
   --traceEnv
   --traceM ""
-  if level > 10000 then
+  if level > 1000 then
     throwError "Execution exceeded stack"
   else
     do
@@ -256,8 +256,6 @@ builtInReduce = do
   let f' = f :: UExpr
   let initial' = UConst initial
   let xs' = xs :: [UExpr]
-
-  traceM . show $ "Reduce xs: " <> showCode (USequence xs')
 
   value <- foldM (folder f') initial' xs
 

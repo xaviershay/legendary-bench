@@ -5,13 +5,18 @@ module CardLangTest where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Control.Lens (set, view, at)
+import Control.Lens (set, view, at, preview)
+import Data.Maybe (fromJust)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
+import qualified Data.Text.IO            as T
 import qualified Data.Set            as Set
+import qualified Data.Sequence as S
 
 import Utils
 
+import FakeData (genBoard)
+import System.Random (mkStdGen)
 import CardLang.Evaluator
 import CardLang.Types
 import CardLang.TypeInference
@@ -170,14 +175,44 @@ test_ListQuery = testGroup "List Query"
 --      Just (UConst $ UString "y") @=? view (envVariables . at "a") (oldEnv <> newEnv)
 --  ]
 
+readCards :: T.Text -> IO (S.Seq Card)
+readCards contents =
+  case parse contents of
+    Left error -> (putStrLn $ "Parse error: " <> error) >> return mempty
+    Right ast -> case typecheck ast of
+      Left error -> (putStrLn . show $ error) >> return mempty
+      Right _ -> return $ evalCards ast
+
+test_CardsIntegration = do
+  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
+
+  contents <- T.readFile path
+  cards <- readCards contents
+
+  let cases = toList $ fmap (forCard $ fakeBoard cards) cards
+
+  return $ testGroup "Card loading" cases
+
+  where
+    fakeBoard :: S.Seq Card -> Board
+    fakeBoard cards = genBoard (mkStdGen 0) 2 cards
+
+    forCard board card = let code = fromJust $ preview playCode card in
+
+                   testCase (T.unpack $ view templateId card) $
+                     case fromU $ evalWithBoard board code of
+                       Right x ->  True @=? (ActionNone /= x)
+                       Left y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+
+--focus = test_CardsIntegration >>= defaultMain
 --focus = defaultMain $ testEval (UInt 10) "(add 1 (add 4 5))"
-focus = defaultMain $ testEval (UInt 1) "(add 1 2)"
+--focus = defaultMain $ testEval (UInt 1) "(add 1 2)"
 --focus = defaultMain $ testEval (UInt 10) "(((fn [_a0] (fn [_a1] biAdd)) 1) (((fn [_a0] (fn [_a1] biAdd)) 4) 5))"
 filterCode = "(defn filter [f_f f_xs] (reduce (fn [f_ra f_rx] (concat [f_ra (if (f_f f_rx) [f_rx] [])])) [] f_xs)) "
 lengthCode = "(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) "
-anyCode = "(defn any [any_f any_xs] (> (length (filter any_f any_xs)) 0)) "
+anyCode = "(defn any [f xs] (> (length (filter f xs)) 0)) "
 --focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(> (length []) 0)"
---focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
+focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
 --focus = defaultMain $ testEval (UInt 2) $ lengthCode <> "(length [3 4])"
 --focus = defaultMain $ testEval (UInt 10) $ "(add (add 1 2 ) (add 3 4))"
 --focus = defaultMain $ testEval (UInt 2) $ "(reduce (fn [a x] (add 1 2)) 3 [1])"

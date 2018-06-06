@@ -24,21 +24,25 @@
 (hero-set "Black Widow" "Avengers")
 
 (defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
+;(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
+;(defn filter [f xs] (reduce
+;                      (fn [a x] (concat [a (if (f x) [x] [])]))
+;                      []
+;                      xs))
+
+(defn filter [f_f f_xs] (reduce (fn [f_ra f_rx] (concat [f_ra (if (f_f f_rx) [f_rx] [])])) [] f_xs))
 (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
-(defn filter [f xs] (reduce
-                      (fn [a x] (concat [a (if (f x) [x] [])]))
-                      []
-                      xs))
+(defn any [any_f any_xs] (> (length (filter any_f any_xs)) 0))
 
 (defn cards-at-current-player-location [scope]
   (cards-at (player-location current-player scope)))
 
-(defn any [f xs] (> 0 (length (filter f xs))))
+;(defn any [f xs] (> (length (filter f xs)) 0))
 (defn is-type [t c] (== t (card-type c)))
 ;(defn is-type [t c] (== t (card-type c)))
-(defn played [type] (any (fn [x] (== x "a")) ["b" "a"]))
-;(defn played [type]
-  ;(any (is-type type) (cards-at (player-location current-player "Played"))))
+;(defn played [type] (any (fn [x] (== x "a")) ["b" "a"]))
+(defn played [type]
+  (any (is-type type) (cards-at (player-location current-player "Played"))))
 
 (make-hero
   "Dangerous Rescue" "Covert" 3 5
