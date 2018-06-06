@@ -5,19 +5,21 @@
 {-# LANGUAGE RankNTypes #-}
 
 module CardLang.Evaluator
-  ( eval
-  , evalWith
+  ( 
+    evalWith
   , evalCards
   , evalWithBoard
   , builtIns
   , fromU
   , toU
+  , showCode
   )
   where
 
 import           Control.Lens         (at, element, ix, non, over, preview, set,
                                        view, Traversal')
-import           Control.Monad        (foldM)
+import           Control.Monad        (foldM, forM)
+import           Control.Monad.Reader (runReaderT, ask, local)
 import           Control.Monad.Except (runExceptT, throwError)
 import           Control.Monad.State  (State, evalState, execState, get, modify,
                                        put, runState, withStateT)
@@ -26,6 +28,7 @@ import           Data.Maybe           (fromJust)
 import           Data.Sequence        (Seq, (<|))
 import qualified Data.Text            as T
 import           Text.Show.Pretty     (ppShow)
+import Data.List (sortBy, sortOn)
 import Data.Maybe (catMaybes)
 
 import Types
@@ -41,102 +44,143 @@ printValue (UConst x) = case x of
                           x -> showT x
 printValue x = showT x
 
-eval :: UExpr -> UValue
-eval = evalWith mempty
-
 evalWithBoard :: Board -> UExpr -> UValue
-evalWithBoard b = evalWith (set envBoard (Just b) mempty)
+evalWithBoard b = evalWith (set envBoard (Just b) emptyEnv)
 
 evalCards :: UExpr -> Seq Card
 evalCards exp = let env = builtInEnv in
-    view envCards $ execState (runExceptT (evalWith' exp)) env
+    view envCards $ execState (runReaderT (runExceptT (eval exp)) 0) env
 
 evalWith :: UEnv -> UExpr -> UValue
-evalWith env exp = case evalState (runExceptT (evalWith' exp)) (builtInEnv <> env) of
+evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) (set envBuiltIn (view envBuiltIn builtInEnv) env) of
                      Right x -> x
                      Left y -> UError y
 
-evalWith' :: UExpr -> EvalMonad UValue
-evalWith' (USequence []) = pure UNone
-evalWith' (USequence [x]) = evalWith' x
-evalWith' (USequence (x:xs)) = do
-  evalWith' x
-  evalWith' (USequence xs)
+showCode (UConst (UFunc  env name expr)) = "(fn {" <> T.intercalate ", " (fmap f . M.toList $ view envVariables env) <> "} [" <> name <> "] " <> showCode expr <> ")"
+  where
+    f (k, v) = k <> ": " <> showCode v
+showCode (UConst (UBoardFunc _ expr)) = "@" <> showCode expr
+showCode (UConst (UInt (Sum x))) = showT x
+showCode (UConst (UString x)) = x
+showCode (UConst (UList xs)) = "[" <> T.intercalate " " (fmap showCode xs) <> "]"
+showCode (UConst x) = "!!! UNKNOWN " <> showT (UConst x)
+showCode (UVar x) = "VAR " <> x
+showCode (UApp e1 e2) = "APP " <> showSExpr [showCode e1, showCode e2]
+showCode (ULet (name,  value) expr) = "LET " <> "(let [" <> name <> " " <> showCode value <> "] " <> showCode expr <> ")"
+showCode (UIf cond e1 e2) = showSExpr ["if", showCode cond, showCode e1, showCode e2]
+showCode (UDef name expr) = showSExpr ["def", name, showCode expr]
+showCode (USequence xs) = T.intercalate " " $ fmap showCode xs
+showCode (UBuiltIn x) = "<" <> x <> ">"
+showCode x = "!!! UNKNOWN: " <> showT x
 
-evalWith' (UDef name expr) = do
-  body <- evalWith' expr
+showSExpr atoms = "(" <> T.intercalate " " atoms <>  ")"
+
+withVars :: Bindings -> EvalMonad UValue -> EvalMonad UValue
+withVars newEnv m = do
+  oldVars <- currentVars
+  modify (extendEnv newEnv)
+  result <- m
+  modify (set envVariables oldVars)
+  pure $ result
+
+eval :: UExpr -> EvalMonad UValue
+eval expr = do
+  level <- ask
+  vars <- currentVars
+  --traceM ">> ====="
+  --traceM . T.unpack $ showT level <> ": " <> (T.replicate level " ") <> showCode expr <> "  | " <> showEnvOneLine vars
+  --traceM . T.unpack $ "About to " <> showT level <> ": " <> (T.replicate level " ") <> showCode expr
+  --traceM "Env before:"
+  --traceEnv
+  --traceM ""
+  if level > 10000 then
+    throwError "Execution exceeded stack"
+  else
+    do
+      r <- local (+ 1) $ eval' expr
+
+      --traceMT $ showT level <> ": " <> (T.replicate level " ") <> "==> " <> showCode (UConst r)
+   --   traceM "Env after:"
+   --   traceEnv
+   --   traceM "<< ====="
+
+      return r
+
+eval' :: UExpr -> EvalMonad UValue
+eval' (USequence []) = pure UNone
+eval' (USequence [x]) = eval x
+eval' (USequence (x:xs)) = do
+  eval x
+  eval (USequence xs)
+
+eval' (UDef name expr) = do
+  body <- eval expr
   modify (setNon (envVariables . at name) (UConst body))
   pure UNone
 
-evalWith' (UConst fn@(UFunc env' x body)) = do
+eval' (UConst fn@(UFunc env' x body)) = do
   env <- get
-
-  pure $ UFunc (env' <> env) x body
-evalWith' (UConst fn@(UBoardFunc env' expr)) = do
+  pure $ UFunc (extendEnv (view envVariables env') env) x body
+eval' (UConst fn@(UBoardFunc env' expr)) = do
   env <- get
   board <- view envBoard <$> get
 
   case board of
-    Nothing -> pure (UBoardFunc (env' <> env) expr)
+    Nothing -> pure (UBoardFunc (extendEnv (view envVariables env') env) expr)
     Just b -> do
-      modify (env' <>)
-      evalWith' expr -- TODO: Setup environment from board
+      modify (extendEnv (view envVariables env'))
+      eval expr
       -- TODO: Put env back the way we found it?
     
 
-evalWith' (UConst (UList xs)) = do
-  xs' <- sequenceA (map evalWith' xs)
+eval' (UConst (UList xs)) = do
+  xs' <- sequenceA (map eval xs)
 
   pure . UList . map UConst $ xs'
 
-evalWith' (UConst v) = pure $ v
-evalWith' (UVar label) = do
+eval' (UConst v) = pure $ v
+eval' (UVar label) = do
   env <- get
   let err = UError $ "Unknown variable: " <> label
   case catMaybes $ [view (envVariables . at label) env, view (envBuiltIn . at label) env] of
-    (x:_) -> trace ("found " <> show label) $ evalWith' x
+    (x:_) -> eval x
     [] -> return err
 
-evalWith' (ULet (key, value) expr) = do
+eval' (ULet (key, value) expr) = do
   oldVars <- currentVars
 
-  modify (setNon (envVariables . at key) value)
-  result <- evalWith' expr
+  value' <- UConst <$> eval value
 
-  modify (set envVariables oldVars)
+  withVars (M.singleton key value) (eval expr)
 
-  pure $ result
 
-evalWith' (UApp fexp arg) = do
-  fn <- evalWith' fexp
+eval' (UApp fexp arg) = do
+  fn <- eval fexp
 
   case fn of
     (UFunc env' argname body) -> do
-      modify (env' <>) >> do
-        vars <- currentVars
-        traceM . ppShow . M.keys $ vars
-        evalWith' (ULet (argname, arg) body)
+      withVars (view envVariables env') $ eval (ULet (argname, arg) body)
 
-    _ -> pure . UError $ (printValue fexp) <> " is not a function"
+    x -> pure . UError $ (showT x) <> " is not a function"
 
-evalWith' (UIf cond lhs rhs) = do
-  UBool result <- evalWith' cond
+eval' (UIf cond lhs rhs) = do
+  UBool result <- eval cond
 
   if result then
-    evalWith' lhs
+    eval lhs
   else
-    evalWith' rhs
+    eval rhs
 
-evalWith' (UBuiltIn x) = do
+eval' (UBuiltIn x) = do
   expr <- snd . fromJust $ M.lookup x builtIns
 
-  evalWith' expr
+  eval expr
 
 builtInEnv :: UEnv
-builtInEnv = set envBuiltIn (M.mapWithKey (typeToFn 0) builtIns) mempty
+builtInEnv = set envBuiltIn (M.mapWithKey (typeToFn 0) builtIns) emptyEnv
   where
     typeToFn :: Int -> Name -> BuiltIn -> UExpr
-    typeToFn n key (WFun a b, f) = UConst $ UFunc mempty ("a" <> showT n) (typeToFn (n+1) key (b, f))
+    typeToFn n key (WFun a b, f) = UConst $ UFunc emptyEnv ("_a" <> showT n) (typeToFn (n+1) key (b, f))
     typeToFn n key (WBoardF mtype, _) = UBuiltIn key
     typeToFn n key (WList _, _) = UBuiltIn key
     typeToFn n key (WConst _, _) = UBuiltIn key
@@ -147,6 +191,7 @@ builtIns :: M.HashMap Name BuiltIn
 builtIns = M.fromList
   [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
   , ("+", ("Int" ~> "Int" ~> "Int", builtInAdd))
+  , ("double", ("Int" ~> "Int", builtInDouble))
   , ("=<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
   , ("<=", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
   , ("<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<)))
@@ -196,7 +241,7 @@ returnConst = return . UConst . toU
 
 builtInConcat = do
   xs :: [UExpr] <- argAt 0
-  xs' :: [UValue] <- sequence . fmap evalWith' $ xs
+  xs' :: [UValue] <- sequence . fmap eval $ xs
 
   case sequence $ map fromU xs' of
     Right (xs'' :: [[UExpr]]) -> return . UConst . UList $ mconcat xs''
@@ -208,9 +253,11 @@ builtInReduce = do
   initial <- argAt 1
   xs      <- argAt 2
 
-  let f' = UConst f
+  let f' = f :: UExpr
   let initial' = UConst initial
   let xs' = xs :: [UExpr]
+
+  traceM . show $ "Reduce xs: " <> showCode (USequence xs')
 
   value <- foldM (folder f') initial' xs
 
@@ -218,7 +265,7 @@ builtInReduce = do
 
   where
     folder :: UExpr -> UExpr -> UExpr -> EvalMonad UExpr
-    folder f accum x = UConst <$> evalWith' (UApp (UApp f accum) x)
+    folder f accum x = UConst <$> eval (UApp (UApp f accum) x)
 
 builtInCardsAt = do
   loc <- argAt 0
@@ -244,7 +291,7 @@ builtInChooseCard = do
   onChoose <- argAt 2
   onPass <- argAt 3
 
-  from <- sequence . fmap evalWith' $ fromExprs
+  from <- sequence . fmap eval $ fromExprs
 
   case sequence $ fmap fromU from of
     Right from' -> returnConst $ ActionChooseCard desc from' onChoose onPass
@@ -312,18 +359,41 @@ builtInAddPlayEffect = do
   effect   <- argAt 0
   template <- argAt 1
 
-  action <- evalWith' effect
+  action <- eval effect
 
   case fromU action of
     Right action' -> return . UConst . UCardTemplate $ set playCode action' template
     Left x -> throwError x
   
+
+showEnvOneLine vars = 
+  T.intercalate ", " $ fmap f $ (sortOn fst $ M.toList vars)
+
+  where
+    f (n, x) = n <> " = " <> showCode x
+traceEnv = do
+  vars <- currentVars
+
+  traceM ""
+  forM (sortOn fst $ M.toList vars) $ \(n, x) -> do
+    traceM . T.unpack $ n <> " = " <> showCode x
+  traceM ""
+
+
 builtInAdd :: EvalMonad UExpr
 builtInAdd = do
   x <- argAt 0
   y <- argAt 1
 
   return . UConst . UInt $ x + y
+
+builtInDouble :: EvalMonad UExpr
+builtInDouble = do
+  traceEnv
+
+  x <- argAt 0
+
+  return . UConst . UInt $ x * 2
 
 builtInComparison f = do
   x <- argAt 0
@@ -384,7 +454,7 @@ builtInMakeHeroFull = do
                   , _playCode = UConst . UAction $ ActionNone
                   }
 
-  template' <- evalWith' (UApp callback template)
+  template' <- eval (UApp callback template)
 
   case fromU template' of
     Right x -> do
@@ -476,14 +546,14 @@ instance FromU [UExpr] where
 
 argAt :: FromU a => Int -> EvalMonad a
 argAt index = do
-  let name = "a" <> showT index
+  let name = "_a" <> showT index
 
   vars <- currentVars
 
   case view (at name) vars of
                        Nothing -> throwError $ "Not in env: " <> showT name
                        Just x -> do
-                         result <- evalWith' x
+                         result <- eval x
                          case fromU result of
                            Right x -> return x
                            Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y

@@ -22,7 +22,7 @@ module CardLang.TypeInferenceConstraints
 
 import Utils
 import Types
-import CardLang.Types
+import CardLang.Types hiding (extendEnv)
 
 import Control.Lens
 import qualified Data.Text as T

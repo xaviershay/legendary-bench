@@ -16,7 +16,7 @@ import           Data.Maybe           (fromJust)
 import qualified Data.Set             as Set
 import qualified Data.Text            as T
 
-import CardLang.Types
+import CardLang.Types hiding (extendEnv)
 import CardLang.Evaluator
 import Utils
 

@@ -19,3 +19,6 @@ showT = T.pack . show
 moveHeadToTail :: S.Seq a -> S.Seq a
 moveHeadToTail S.Empty = mempty
 moveHeadToTail (x S.:<| xs) = xs S.|> x
+
+traceMT :: Applicative t => T.Text -> t ()
+traceMT = traceM . T.unpack

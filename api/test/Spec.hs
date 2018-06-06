@@ -69,41 +69,4 @@ test_DrawFromEmpty =
     result = runGameMonad board $ apply action
     lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
 
-test_SpiderMan =
-  testGroup "Spiderman works when deck is emty"
-    [ testCase "Hand contains a card" $ 1 @=? lengthOf Hand
-    --, testCase "Discard is empty" $ 0 @=? lengthOf Discard
-    ]
-
-  where
-    choice = ChooseCard (PlayerLocation player Hand, 0)
-    player = PlayerId 0
-    board =   set
-                (cardsAtLocation (PlayerLocation player Discard))
-                (genCards 1)
-            . set
-                (cardsAtLocation (PlayerLocation player Hand))
-                (S.fromList [buildCard spideyCard Owner])
-            . addPlayer player
-            . addChoice player choice
-            $ mkBoard
-    result = runGameMonad board $ apply (ActionPlayerTurn player)
-    lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
-
-test_SpiderManLose =
-  testCase "Spiderman loses if deck and discard are empty" $
-    True @=? (isLost result)
-
-  where
-    choice = ChooseCard (PlayerLocation player Hand, 0)
-    player = PlayerId 0
-    board =
-              set
-                (cardsAtLocation (PlayerLocation player Hand))
-                (S.fromList [buildCard spideyCard Owner])
-            . addPlayer player
-            . addChoice player choice
-            $ mkBoard
-    result = runGameMonad board $ apply (ActionPlayerTurn player)
-
 addPlayer player = over players (mkPlayer player S.<|)

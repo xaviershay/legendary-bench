@@ -5,7 +5,7 @@ module CardLangTest where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Control.Lens (set)
+import Control.Lens (set, view, at)
 import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 import qualified Data.Set            as Set
@@ -94,7 +94,7 @@ escape = T.replace "\n" "\\n"
 
 testEval = testEvalWith mempty
 testEvalWith env expected input =
-  testCase (T.unpack . escape $ input) $ expected @=? query (set envBuiltIn (M.fromList env) mempty) input
+  testCase (T.unpack . escape $ input) $ expected @=? query (set envBuiltIn (M.fromList env) emptyEnv) input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
@@ -140,22 +140,47 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 2) "(if false 1 2)"
   , testEval (UInt 6) "(reduce (fn [sum n] (add sum n)) 0 [1 2 3])"
   , testEval (UList [UConst $ UInt 1, UConst $ UInt 2]) "(concat [[1] [2]])"
-  , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "(board-fn 1)"
-  , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
-  , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
+  , testEval (UBoardFunc emptyEnv (UConst . UInt . Sum $ 1)) "(board-fn 1)"
+  , testEval (UBoardFunc emptyEnv (UConst . UInt . Sum $ 1)) "@(1)"
+  , testEval (UBoardFunc emptyEnv (UVar "current-player")) "@(current-player)"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
-  , testEval (UBool True) "(defn any [f xs] (> 0 (length (filter f xs)))) (any (fn [x] True) [1])"
+  , testEval (UInt 2) $ lengthCode <> "(length [3 4])"
   ]
 
 --focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
 
-filterCode = "(defn filter [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs)) "
+--focus = defaultMain $ testCase "blah" $
+--          let b = mkBoard in
+--            True @=? case view envBoard $ set envBoard (Just b) mempty <> mempty of
+--                       Nothing -> False
+--                       Just x -> True
+
+--focus = defaultMain $ testGroup "blah" $
+--  [ testCase "blah" $
+--          let b = mkBoard in
+--            True @=? case view envBoard $ mempty <> set envBoard (Just b) mempty of
+--                       Nothing -> False
+--                       Just x -> True
+--  , testCase "arst" $
+--      let oldEnv = set envVariables (M.fromList [("a", UConst $ UString "x")]) mempty in
+--      let newEnv = set envVariables (M.fromList [("a", UConst $ UString "y")]) mempty in
+--
+--      Just (UConst $ UString "y") @=? view (envVariables . at "a") (oldEnv <> newEnv)
+--  ]
+
+--focus = defaultMain $ testEval (UInt 10) "(add 1 (add 4 5))"
+focus = defaultMain $ testEval (UInt 1) "(add 1 2)"
+--focus = defaultMain $ testEval (UInt 10) "(((fn [_a0] (fn [_a1] biAdd)) 1) (((fn [_a0] (fn [_a1] biAdd)) 4) 5))"
+filterCode = "(defn filter [f_f f_xs] (reduce (fn [f_ra f_rx] (concat [f_ra (if (f_f f_rx) [f_rx] [])])) [] f_xs)) "
 lengthCode = "(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) "
-anyCode = "(defn any [f2 xss] (> 0 (length (filter f2 xss)))) "
---focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(< 0 1)"
-focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
+anyCode = "(defn any [any_f any_xs] (> (length (filter any_f any_xs)) 0)) "
+--focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(> (length []) 0)"
+--focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> anyCode <> "(any (<= 1) [0 1 2])"
+--focus = defaultMain $ testEval (UInt 2) $ lengthCode <> "(length [3 4])"
+--focus = defaultMain $ testEval (UInt 10) $ "(add (add 1 2 ) (add 3 4))"
+--focus = defaultMain $ testEval (UInt 2) $ "(reduce (fn [a x] (add 1 2)) 3 [1])"
 --focus = defaultMain $ testEval (UBool True) $ filterCode <> lengthCode <> "(length (filter (> 0) [0 1]))"
 --focus = defaultMain $ testEval (UBool True) $ filterCode <> " (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs)) (defn any [f xs] (> 0 (length (filter f xs)))) (any (fn [x] true) [1])"
 

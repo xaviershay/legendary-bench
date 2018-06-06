@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module CardLang.Parser (parse) where
+module CardLang.Parser
+  ( parse
+  , parseUnsafe
+  ) where
 
 import           Control.Applicative     ((<|>))
 import           Data.SCargot
@@ -29,6 +32,11 @@ instance IsString Atom where
 parse :: T.Text -> Either String UExpr
 parse x = USequence <$> decode myParser x
 
+parseUnsafe :: T.Text -> UExpr
+parseUnsafe x = case parse x of
+                  Right x -> x
+                  Left y  -> error $ "Invalid parse: " <> y
+
 pAtom :: Parser Atom
 pAtom =  parseInt
      <|> parseBool
@@ -37,7 +45,7 @@ pAtom =  parseInt
 
 parseInt = ((AInt . read) <$> many1 digit)
 parseBool = ABool <$> (parseSpecific "true" True <|> parseSpecific "false" False)
-parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>"))
+parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>_"))
 parseString = AString . T.pack <$> quotedString
 
 parseSpecific match value = do
@@ -89,7 +97,8 @@ toExpr (A (ASymbol "hero-set") ::: name ::: team ::: Nil) = do
 toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   expr <- toExpr body
 
-  return . UConst $ UBoardFunc mempty expr
+  -- TODO: Consider only catching ftv (propagated from type check), not entire env
+  return . UConst $ UBoardFunc emptyEnv expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do
@@ -122,7 +131,8 @@ convertFn [] f = convertSequence f
 convertFn (A (ASymbol x):xs) f = do
   body <- convertFn xs f
 
-  return . UConst $ UFunc mempty x body
+  -- TODO: Consider only catching ftv (propagated from type check), not entire env
+  return . UConst $ UFunc emptyEnv x body
 
 convertCombine [x] = toExpr x
 convertCombine (x:xs) = do

@@ -9,6 +9,8 @@ import Action
 import GameMonad
 import Evaluator
 
+import CardLang.Parser
+
 villianCard = EnemyCard
   { _enemyName = "Villain"
   , _baseHealth = 3
@@ -21,7 +23,7 @@ moneyCard = HeroCard
   , _heroType = mempty
   , _heroDescription = mempty
   , _playEffect = ActionMoney TCurrentPlayer (TConst 1)
-  , _playCode = UConst . UAction $ ActionRecruit (PlayerId 0) 1
+  , _playCode = parseUnsafe "@(recruit 1)"
   , _heroCost = 0
   , _heroStartingNumber = 0
   }
@@ -33,7 +35,7 @@ attackCard = HeroCard
   , _heroType = mempty
   , _heroDescription = mempty
   , _playEffect = ActionAttack TCurrentPlayer (TConst 1)
-  , _playCode = UConst . UAction $ ActionAttack2 (PlayerId 0) 1
+  , _playCode = parseUnsafe "@(attack 1)"
   , _heroCost = 0
   , _heroStartingNumber = 0
   }

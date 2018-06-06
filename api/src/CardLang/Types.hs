@@ -11,6 +11,7 @@ import qualified Data.Text            as T
 import qualified Data.Sequence        as S
 import Control.Monad.State
 import Control.Monad.Except
+import Control.Monad.Reader
 import Data.String (IsString, fromString)
 import Data.Char (isUpper)
 
@@ -32,15 +33,20 @@ instance IsString MType where
     | isUpper h  = WConst . T.pack $ x
     | True       = WVar . T.pack $ x
 
-type EvalMonad a = (ExceptT T.Text (State UEnv)) a
+type EvalMonad a = (ExceptT T.Text (ReaderT Int (State UEnv))) a
 type BuiltIn = (MType, EvalMonad UExpr)
+type Bindings = M.HashMap Name UExpr
 
 makeLenses ''UEnv
 
-instance Monoid UEnv where
-  mempty = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
-  -- Union is left biased, so make sure start with b
-  mappend a b = over envVariables (view envVariables b `M.union`) a
+emptyEnv = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
+extendEnv :: M.HashMap Name UExpr -> UEnv -> UEnv
+extendEnv newVars env = over envVariables (\x -> newVars `M.union` x) env
+
+--instance Monoid UEnv where
+--  mempty = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
+--  -- Union is left biased, so make sure start with b
+--  mappend a b = over envVariables (\x -> view envVariables b `M.union` x) a
 
 infixr 8 ~>
 (~>) :: MType -> MType -> MType
