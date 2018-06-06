@@ -255,11 +255,11 @@ infer = \case
 
     return t2
 
-  UConst (UFunc _ name expr) -> do
-    tv <- fresh
-    t1 <- inEnv (name, Forall mempty tv) (infer expr)
+  --UConst (UFunc _ name expr) -> do
+  --  tv <- fresh
+  --  t1 <- inEnv (name, Forall mempty tv) (infer expr)
 
-    return $ tv ~> t1
+  --  return $ tv ~> t1
 
   UIf cond lhs rhs -> do
     t1 <- infer cond

@@ -8,6 +8,7 @@ module CardLang.TypeInference
   , InferError(..)
   ) where
 
+import Control.Lens (view)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
 import           Control.Monad.State  (State, evalState, get, lift, put)
 import qualified Data.HashMap.Strict  as M
@@ -215,11 +216,12 @@ infer env (UConst (UBoardFunc _ exp)) = do
 
   pure (s, WBoardF tau)
 
-infer env (UConst (UFunc _ name exp)) = do
+infer env (UConst (UFunc fn)) = do
   tau <- fresh
+  let name = view fnArgName fn
   let sigma = Forall mempty tau
       env' = extendEnv env (name, sigma)
-  (s, tau') <- infer env' exp
+  (s, tau') <- infer env' (view fnBody fn)
 
   let fnTau = WFun (applySubst s tau) tau'
   --traceM . show $ (s, tau')

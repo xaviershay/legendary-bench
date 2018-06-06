@@ -83,13 +83,21 @@ instance Show UEnv where
 instance Eq UEnv where
   a == b = True
 
+type Bindings = M.HashMap Name UExpr
+data UFuncData = UFuncData
+  { _fnBindings :: Bindings
+  , _fnFreeVars :: [Name]
+  , _fnArgName  :: Name
+  , _fnBody     :: UExpr
+  } deriving (Show)
+
 data UValue =
    UNone
  | ULocation Location
  | UInt SummableInt
  | UString T.Text
  | UBool Bool
- | UFunc UEnv Name UExpr
+ | UFunc UFuncData
  | UBoardFunc UEnv UExpr
  | UAction Action
  | USpecificCard SpecificCard
@@ -313,6 +321,7 @@ makeLenses ''Board
 makeLenses ''Card
 makeLenses ''Resources
 makeLenses ''Game
+makeLenses ''UFuncData
 
 instance Eq Card where
   a == b =
@@ -324,6 +333,7 @@ instance Eq CardInPlay where
 
 deriving instance Eq UExpr
 deriving instance Eq UValue
+deriving instance Eq UFuncData
 deriving instance Eq Action
 
 mkBoard :: Board

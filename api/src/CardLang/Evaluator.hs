@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module CardLang.Evaluator
-  ( 
+  (
     evalWith
   , evalCards
   , evalWithBoard
@@ -56,7 +56,11 @@ evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) (set en
                      Right x -> x
                      Left y -> UError y
 
-showCode (UConst (UFunc  env name expr)) = "(fn {" <> T.intercalate ", " (fmap f . M.toList $ view envVariables env) <> "} [" <> name <> "] " <> showCode expr <> ")"
+showCode (UConst (UFunc fn)) = "(fn {"
+                                   <> T.intercalate ", " (fmap f . M.toList $ view fnBindings fn)
+                                   <> "} ["
+                                   <> (view fnArgName fn) <> "] "
+                                   <> showCode (view fnBody fn) <> ")"
   where
     f (k, v) = k <> ": " <> showCode v
 showCode (UConst (UBoardFunc _ expr)) = "@" <> showCode expr
@@ -111,9 +115,6 @@ eval' (UDef name expr) = do
   modify (setNon (envVariables . at name) (UConst body))
   pure UNone
 
-eval' (UConst fn@(UFunc env' x body)) = do
-  env <- get
-  pure $ UFunc (extendEnv (view envVariables env') env) x body
 eval' (UConst fn@(UBoardFunc env' expr)) = do
   env <- get
   board <- view envBoard <$> get
@@ -124,7 +125,16 @@ eval' (UConst fn@(UBoardFunc env' expr)) = do
       modify (extendEnv (view envVariables env'))
       eval expr
       -- TODO: Put env back the way we found it?
-    
+
+eval' (UConst (UFunc fn)) = do
+  env <- get
+  pure $ UFunc (bindVars env fn)
+
+  where
+    bindVars env fn =
+      let bindings = view envVariables env in
+      over fnBindings (\x -> x `M.union` bindings) fn
+
 
 eval' (UConst (UList xs)) = do
   xs' <- sequenceA (map eval xs)
@@ -152,8 +162,8 @@ eval' (UApp fexp arg) = do
   arg' <- UConst <$> eval arg
 
   case fn of
-    (UFunc env' argname body) -> do
-      withVars (view envVariables env') $ eval (ULet (argname, arg') body)
+    UFunc fn -> do
+      withVars (view fnBindings fn) $ eval (ULet (view fnArgName fn, arg') (view fnBody fn))
 
     x -> pure . UError $ (showT x) <> " is not a function"
 
@@ -174,7 +184,12 @@ builtInEnv :: UEnv
 builtInEnv = set envBuiltIn (M.mapWithKey (typeToFn 0) builtIns) emptyEnv
   where
     typeToFn :: Int -> Name -> BuiltIn -> UExpr
-    typeToFn n key (WFun a b, f) = UConst $ UFunc emptyEnv ("_a" <> showT n) (typeToFn (n+1) key (b, f))
+    typeToFn n key (WFun a b, f) = UConst . UFunc $ UFuncData
+                                              { _fnBindings = mempty
+                                              , _fnArgName  = ("_a" <> showT n)
+                                              , _fnBody     = (typeToFn (n+1) key (b, f))
+                                              , _fnFreeVars = mempty
+                                              }
     typeToFn n key (WBoardF mtype, _) = UBuiltIn key
     typeToFn n key (WList _, _) = UBuiltIn key
     typeToFn n key (WConst _, _) = UBuiltIn key
@@ -300,7 +315,7 @@ builtInCardAttribute lens = do
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
 builtInCurrentPlayer = UConst . UPlayerId <$> currentPlayer
-  
+
 builtInReveal = do
   location <- argAt 0
 
@@ -356,13 +371,13 @@ builtInAddPlayEffect = do
   case fromU action of
     Right action' -> return . UConst . UCardTemplate $ set playCode action' template
     Left x -> throwError x
-  
 
-showEnvOneLine vars = 
+showEnvOneLine vars =
   T.intercalate ", " $ fmap f $ (sortOn fst $ M.toList vars)
 
   where
     f (n, x) = n <> " = " <> showCode x
+
 traceEnv = do
   vars <- currentVars
 

@@ -35,7 +35,6 @@ instance IsString MType where
 
 type EvalMonad a = (ExceptT T.Text (ReaderT Int (State UEnv))) a
 type BuiltIn = (MType, EvalMonad UExpr)
-type Bindings = M.HashMap Name UExpr
 
 makeLenses ''UEnv
 

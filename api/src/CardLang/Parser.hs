@@ -97,7 +97,6 @@ toExpr (A (ASymbol "hero-set") ::: name ::: team ::: Nil) = do
 toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   expr <- toExpr body
 
-  -- TODO: Consider only catching ftv (propagated from type check), not entire env
   return . UConst $ UBoardFunc emptyEnv expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
@@ -131,8 +130,12 @@ convertFn [] f = convertSequence f
 convertFn (A (ASymbol x):xs) f = do
   body <- convertFn xs f
 
-  -- TODO: Consider only catching ftv (propagated from type check), not entire env
-  return . UConst $ UFunc emptyEnv x body
+  return . UConst . UFunc $ UFuncData
+                      { _fnBindings = mempty
+                      , _fnArgName  = x
+                      , _fnBody     = body
+                      , _fnFreeVars = mempty
+                      }
 
 convertCombine [x] = toExpr x
 convertCombine (x:xs) = do
