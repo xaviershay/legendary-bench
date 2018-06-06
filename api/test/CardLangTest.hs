@@ -154,27 +154,7 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 2) $ lengthCode <> "(length [3 4])"
   ]
 
---focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
-
---focus = defaultMain $ testCase "blah" $
---          let b = mkBoard in
---            True @=? case view envBoard $ set envBoard (Just b) mempty <> mempty of
---                       Nothing -> False
---                       Just x -> True
-
---focus = defaultMain $ testGroup "blah" $
---  [ testCase "blah" $
---          let b = mkBoard in
---            True @=? case view envBoard $ mempty <> set envBoard (Just b) mempty of
---                       Nothing -> False
---                       Just x -> True
---  , testCase "arst" $
---      let oldEnv = set envVariables (M.fromList [("a", UConst $ UString "x")]) mempty in
---      let newEnv = set envVariables (M.fromList [("a", UConst $ UString "y")]) mempty in
---
---      Just (UConst $ UString "y") @=? view (envVariables . at "a") (oldEnv <> newEnv)
---  ]
-
+-- TODO: DRY up with app/Main.hs
 readCards :: T.Text -> IO (S.Seq Card)
 readCards contents =
   case parse contents of
@@ -204,6 +184,7 @@ test_CardsIntegration = do
                        Right x ->  True @=? (ActionNone /= x)
                        Left y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
+--focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
 focus = test_CardsIntegration >>= defaultMain
 
 -- TODO: Move these into prelude.lisp

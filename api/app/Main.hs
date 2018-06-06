@@ -24,8 +24,8 @@ main = do
   contents <- T.readFile path
   cards <- readCards contents
 
-  forM cards $ \x -> do
-    putStrLn $ ppShow x
+--  forM cards $ \x -> do
+--    putStrLn $ ppShow x
 
   let port = 8080
   state <- mkState cards
