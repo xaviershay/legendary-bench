@@ -13,13 +13,15 @@ module CardLang.Evaluator
   , fromU
   , toU
   , showCode
+  , freeVars
   )
   where
 
+import Control.Applicative (liftA2)
 import           Control.Lens         (at, element, ix, non, over, preview, set,
                                        view, Traversal')
 import           Control.Monad        (foldM, forM)
-import           Control.Monad.Reader (runReaderT, ask, local)
+import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
 import           Control.Monad.Except (runExceptT, throwError)
 import           Control.Monad.State  (State, evalState, execState, get, modify,
                                        put, runState, withStateT)
@@ -27,6 +29,7 @@ import qualified Data.HashMap.Strict  as M
 import           Data.Maybe           (fromJust)
 import           Data.Sequence        (Seq, (<|))
 import qualified Data.Text            as T
+import qualified Data.Set                as Set
 import           Text.Show.Pretty     (ppShow)
 import Data.List (sortBy, sortOn)
 import Data.Maybe (catMaybes)
@@ -126,14 +129,15 @@ eval' (UConst fn@(UBoardFunc env' expr)) = do
       eval expr
       -- TODO: Put env back the way we found it?
 
-eval' (UConst (UFunc fn)) = do
+eval' e@(UConst (UFunc d)) = do
   env <- get
-  pure $ UFunc (bindVars env fn)
+  pure $ UFunc (bindVars env d)
 
   where
-    bindVars env fn =
-      let bindings = view envVariables env in
-      over fnBindings (\x -> x `M.union` bindings) fn
+    bindVars env d =
+      let free = freeVars env e in
+      let bindings = view envVariables env `M.intersection` M.fromList (zip (toList free) (repeat ())) in
+      over fnBindings (\x -> x `M.union` bindings) d
 
 
 eval' (UConst (UList xs)) = do
@@ -564,3 +568,22 @@ argAt index = do
                          case fromU result of
                            Right x -> return x
                            Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y
+
+freeVars :: UEnv -> UExpr -> Set.Set Name
+freeVars env expr = runReader (freeVars' expr) env
+
+freeVars' :: UExpr -> Reader UEnv (Set.Set Name)
+freeVars' (UConst (UList xs)) = mconcat <$> traverse freeVars' xs
+freeVars' (UConst (UBoardFunc _ fn)) = freeVars' fn
+freeVars' (ULet (name, _) expr) = Set.delete name <$> freeVars' expr
+freeVars' (UDef name expr)      = Set.delete name <$> freeVars' expr
+freeVars' (UConst (UFunc fn))   = Set.delete name <$> freeVars' expr
+  where
+    name = view fnArgName fn
+    expr = view fnBody fn
+freeVars' (UApp e1 e2) = liftA2 (<>) (freeVars' e1) (freeVars' e2)
+freeVars' (UIf e1 e2 e3) = mconcat <$> traverse freeVars' [e1, e2, e3]
+freeVars' (USequence xs) = mconcat <$> traverse freeVars' xs
+freeVars' (UConst _)   = pure mempty
+freeVars' (UBuiltIn _) = pure $ Set.fromList . fmap (\x -> "_a" <> showT x) $ [0..10]
+freeVars' (UVar x)     = pure $ Set.singleton x

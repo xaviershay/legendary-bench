@@ -20,7 +20,7 @@ import System.Random (mkStdGen)
 import CardLang.Evaluator
 import CardLang.Types
 import CardLang.TypeInference
-import CardLang.Parser (parse, freeVars)
+import CardLang.Parser (parse)
 
 builtInDefs = builtIns
 
@@ -160,7 +160,7 @@ testFreeVars expected input =
   where
     fv :: T.Text -> [Name]
     fv input = case parse input of
-           Right x -> toList . freeVars $ x
+           Right x -> toList . freeVars emptyEnv $ x
            Left y -> error $ show y
 
 test_FreeVariables = testGroup "Free vars"
@@ -205,9 +205,9 @@ test_CardsIntegration = do
                        Right x ->  True @=? (ActionNone /= x)
                        Left y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
---focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
+focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
 --focus = test_CardsIntegration >>= defaultMain
-focus = defaultMain test_FreeVariables
+--focus = defaultMain test_FreeVariables
 
 -- TODO: Move these into prelude.lisp
 filterCode = "(defn filter [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs)) "
