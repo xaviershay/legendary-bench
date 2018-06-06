@@ -4,14 +4,17 @@
 module CardLang.Parser
   ( parse
   , parseUnsafe
+  , freeVars
   ) where
 
+import Control.Lens (view)
 import           Control.Applicative     ((<|>))
 import           Data.SCargot
 import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
 import           Data.String             (IsString, fromString)
 import qualified Data.Text               as T
+import qualified Data.Set                as Set
 import           Text.Parsec             (alphaNum, between, char, digit, many,
                                           many1, noneOf, oneOf, string, try)
 import           Text.Parsec.Text        (Parser)
@@ -162,3 +165,16 @@ convertList (a:as) = do
 
 convertSequence (L xs) = USequence <$> (sequence . fmap toExpr $ xs)
 convertSequence f = toExpr f
+
+freeVars :: UExpr -> Set.Set Name
+freeVars (UConst (UList xs)) = mconcat . fmap freeVars $ xs
+freeVars (UConst (UFunc fn)) = view fnArgName fn `Set.delete` freeVars (view fnBody fn)
+freeVars (UConst (UBoardFunc _ fn)) = freeVars fn
+freeVars (UConst _) = mempty
+freeVars (UBuiltIn _) = mempty
+freeVars (UVar x) = Set.singleton x
+freeVars (ULet (name, _) expr) = name `Set.delete` freeVars expr
+freeVars (UDef name expr) = name `Set.delete` freeVars expr
+freeVars (UApp e1 e2) = freeVars e1 <> freeVars e2
+freeVars (UIf e1 e2 e3) = mconcat . fmap freeVars $ [e1, e2, e3]
+freeVars (USequence xs) = mconcat . fmap freeVars $ xs

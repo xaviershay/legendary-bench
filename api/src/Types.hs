@@ -15,6 +15,7 @@ import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub, intercalate)
 import qualified Data.Sequence        as S
+import qualified Data.Set             as Set
 import qualified Data.Text            as T
 import           GHC.Generics hiding (to)
 import           System.Random        (StdGen, mkStdGen)
@@ -86,7 +87,7 @@ instance Eq UEnv where
 type Bindings = M.HashMap Name UExpr
 data UFuncData = UFuncData
   { _fnBindings :: Bindings
-  , _fnFreeVars :: [Name]
+  , _fnFreeVars :: Set.Set Name
   , _fnArgName  :: Name
   , _fnBody     :: UExpr
   } deriving (Show)

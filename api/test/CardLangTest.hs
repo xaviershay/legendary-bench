@@ -20,7 +20,7 @@ import System.Random (mkStdGen)
 import CardLang.Evaluator
 import CardLang.Types
 import CardLang.TypeInference
-import CardLang.Parser (parse)
+import CardLang.Parser (parse, freeVars)
 
 builtInDefs = builtIns
 
@@ -154,6 +154,27 @@ test_ListQuery = testGroup "List Query"
   , testEval (UInt 2) $ lengthCode <> "(length [3 4])"
   ]
 
+testFreeVars expected input =
+  testCase (T.unpack . escape $ input) $ expected @=? fv input
+
+  where
+    fv :: T.Text -> [Name]
+    fv input = case parse input of
+           Right x -> toList . freeVars $ x
+           Left y -> error $ show y
+
+test_FreeVariables = testGroup "Free vars"
+  [ testFreeVars [] "1"
+  , testFreeVars ["x"] "x"
+  , testFreeVars [] "(let [x 1] x)"
+  , testFreeVars ["x", "y"] "(x y)"
+  , testFreeVars ["y"] "(let [x 1] (x y))"
+  , testFreeVars ["x"] "[x 1]"
+  , testFreeVars ["y"] "(fn [x] (x y))"
+  , testFreeVars ["x"] "@(x)"
+  , testFreeVars ["a"] "(let [x 1] (fn [y z] (x z a)))"
+  ]
+
 -- TODO: DRY up with app/Main.hs
 readCards :: T.Text -> IO (S.Seq Card)
 readCards contents =
@@ -185,7 +206,8 @@ test_CardsIntegration = do
                        Left y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
 --focus = defaultMain $ testGroup "All" [test_ListQuery, test_TypeInference]
-focus = test_CardsIntegration >>= defaultMain
+--focus = test_CardsIntegration >>= defaultMain
+focus = defaultMain test_FreeVariables
 
 -- TODO: Move these into prelude.lisp
 filterCode = "(defn filter [f xs] (reduce (fn [a x] (concat [a (if (f x) [x] [])])) [] xs)) "
