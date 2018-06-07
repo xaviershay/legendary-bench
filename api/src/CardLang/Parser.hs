@@ -20,6 +20,7 @@ import           Text.Parsec.Text        (Parser)
 
 import CardLang.Types
 import Utils
+import Types
 
 data Atom =
     AInt Int

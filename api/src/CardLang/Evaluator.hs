@@ -14,6 +14,8 @@ module CardLang.Evaluator
   , toU
   , showCode
   , freeVars
+  , FromU
+  , argAt
   )
   where
 

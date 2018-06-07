@@ -21,8 +21,7 @@ module CardLang.TypeInferenceConstraints
   where
 
 import Utils
-import Types
-import CardLang.Types hiding (extendEnv)
+import Types hiding (extendEnv, InferError(..))
 
 import Control.Lens
 import qualified Data.Text as T

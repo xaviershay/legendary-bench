@@ -8,16 +8,19 @@
 module Types where
 
 import           Control.Lens
-import           Control.Monad.Reader
 import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Monad.State  (State)
 import           Control.Monad.Writer (WriterT)
+import           Data.Char            (isUpper)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
-import           Data.List            (nub, intercalate)
+import           Data.List            (intercalate, nub)
 import qualified Data.Sequence        as S
 import qualified Data.Set             as Set
+import           Data.String          (IsString, fromString)
 import qualified Data.Text            as T
-import           GHC.Generics hiding (to)
+import           GHC.Generics         hiding (to)
 import           System.Random        (StdGen, mkStdGen)
 
 import Debug.Trace
@@ -107,6 +110,50 @@ data UValue =
  | UList [UExpr]
  | UError Name
  deriving (Show)
+
+data MType =
+    WVar Name
+  | WConst Name
+  | WFun MType MType
+  | WBoardF MType
+  | WList MType
+
+  deriving (Eq, Show)
+
+instance IsString MType where
+  fromString x@(h:_) 
+    | isUpper h  = WConst . T.pack $ x
+    | True       = WVar . T.pack $ x
+
+type EvalMonad a = (ExceptT T.Text (ReaderT Int (State UEnv))) a
+type BuiltIn = (MType, EvalMonad UExpr)
+
+data InferError =
+    CannotUnify MType MType
+  | OccursCheckFailed Name MType
+  | UnknownIdentifier Name
+  deriving (Eq)
+
+instance Show InferError where
+  show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
+  show (UnknownIdentifier n) = "Unknown identifier: " <> T.unpack n
+
+showType (WVar x) = x
+showType (WConst x) = x
+showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType y
+  where
+    isFun (WFun{}) = True
+    isFun _ = False
+    maybeBracket cond x = if cond then "(" <> x <> ")" else x
+showType (WList x) = "[" <> showType x <> "]"
+showType (WBoardF x) = "@:" <> showType x
+
+
+data BuiltInDef = BuiltInDef
+  { _builtInName :: Name
+  , _builtInType :: MType
+  , _builtInFn :: EvalMonad UExpr
+  }
 
 data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
@@ -323,6 +370,8 @@ makeLenses ''Card
 makeLenses ''Resources
 makeLenses ''Game
 makeLenses ''UFuncData
+makeLenses ''BuiltInDef
+makeLenses ''UEnv
 
 instance Eq Card where
   a == b =
@@ -443,3 +492,11 @@ isLost board = f $ view boardState board
 
 playerDesc (PlayerId id) = "Player " <> showT id
 playerDesc CurrentPlayer = "Current player"
+
+emptyEnv = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
+extendEnv :: M.HashMap Name UExpr -> UEnv -> UEnv
+extendEnv newVars env = over envVariables (\x -> newVars `M.union` x) env
+
+infixr 8 ~>
+(~>) :: MType -> MType -> MType
+a ~> b = WFun a b

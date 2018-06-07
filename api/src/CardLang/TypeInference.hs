@@ -4,8 +4,6 @@
 
 module CardLang.TypeInference
   ( typecheck
-  , showType
-  , InferError(..)
   ) where
 
 import Control.Lens (view)
@@ -17,19 +15,9 @@ import           Data.Maybe           (fromJust)
 import qualified Data.Set             as Set
 import qualified Data.Text            as T
 
-import CardLang.Types hiding (extendEnv)
 import CardLang.Evaluator
+import Types hiding (extendEnv)
 import Utils
-
-showType (WVar x) = x
-showType (WConst x) = x
-showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType y
-  where
-    isFun (WFun{}) = True
-    isFun _ = False
-    maybeBracket cond x = if cond then "(" <> x <> ")" else x
-showType (WList x) = "[" <> showType x <> "]"
-showType (WBoardF x) = "@:" <> showType x
 
 newtype Subst = Subst (M.HashMap Name MType) deriving (Show)
 
@@ -89,16 +77,6 @@ instance Substitutable WEnv where
 
 newtype Infer a = Infer (ExceptT InferError (State [Name]) a)
   deriving (Functor, Applicative, Monad)
-
-data InferError =
-    CannotUnify MType MType
-  | OccursCheckFailed Name MType
-  | UnknownIdentifier Name
-  deriving (Eq)
-
-instance Show InferError where
-  show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
-  show (UnknownIdentifier n) = "Unknown identifier: " <> T.unpack n
 
 typecheck :: UExpr -> Either InferError MType
 typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
