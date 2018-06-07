@@ -15,7 +15,7 @@ import qualified Data.Sequence        as S
 
 import qualified CardLang.Parser
 import qualified CardLang.Evaluator
-import CardLang.Evaluator (FromU, toU, argAt)
+import CardLang.Evaluator (FromU, ToU, toU, argAt)
 import qualified CardLang.TypeInference
 
 import CardLang.Types
@@ -60,7 +60,7 @@ mkBuiltIn name t f = BuiltInDef
   , _builtInFn = f
   }
 
-builtInBinOp :: (FromU a, FromU b) => (a -> a -> b) -> EvalMonad UExpr
+builtInBinOp :: (FromU a, ToU b) => (a -> a -> b) -> EvalMonad UExpr
 builtInBinOp f = do
   x <- argAt 0
   y <- argAt 1

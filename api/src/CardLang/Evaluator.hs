@@ -15,6 +15,7 @@ module CardLang.Evaluator
   , showCode
   , freeVars
   , FromU
+  , ToU
   , argAt
   )
   where
@@ -251,7 +252,7 @@ builtIns = M.fromList
                      builtInMakeHeroFull))
   ]
 
-returnConst :: FromU a => a -> EvalMonad UExpr
+returnConst :: ToU a => a -> EvalMonad UExpr
 returnConst = return . UConst . toU
 
 builtInConcat = do
@@ -310,7 +311,7 @@ builtInChooseCard = do
     Right from' -> returnConst $ ActionChooseCard desc from' onChoose onPass
     Left y -> throwError y
 
-builtInCardAttribute :: FromU a => Traversal' Card a -> EvalMonad UExpr
+builtInCardAttribute :: ToU a => Traversal' Card a -> EvalMonad UExpr
 builtInCardAttribute lens = do
   sloc@(location, index) <- argAt 0
 
@@ -496,51 +497,62 @@ currentBoard = do
 
 class FromU a where
   fromU :: UValue -> Either T.Text a
+
+class ToU a where
   toU :: a -> UValue
 
 instance FromU SummableInt where
   fromU (UInt x) = return x
   fromU x        = throwError ("Expected UInt, got " <> showT x)
+instance ToU SummableInt where
   toU = UInt
 
 instance FromU Int where
   fromU (UInt (Sum x)) = return x
   fromU x        = throwError ("Expected UInt, got " <> showT x)
+instance ToU Int where
   toU = UInt . Sum
 
 instance FromU T.Text where
   fromU (UString x) = return x
   fromU x        = throwError ("Expected UString, got " <> showT x)
+instance ToU T.Text where
   toU = UString
 
 instance FromU Card where
   fromU (UCardTemplate x) = return x
   fromU x        = throwError ("Expected UCardTemplate, got " <> showT x)
+
+instance ToU Card where
   toU = UCardTemplate
 
 instance FromU Action where
   fromU (UAction x) = return x
   fromU x        = throwError ("Expected UAction, got " <> showT x)
+instance ToU Action where
   toU = UAction
 
 instance FromU SpecificCard where
   fromU (USpecificCard x) = return x
   fromU x        = throwError ("Expected USpecificCard, got " <> showT x)
+instance ToU SpecificCard where
   toU = USpecificCard
 
 instance FromU Location where
   fromU (ULocation x) = return x
   fromU x        = throwError ("Expected ULocation, got " <> showT x)
+instance ToU Location where
   toU = ULocation
 
 instance FromU ScopedLocation where
   fromU (UString "Deck") = fromU (UString "PlayerDeck")
   fromU (UString x) = return . read . T.unpack $ x
   fromU x        = throwError ("Expected UString, got " <> showT x)
+instance ToU ScopedLocation where
   toU PlayerDeck = UString "Deck"
   toU x = UString . showT $ x
 
-instance FromU HeroType where
+instance ToU HeroType where
   toU (HeroType x) = UString x
 
 instance FromU PlayerId where
