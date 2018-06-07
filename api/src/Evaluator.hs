@@ -30,7 +30,8 @@ import           Random
 import           Types
 import           Utils
 
-import CardLang.Evaluator
+import CardLang
+import CardLang.Evaluator (fromU, toU)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
@@ -340,7 +341,7 @@ apply a@(ActionChooseCard desc options expr pass) = applyChoices f
       if elem location options then
         do
           board <- currentBoard
-          case fromU $ evalWithBoard board (UApp expr (UConst $ toU location)) of
+          case fromU $ evalWith (mkEnv $ Just board) (UApp expr (UConst $ toU location)) of
              Right x -> return x
              Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
@@ -367,7 +368,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
           card       <- requireCard location
           let cardCode = fromJust $ preview (cardTemplate . playCode) card
 
-          let ret = evalWithBoard board cardCode
+          let ret = evalWith (mkEnv $ Just board) cardCode
 
           action <- case fromU $ ret of
                          Right x -> return x

@@ -15,11 +15,12 @@ import CardLang
 
 testEval = testEvalWith mempty
 testEvalWith env expected input =
-  testCase (T.unpack . escape $ input) $ expected @=? query (set envVariables (M.fromList env) (mkEnv mempty)) input
+  let env' = extendEnv (M.fromList env) (mkEnv Nothing) in
+  testCase (T.unpack . escape $ input) $ expected @=? query env' input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
-                        Right x -> case typecheck x of
+                        Right x -> case typecheck env x of
                                      Right _ -> evalWith env x
                                      Left y -> error $ "Typecheck fail: " <> show y
                         Left y -> error $ show y

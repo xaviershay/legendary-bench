@@ -76,7 +76,9 @@ data UEnv = UEnv
   { _envVariables :: M.HashMap Name UExpr
   , _envBoard :: Maybe Board
   , _envCards :: S.Seq Card
+  -- TODO: Maybe don't need both here, abstract away accessors so can simplify
   , _envBuiltIn :: M.HashMap Name UExpr
+  , _envBuiltInDefs :: M.HashMap Name BuiltInDef
   }
 
 instance Show UEnv where

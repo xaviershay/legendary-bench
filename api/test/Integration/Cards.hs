@@ -21,7 +21,7 @@ readCards :: T.Text -> IO (S.Seq Card)
 readCards contents =
   case parse contents of
     Left error -> (putStrLn $ "Parse error: " <> error) >> return mempty
-    Right ast -> case typecheck ast of
+    Right ast -> case typecheck (mkEnv Nothing) ast of
       Left error -> (putStrLn . show $ error) >> return mempty
       Right _ -> return $ evalCards ast
 
@@ -42,6 +42,7 @@ test_CardsIntegration = do
     forCard board card = let code = fromJust $ preview playCode card in
 
                    testCase (T.unpack $ view templateId card) $
-                     case evalWithBoard board code of
+                     let env = mkEnv (Just board) in
+                     case evalWith env code of
                        (UAction _) ->  True @=? True
                        y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y

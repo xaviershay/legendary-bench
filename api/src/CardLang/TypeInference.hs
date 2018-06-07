@@ -77,15 +77,17 @@ instance Substitutable WEnv where
 newtype Infer a = Infer (ExceptT InferError (State [Name]) a)
   deriving (Functor, Applicative, Monad)
 
-typecheck :: UExpr -> Either InferError MType
-typecheck expr = recode . snd <$> runInfer (infer builtInTypeEnv expr)
+typecheck :: UEnv -> UExpr -> Either InferError MType
+typecheck env expr = recode . snd <$> runInfer (infer (toTypeEnv env) expr)
 
-builtInTypeEnv :: WEnv
-builtInTypeEnv = WEnv $ M.fromList
-  [ ("reduce", Forall (Set.fromList ["a", "b"]) (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b"))
-  , ("concat", Forall (Set.fromList ["a"]) (WList (WList "a") ~> WList "a"))
-  , ("==", Forall (Set.fromList ["a"]) ("a" ~> "a" ~> "Bool"))
-  ] <> M.map (Forall mempty . fst) builtIns
+toTypeEnv :: UEnv -> WEnv
+toTypeEnv env = WEnv $ M.map (\x -> (view builtInType x)) (view envBuiltInDefs env)
+--builtInTypeEnv :: WEnv
+--builtInTypeEnv = WEnv $ M.fromList
+--  [ ("reduce", Forall (Set.fromList ["a", "b"]) (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b"))
+--  , ("concat", Forall (Set.fromList ["a"]) (WList (WList "a") ~> WList "a"))
+--  , ("==", Forall (Set.fromList ["a"]) ("a" ~> "a" ~> "Bool"))
+--  ] <> M.map (Forall mempty . fst) builtIns
 
 boardFuncs = mempty
 --boardFuncs = M.fromList

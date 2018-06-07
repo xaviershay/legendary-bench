@@ -8,9 +8,7 @@ module CardLang.Evaluator
   (
     evalWith
   , evalCards
-  , evalWithBoard
   , eval
-  , builtIns
   , currentVars
   , fromU
   , toU
@@ -57,15 +55,12 @@ printValue (UConst x) = case x of
                           x -> showT x
 printValue x = showT x
 
-evalWithBoard :: Board -> UExpr -> UValue
-evalWithBoard b = evalWith (set envBoard (Just b) emptyEnv)
-
-evalCards :: UExpr -> Seq Card
-evalCards exp = let env = builtInEnv in
+evalCards :: UEnv -> UExpr -> Seq Card
+evalCards env exp =
     view envCards $ execState (runReaderT (runExceptT (eval exp)) 0) env
 
 evalWith :: UEnv -> UExpr -> UValue
-evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) (set envBuiltIn (view envBuiltIn builtInEnv) env) of
+evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) env of
                      Right x -> x
                      Left y -> UError y
 
@@ -190,140 +185,31 @@ eval' (UIf cond lhs rhs) = do
     eval rhs
 
 eval' (UBuiltIn x) = do
-  expr <- snd . fromJust $ M.lookup x builtIns
+  env <- get
+
+  let def = fromJust $ view (envBuiltInDefs . at x) env
+  let fn = view builtInFn def
+
+  expr <- fn
 
   eval expr
 
-builtInEnv :: UEnv
-builtInEnv = set envBuiltIn (M.mapWithKey (typeToFn 0) builtIns) emptyEnv
-  where
-    typeToFn :: Int -> Name -> BuiltIn -> UExpr
-    typeToFn n key (WFun a b, f) = UConst . UFunc $ UFuncData
-                                              { _fnBindings = mempty
-                                              , _fnArgName  = ("_a" <> showT n)
-                                              , _fnBody     = (typeToFn (n+1) key (b, f))
-                                              , _fnFreeVars = mempty
-                                              }
-    typeToFn n key (WBoardF mtype, _) = UBuiltIn key
-    typeToFn n key (WList _, _) = UBuiltIn key
-    typeToFn n key (WConst _, _) = UBuiltIn key
-    typeToFn n key (WVar _, _) = UBuiltIn key
-    typeToFn n key (x, _) = error $ "Unknown in typeToFn: " <> show x
 
-builtIns :: M.HashMap Name BuiltIn
-builtIns = M.fromList
-  [ ("add", ("Int" ~> "Int" ~> "Int", builtInAdd))
-  , ("+", ("Int" ~> "Int" ~> "Int", builtInAdd))
-  , ("double", ("Int" ~> "Int", builtInDouble))
-  , ("=<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
-  , ("<=", ("Int" ~> "Int" ~> "Bool", builtInComparison (<=)))
-  , ("<", ("Int" ~> "Int" ~> "Bool", builtInComparison (<)))
-  , (">", ("Int" ~> "Int" ~> "Bool", builtInComparison (>)))
-  , (">=", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
-  , ("=>", ("Int" ~> "Int" ~> "Bool", builtInComparison (>=)))
-  , ("==", ("a" ~> "a" ~> "Bool", builtInEq))
-  -- TODO: These variables likely not good enough? Probably able to clash with
-  -- other reduce that should resolve differently! Could fix by making this
-  -- type statement run in the Infer monad to generate fresh tau each time.
-  -- EDIT: No actually we probably just need to a) Have proper forall binding, b) instantiate it
-  -- EDIT2: Yup, currently hard coded in TypeInference.hs, need to fix
-  , ("reduce", (("_b" ~> "_a" ~> "_b") ~> "_b" ~> WList "_a" ~> "_b", builtInReduce))
-  , ("concat", (WList (WList "_x") ~> WList "_x",  builtInConcat))
-
-  , ("noop", ("Action", builtInNoop))
-  , ("attack", ("Int" ~> "Action", builtInAttack))
-  , ("recruit", ("Int" ~> "Action", builtInRecruit))
-  , ("rescue-bystander", ("Int" ~> "Action", builtInRescue))
-  , ("current-player", ("PlayerId", builtInCurrentPlayer))
-  , ("reveal", ("SpecificCard" ~> "Action", builtInReveal))
-  , ("ko", ("SpecificCard" ~> "Action", builtInKo))
-  , ("draw", ("Int" ~> "Action", builtInDraw))
-  , ("move", ("SpecificCard" ~> "Location" ~> "Action", builtInMove))
-  , ("card-location", ("Location" ~> "Int" ~> "SpecificCard", builtInCardLocation))
-  , ("card-cost", ("SpecificCard" ~> "Int", builtInCardAttribute heroCost))
-  , ("card-type", ("SpecificCard" ~> "String", builtInCardAttribute heroType))
-  , ("cards-at", ("Location" ~> WList "SpecificCard", builtInCardsAt))
-  , ("player-location", ("PlayerId" ~> "String" ~> "Location", builtInPlayerLocation))
-  , ("combine", ("Action" ~> "Action" ~> "Action", builtInCombine))
-  , ("choose-card", ("String" ~> WList "SpecificCard" ~> ("SpecificCard" ~> "Action") ~> "Action" ~> "Action", builtInChooseCard))
-  , ("add-play-effect", (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate", builtInAddPlayEffect))
-  , ("make-hero-full", ("String"
-                     ~> "String"
-                     ~> "String"
-                     ~> "String"
-                     ~> "Int"
-                     ~> "Int"
-                     ~> "String"
-                     ~> ("CardTemplate" ~> "CardTemplate")
-                     ~> "Void",
-                     builtInMakeHeroFull))
-  ]
 
 returnConst :: ToU a => a -> EvalMonad UExpr
 returnConst = return . UConst . toU
 
 upure :: ToU a => a -> EvalMonad UExpr
 upure = pure . toUConst
+
+uliftA1 :: ToU b => (a -> b) -> EvalMonad a -> EvalMonad UExpr
 uliftA1 x y = toUConst <$> fmap x y
+
+uliftA2 :: ToU c => (a -> b -> c) -> EvalMonad a -> EvalMonad b -> EvalMonad UExpr
 uliftA2 x y z = toUConst <$> liftA2 x y z
+
+uliftA3 :: ToU d => (a -> b -> c -> d) -> EvalMonad a -> EvalMonad b -> EvalMonad c -> EvalMonad UExpr
 uliftA3 w x y z = toUConst <$> liftA3 w x y z
-
-
-builtInConcat = do
-  xs :: [UExpr] <- argAt 0
-  xs' :: [UValue] <- sequence . fmap eval $ xs
-
-  case sequence $ map fromU xs' of
-    Right (xs'' :: [[UExpr]]) -> return . UConst . UList $ mconcat xs''
-    Left y -> throwError $ "Unexpected error in concat: " <> showT y
-
-
-builtInReduce = do
-  f       <- argAt 0
-  initial <- argAt 1
-  xs      <- argAt 2
-
-  let f' = f :: UExpr
-  let initial' = UConst initial
-  let xs' = xs :: [UExpr]
-
-  value <- foldM (folder f') initial' xs
-
-  return value
-
-  where
-    folder :: UExpr -> UExpr -> UExpr -> EvalMonad UExpr
-    folder f accum x = UConst <$> eval (UApp (UApp f accum) x)
-
-builtInCardsAt = do
-  loc <- argAt 0
-
-  cards <- view (cardsAtLocation loc) <$> currentBoard
-
-  return . UConst . UList . fmap (UConst . USpecificCard) $ zip (repeat loc) [0..length cards -1]
-
-builtInCardAt = do
-  sloc@(location, index) <- argAt 0
-
-  card <- preview (cardsAtLocation location . ix index) <$> currentBoard
-
-  case card of
-    Just c -> return . UConst . toU $ view cardTemplate c
-    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
-
-builtInChooseCard = do
-  pid <- currentPlayer
-
-  desc      <- argAt 0
-  fromExprs <- argAt 1
-  onChoose  <- argAt 2
-  onPass    <- argAt 3
-
-  from <- sequence . fmap eval $ fromExprs
-
-  case sequence $ fmap fromU from of
-    Right from' -> returnConst $ ActionChooseCard desc from' onChoose onPass
-    Left y -> throwError y
 
 builtInCardAttribute :: ToU a => Traversal' Card a -> EvalMonad UExpr
 builtInCardAttribute lens = do
@@ -334,63 +220,6 @@ builtInCardAttribute lens = do
   case attr of
     Just c -> return . UConst . toU $ c
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
-
-builtInCurrentPlayer = UConst . UPlayerId <$> currentPlayer
-
-builtInReveal = do
-  location <- argAt 0
-
-  returnConst $ ActionReveal (TConst location)
-
-builtInKo = do
-  location <- argAt 0
-
-  returnConst $ ActionKO location
-
-builtInDraw = do
-  pid <- currentPlayer
-  amount <- argAt 0
-
-  returnConst $ ActionDraw pid amount
-
-builtInMove = do
-  from <- argAt 0
-  to <- argAt 1
-
-  returnConst $ ActionMove (TConst from) (TConst to) (TConst Front)
-
-builtInNoop = returnConst $ ActionNone
-
-builtInCombine = do
-  a <- argAt 0
-  b <- argAt 1
-
-  returnConst $ a <> (b :: Action)
-
-builtInCardLocation = do
-  loc <- argAt 0
-  index <- argAt 1
-
-  returnConst $ ((,) loc index :: SpecificCard)
-
-builtInPlayerLocation = do
-  pid <- argAt 0
-  sloc <- argAt 1
-
-  returnConst $ PlayerLocation pid sloc
-
-builtInAddPlayEffect :: EvalMonad UExpr
-builtInAddPlayEffect = do
-  env <- get
-
-  effect   <- argAt 0
-  template <- argAt 1
-
-  action <- eval effect
-
-  case fromU action of
-    Right action' -> returnConst $ set playCode action' template
-    Left x -> throwError x
 
 showEnvOneLine vars =
   T.intercalate ", " $ fmap f $ (sortOn fst $ M.toList vars)
@@ -406,74 +235,7 @@ traceEnv = do
     traceM . T.unpack $ n <> " = " <> showCode x
   traceM ""
 
-
-builtInAdd :: EvalMonad UExpr
-builtInAdd = do
-  x <- argAt 0
-  y <- argAt 1
-
-  return . UConst . UInt $ x + y
-
-builtInDouble :: EvalMonad UExpr
-builtInDouble = do
-  traceEnv
-
-  x <- argAt 0
-
-  return . UConst . UInt $ x * 2
-
-builtInComparison f = do
-  x <- argAt 0
-  y <- argAt 1
-
-  return . UConst . UBool $ f x (y :: Int)
-
-builtInEq = do
-  x <- argAt 0
-  y <- argAt 1
-
-  return . UConst . UBool $ x == (y :: UValue)
-
-builtInAttack :: EvalMonad UExpr
-builtInAttack = do
-  pid    <- currentPlayer
-  amount <- argAt 0
-
-  returnConst $ ActionAttack2 pid amount
-
-builtInRecruit = uliftA2 ActionRecruit currentPlayer (argAt 0)
 builtInRescue = uliftA2 ActionRescueBystander currentPlayer (argAt 0)
-
-builtInMakeHeroFull = do
-  name     <- argAt 0
-  team     <- argAt 1
-  ability  <- argAt 2
-  htype    <- argAt 3
-  cost     <- argAt 4
-  amount   <- argAt 5
-  desc     <- argAt 6
-  callback <- argAt 7
-
-  let template = UConst . UCardTemplate $ HeroCard
-                  { _heroName = name
-                  , _heroAbilityName = ability
-                  , _heroType = HeroType htype
-                  , _heroTeam = HeroTeam team
-                  , _heroCost = cost
-                  , _heroStartingNumber = amount
-                  , _heroDescription = desc
-                  , _playEffect = ActionNone
-                  , _playCode = UConst . UAction $ ActionNone
-                  }
-
-  template' <- eval (UApp callback template)
-
-  case fromU template' of
-    Right x -> do
-      modify (over envCards (x <|))
-      return . UConst $ UNone
-
-    Left y -> throwError y
 
 currentVars = view envVariables <$> get
 currentPlayer = do

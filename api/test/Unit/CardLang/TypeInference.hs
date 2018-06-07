@@ -18,7 +18,7 @@ testInfer expected input =
   where
     inferType :: T.Text -> T.Text
     inferType text = let result = showType <$> case parse text of
-                                          Right x -> typecheck x -- (mkTypeEnv builtInDefs) x
+                                          Right x -> typecheck (mkEnv Nothing) x -- (mkTypeEnv builtInDefs) x
                                           Left y  -> error $ "parse error: " <> show y in
                      case result of
                        Right x -> x
@@ -30,7 +30,7 @@ testInferFail expected input =
   where
     inferType :: T.Text -> InferError
     inferType text = let result = showType <$> case parse text of
-                                          Right x -> typecheck x
+                                          Right x -> typecheck (mkEnv Nothing) x
                                           Left y  -> error $ "parse error: " <> show y in
                      case result of
                        Right x -> error $ show x

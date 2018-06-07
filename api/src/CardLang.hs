@@ -3,7 +3,6 @@
 module CardLang
   ( evalWith
   , evalCards
-  , evalWithBoard
   , typecheck
   , parse
   , mkEnv
@@ -28,18 +27,19 @@ import Utils
 import Types
 
 evalWith :: UEnv -> UExpr -> UValue
-evalWith = CardLang.Evaluator.evalWith
-evalCards = CardLang.Evaluator.evalCards
-evalWithBoard = CardLang.Evaluator.evalWithBoard
+evalWith env = CardLang.Evaluator.evalWith env
+
+evalCards = CardLang.Evaluator.evalCards (mkEnv Nothing)
 typecheck = CardLang.TypeInference.typecheck
 
 parse = CardLang.Parser.parse
 
-mkEnv :: S.Seq Card -> UEnv
-mkEnv cards =
+mkEnv :: Maybe Board -> UEnv
+mkEnv board =
   let builtIns = defaultBuiltIns in
-    set envCards cards
+    set envBoard board
   $ set envBuiltIn (M.map genBuiltInExpr builtIns)
+  $ set envBuiltInDefs builtIns
   $ emptyEnv
 
 genBuiltInExpr :: BuiltInDef -> UExpr
