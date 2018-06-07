@@ -10,14 +10,17 @@ module CardLang
   )
   where
 
-import qualified Data.HashMap.Strict  as M
-import qualified Data.Sequence        as S
-
-import qualified CardLang.Parser
+import qualified CardLang.BuiltIn       as B
+import           CardLang.Evaluator     (FromU, ToU, argAt, toU, toUConst, upure, uliftA1, uliftA2, uliftA3)
 import qualified CardLang.Evaluator
-import CardLang.Evaluator (FromU, ToU, toU, argAt)
+import qualified CardLang.Parser
 import qualified CardLang.TypeInference
-import qualified CardLang.BuiltIn as B
+import           Control.Applicative    (liftA2, liftA3)
+import           Control.Lens           (element, preview)
+import           Control.Monad.Except   (throwError)
+import           Control.Monad.State    (get)
+import qualified Data.HashMap.Strict    as M
+import qualified Data.Sequence          as S
 
 import CardLang.Types
 
@@ -45,12 +48,13 @@ genBuiltInExpr bi = typeToFn 0 bi mtype
     (Forall _ mtype) = view builtInType bi
 
     typeToFn :: Int -> BuiltInDef -> MType -> UExpr
-    typeToFn n def (WFun _ b) = UConst . UFunc $ UFuncData
-                                              { _fnBindings = mempty
-                                              , _fnArgName  = ("_a" <> showT n)
-                                              , _fnBody     = typeToFn (n+1) def b
-                                              , _fnFreeVars = mempty
-                                              }
+    typeToFn n def (WFun _ b) = UConst . UFunc
+      $ UFuncData
+          { _fnBindings = mempty
+          , _fnArgName  = ("_a" <> showT n)
+          , _fnBody     = typeToFn (n+1) def b
+          , _fnFreeVars = mempty
+          }
     typeToFn n def _ = UBuiltIn (view builtInName def)
 
 defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
@@ -63,13 +67,55 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b")  B.reduce
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
+
+  --- Action generators
+  , mkBuiltIn "noop" "Action" $ upure ActionNone
+  , mkBuiltIn "attack" ("Int" ~> "Action")           $ uliftA2 ActionAttack2 B.currentPlayer (argAt 0)
+  , mkBuiltIn "recruit" ("Int" ~> "Action")          $ uliftA2 ActionRecruit B.currentPlayer (argAt 0)
+  , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)
+  , mkBuiltIn "draw" ("Int" ~> "Action")             $ uliftA2 ActionDraw B.currentPlayer (argAt 0)
+  , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 (ActionReveal . TConst) (argAt 0)
+  , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
+  , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
+    $ uliftA3 ActionMove (TConst <$> argAt 0) (TConst <$> argAt 1) (pure $ TConst Front)
+
+  -- Card functions
+  , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost
+  , mkBuiltIn "card-type" ("SpecificCard" ~> "String") $ B.cardAttr heroType
+  , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
+  , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
+  , mkBuiltIn "player-location" ("PlayerId" ~> "String" ~> "Location")
+    $ uliftA2 PlayerLocation (argAt 0) (argAt 1)
+  , mkBuiltIn "choose-card"
+      (  "String"
+      ~> WList "SpecificCard"
+      ~> ("SpecificCard" ~> "Action")
+      ~> "Action"
+      ~> "Action"
+      )
+      B.chooseCard
+
+  -- Misc
+  , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
+  , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
+  , mkBuiltIn "make-hero-full"
+     (  "String"
+     ~> "String"
+     ~> "String"
+     ~> "String"
+     ~> "Int"
+     ~> "Int"
+     ~> "String"
+     ~> ("CardTemplate" ~> "CardTemplate")
+     ~> "Void"
+     )
+     B.makeHero
   ]
-
-mkBuiltIn name t f = BuiltInDef
-  { _builtInName = name
-  , _builtInType = ptype
-  , _builtInFn = f
-  }
   where
-    ptype = CardLang.TypeInference.generalize mempty t
-
+    mkBuiltIn name t f = BuiltInDef
+      { _builtInName = name
+      , _builtInType = ptype
+      , _builtInFn = f
+      }
+      where
+        ptype = CardLang.TypeInference.generalize mempty t

@@ -204,7 +204,7 @@ apply (ActionAttack2 pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply (ActionMove (TConst location) (TConst KO) (TConst Front))
-apply (ActionDraw pid) = apply
+apply (ActionDraw pid amount) = apply -- TODO: Respect amount
      ((ActionReveal (TConst (PlayerLocation pid PlayerDeck, 0)))
   <> (ActionMove
     (TConst (PlayerLocation pid PlayerDeck, 0))

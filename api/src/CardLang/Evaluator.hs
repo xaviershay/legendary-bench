@@ -14,15 +14,20 @@ module CardLang.Evaluator
   , currentVars
   , fromU
   , toU
+  , toUConst
   , showCode
   , freeVars
   , FromU
   , ToU
   , argAt
+  , upure
+  , uliftA1
+  , uliftA2
+  , uliftA3
   )
   where
 
-import Control.Applicative (liftA2)
+import Control.Applicative (liftA2, liftA3)
 import           Control.Lens         (at, element, ix, non, over, preview, set,
                                        view, Traversal')
 import           Control.Monad        (foldM, forM)
@@ -257,6 +262,13 @@ builtIns = M.fromList
 returnConst :: ToU a => a -> EvalMonad UExpr
 returnConst = return . UConst . toU
 
+upure :: ToU a => a -> EvalMonad UExpr
+upure = pure . toUConst
+uliftA1 x y = toUConst <$> fmap x y
+uliftA2 x y z = toUConst <$> liftA2 x y z
+uliftA3 w x y z = toUConst <$> liftA3 w x y z
+
+
 builtInConcat = do
   xs :: [UExpr] <- argAt 0
   xs' :: [UValue] <- sequence . fmap eval $ xs
@@ -302,10 +314,10 @@ builtInCardAt = do
 builtInChooseCard = do
   pid <- currentPlayer
 
-  desc <- argAt 0
+  desc      <- argAt 0
   fromExprs <- argAt 1
-  onChoose <- argAt 2
-  onPass <- argAt 3
+  onChoose  <- argAt 2
+  onPass    <- argAt 3
 
   from <- sequence . fmap eval $ fromExprs
 
@@ -339,7 +351,7 @@ builtInDraw = do
   pid <- currentPlayer
   amount <- argAt 0
 
-  returnConst . mconcat . replicate amount $ ActionDraw pid
+  returnConst $ ActionDraw pid amount
 
 builtInMove = do
   from <- argAt 0
@@ -359,7 +371,7 @@ builtInCardLocation = do
   loc <- argAt 0
   index <- argAt 1
 
-  returnConst $ ((loc, index) :: SpecificCard)
+  returnConst $ ((,) loc index :: SpecificCard)
 
 builtInPlayerLocation = do
   pid <- argAt 0
@@ -424,29 +436,13 @@ builtInEq = do
 
 builtInAttack :: EvalMonad UExpr
 builtInAttack = do
-  amount <- argAt 0
   pid    <- currentPlayer
-
-  return . UConst . UAction $ ActionAttack2 pid amount
-
-builtInRecruit :: EvalMonad UExpr
-builtInRecruit = do
   amount <- argAt 0
-  pid    <- currentPlayer
 
-  return . UConst . UAction $ ActionRecruit pid amount
+  returnConst $ ActionAttack2 pid amount
 
-builtInRescue = do
-  amount <- argAt 0
-  pid    <- currentPlayer
-
-  return . UConst . UAction $ ActionRecruit pid amount
-
-  returnConst (ActionAllowFail $ ActionMove
-                    (TSpecificCard (TConst BystanderDeck) (TConst 0))
-                    (TPlayerLocation (TConst pid) (TConst Victory))
-                    (TConst Front)
-                  )
+builtInRecruit = uliftA2 ActionRecruit currentPlayer (argAt 0)
+builtInRescue = uliftA2 ActionRescueBystander currentPlayer (argAt 0)
 
 builtInMakeHeroFull = do
   name     <- argAt 0
@@ -560,6 +556,8 @@ instance ToU HeroType where
 instance FromU PlayerId where
   fromU (UPlayerId x) = return x
   fromU x        = throwError ("Expected UPlayerId, got " <> showT x)
+instance ToU PlayerId where
+  toU x = UPlayerId x
 
 instance FromU UExpr where
   fromU x = return $ UConst x
@@ -573,6 +571,12 @@ instance FromU [UExpr] where
 
 instance ToU Bool where
   toU x = UBool x
+
+instance ToU () where
+  toU () = UNone
+
+toUConst :: ToU a => a -> UExpr
+toUConst = UConst . toU
 
 argAt :: FromU a => Int -> EvalMonad a
 argAt index = do

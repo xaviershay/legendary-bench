@@ -346,8 +346,9 @@ data Action =
 
   ActionAttack2 PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
+  ActionRescueBystander PlayerId SummableInt |
+  ActionDraw PlayerId SummableInt|
   ActionKO SpecificCard |
-  ActionDraw PlayerId |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -502,3 +503,6 @@ extendEnv newVars env = over envVariables (\x -> newVars `M.union` x) env
 infixr 8 ~>
 (~>) :: MType -> MType -> MType
 a ~> b = WFun a b
+
+specificCard :: Location -> Int -> SpecificCard
+specificCard x y = (x, y)
