@@ -4,6 +4,7 @@
 
 module CardLang.TypeInference
   ( typecheck
+  , generalize
   ) where
 
 import Control.Lens (view)
@@ -54,8 +55,6 @@ freeMType (WList x) = freeMType x
 freeMType (WConst _) = mempty
 freeMType (WVar x) = Set.singleton x
 freeMType (WFun x y) = freeMType x <> freeMType y
-
-data PType = Forall (Set.Set Name) MType deriving (Show)
 
 freePType :: PType -> Set.Set Name
 freePType (Forall qs mType) = freeMType mType `Set.difference` qs

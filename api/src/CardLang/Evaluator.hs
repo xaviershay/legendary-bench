@@ -9,7 +9,9 @@ module CardLang.Evaluator
     evalWith
   , evalCards
   , evalWithBoard
+  , eval
   , builtIns
+  , currentVars
   , fromU
   , toU
   , showCode
@@ -345,7 +347,7 @@ builtInMove = do
 
   returnConst $ ActionMove (TConst from) (TConst to) (TConst Front)
 
-builtInNoop = return . UConst . UAction $ ActionNone
+builtInNoop = returnConst $ ActionNone
 
 builtInCombine = do
   a <- argAt 0
@@ -363,8 +365,7 @@ builtInPlayerLocation = do
   pid <- argAt 0
   sloc <- argAt 1
 
-  return . UConst . ULocation $ PlayerLocation pid sloc
-
+  returnConst $ PlayerLocation pid sloc
 
 builtInAddPlayEffect :: EvalMonad UExpr
 builtInAddPlayEffect = do
@@ -376,7 +377,7 @@ builtInAddPlayEffect = do
   action <- eval effect
 
   case fromU action of
-    Right action' -> return . UConst . UCardTemplate $ set playCode action' template
+    Right action' -> returnConst $ set playCode action' template
     Left x -> throwError x
 
 showEnvOneLine vars =
@@ -440,6 +441,7 @@ builtInRescue = do
   pid    <- currentPlayer
 
   return . UConst . UAction $ ActionRecruit pid amount
+
   returnConst (ActionAllowFail $ ActionMove
                     (TSpecificCard (TConst BystanderDeck) (TConst 0))
                     (TPlayerLocation (TConst pid) (TConst Victory))
@@ -568,6 +570,9 @@ instance FromU UValue where
 instance FromU [UExpr] where
   fromU (UList xs) = return xs
   fromU x        = throwError ("Expected UList, got " <> showT x)
+
+instance ToU Bool where
+  toU x = UBool x
 
 argAt :: FromU a => Int -> EvalMonad a
 argAt index = do

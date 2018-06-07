@@ -5,6 +5,7 @@ module Utils
   , module Debug.Trace
   , module Text.Show.Pretty
   , module Control.Lens
+  , module Control.Monad
   ) where
 
 import           Control.Lens     (at, ix, over, preview, set, view)
@@ -14,6 +15,7 @@ import qualified Data.Sequence    as S
 import qualified Data.Text        as T
 import           Debug.Trace      (trace, traceM)
 import           Text.Show.Pretty (ppShow)
+import Control.Monad (foldM)
 
 showT :: Show a => a -> T.Text
 showT = T.pack . show

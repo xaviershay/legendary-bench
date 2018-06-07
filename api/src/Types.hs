@@ -120,6 +120,8 @@ data MType =
 
   deriving (Eq, Show)
 
+data PType = Forall (Set.Set Name) MType deriving (Show)
+
 instance IsString MType where
   fromString x@(h:_) 
     | isUpper h  = WConst . T.pack $ x
@@ -151,7 +153,7 @@ showType (WBoardF x) = "@:" <> showType x
 
 data BuiltInDef = BuiltInDef
   { _builtInName :: Name
-  , _builtInType :: MType
+  , _builtInType :: PType
   , _builtInFn :: EvalMonad UExpr
   }
 

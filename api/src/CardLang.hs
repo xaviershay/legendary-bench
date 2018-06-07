@@ -17,6 +17,7 @@ import qualified CardLang.Parser
 import qualified CardLang.Evaluator
 import CardLang.Evaluator (FromU, ToU, toU, argAt)
 import qualified CardLang.TypeInference
+import qualified CardLang.BuiltIn as B
 
 import CardLang.Types
 
@@ -39,8 +40,10 @@ mkEnv cards =
   $ emptyEnv
 
 genBuiltInExpr :: BuiltInDef -> UExpr
-genBuiltInExpr bi = typeToFn 0 bi (view builtInType bi)
+genBuiltInExpr bi = typeToFn 0 bi mtype
   where
+    (Forall _ mtype) = view builtInType bi
+
     typeToFn :: Int -> BuiltInDef -> MType -> UExpr
     typeToFn n def (WFun _ b) = UConst . UFunc $ UFuncData
                                               { _fnBindings = mempty
@@ -51,18 +54,22 @@ genBuiltInExpr bi = typeToFn 0 bi (view builtInType bi)
     typeToFn n def _ = UBuiltIn (view builtInName def)
 
 defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
-  [ mkBuiltIn "add" ("Int" ~> "Int" ~> "Int") $ builtInBinOp ((+) :: Int -> Int -> Int)
+  [ mkBuiltIn "add" ("Int" ~> "Int" ~> "Int") $ B.binOp ((+) :: Int -> Int -> Int)
+  , mkBuiltIn "<=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<=) :: Int -> Int -> Bool)
+  , mkBuiltIn ">=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>=) :: Int -> Int -> Bool)
+  , mkBuiltIn "<" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<) :: Int -> Int -> Bool)
+  , mkBuiltIn ">" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>) :: Int -> Int -> Bool)
+  , mkBuiltIn "==" ("a" ~> "a" ~> "Bool") $ B.binOp ((==) :: UValue -> UValue -> Bool)
+  , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b")  B.reduce
+  , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
+  , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
   ]
 
 mkBuiltIn name t f = BuiltInDef
   { _builtInName = name
-  , _builtInType = t
+  , _builtInType = ptype
   , _builtInFn = f
   }
+  where
+    ptype = CardLang.TypeInference.generalize mempty t
 
-builtInBinOp :: (FromU a, ToU b) => (a -> a -> b) -> EvalMonad UExpr
-builtInBinOp f = do
-  x <- argAt 0
-  y <- argAt 1
-
-  return . UConst . toU $ f x y
