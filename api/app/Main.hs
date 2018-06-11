@@ -13,9 +13,7 @@ import Control.Monad (forM)
 import Api
 import Types
 import Utils
-import CardLang.Parser
-import CardLang.TypeInference
-import CardLang.Evaluator
+import CardLang
 
 main :: IO ()
 main = do
@@ -33,9 +31,10 @@ main = do
 
 readCards :: T.Text -> IO (S.Seq Card)
 readCards contents =
+  let env = mkEnv Nothing in
   case parse contents of
     Left error -> (putStrLn $ "Parse error: " <> error) >> return mempty
-    Right ast -> case typecheck ast of
+    Right ast -> case typecheck env ast of
       Left error -> (putStrLn . show $ error) >> return mempty
       Right _ -> return $ evalCards ast
 
