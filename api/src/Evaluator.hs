@@ -111,7 +111,7 @@ apply a@(ActionHide location) = do
 apply (ActionRecruit pid amount) = do
   apply (ApplyResources pid $ set money amount mempty)
 
-apply (ActionAttack2 pid amount) = do
+apply (ActionAttack pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply $ ActionMove location KO Front
@@ -301,7 +301,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
            ActionMove location (PlayerLocation pid Victory) Front
-        <> ActionAttack2 pid (negate . view baseHealth $ template)
+        <> ActionAttack pid (negate . view baseHealth $ template)
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer

@@ -299,7 +299,7 @@ data Action =
   ActionConcurrent [Action] |
   ActionChooseCard T.Text [SpecificCard] UExpr Action |
 
-  ActionAttack2 PlayerId SummableInt |
+  ActionAttack PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
   ActionRescueBystander PlayerId SummableInt |
   ActionDraw PlayerId SummableInt|
@@ -427,7 +427,7 @@ isPlaying board = case view boardState board of
 extractMoney (ActionRecruit _ n) = n
 extractMoney _ = mempty
 
-extractAttack (ActionAttack2 _ n) = n
+extractAttack (ActionAttack _ n) = n
 extractAttack _ = mempty
 
 extractDescription (ActionTagged d _) = d
