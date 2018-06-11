@@ -182,9 +182,6 @@ instance ToJSON MoveDestination where
   toJSON Back = "back"
   toJSON (LocationIndex i) = toJSON i
 
-instance ToJSON t => ToJSON (Term t) where
-  toJSON (TConst x) = toJSON x
-
 instance ToJSON Action where
   toJSON (ActionCombine a ActionNone) = toJSON a
   toJSON (ActionCombine ActionNone b) = toJSON b

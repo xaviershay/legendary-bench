@@ -268,53 +268,11 @@ instance Monoid Effect where
   mempty = EffectNone
   mappend = EffectCombine
 
-data Term t where
-  TEmpty          :: Term t
-  TConst          :: t -> Term t
-  TVar            :: T.Text -> Term t
-  TCurrentPlayer  :: Term PlayerId
-  TCardCost       :: Term SpecificCard -> Term SummableInt
-  TPlayerLocation :: Term PlayerId -> Term ScopedLocation -> Term Location
-  TSpecificCard   :: Term Location -> Term Int -> Term SpecificCard
-  TChooseCard     :: T.Text -> Term PlayerId -> Term (S.Seq SpecificCard) -> Term SpecificCard
-  TAllCardsAt     :: Term Location -> Term (S.Seq SpecificCard)
-  TAppend         :: (Monoid a) => Term a -> Term a -> Term a
-  TPlayedOfType   :: HeroType -> Term SummableInt
-  TBystandersAt   :: Term Location -> Term SummableInt
-  -- TODO: Are these lambdas going to work with parsing?
-  TOp             :: (Show t) => (t -> t -> Bool) -> (Term t) -> (Term t) -> Term Bool
-  TFilterBy       :: (Term a -> Term b) -> (Term b -> Term Bool) -> Term (S.Seq a) -> Term (S.Seq a)
-  TMap            :: (Term a -> Term b) -> Term (S.Seq a) -> Term (S.Seq b)
-  THeroType       :: Term SpecificCard -> Term HeroType
-  TLength         :: Term (S.Seq a) -> Term SummableInt
-  TUniq           :: Eq a => Term (S.Seq a) -> Term (S.Seq a)
-
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
 
 showTerms2 t (x, y) = showTerms t [show x, show y]
 showTerms3 t (x, y, z) = showTerms t [show x, show y, show z]
-
-instance Show t => Show (Term t) where
-  show (TConst x)            = showTerms "TConst" [x]
-  show (TCurrentPlayer)      = "TCurrentPlayer"
-  show (TCardCost x)         = showTerms "TCardCost" [x]
-  show (TPlayerLocation x y) = showTerms2 "TPlayerLocation" (x, y)
-  show (TSpecificCard x y)   = showTerms2 "TSpecificCard" (x, y)
-  show (TOp _ y z)           = showTerms2 "TOp" (y, z)
-  show (TEmpty)              = "TEmpty"
-  show (TAllCardsAt x)       = showTerms "TAllCardsAt" [x]
-  show (TAppend x y)         = showTerms2 "TAppend" (x, y)
-  show (TPlayedOfType x)     = showTerms "TPlayedOfType" [x]
-  show (TChooseCard x y z)   = showTerms3 "TChooseCard" (x, y, z)
-  show _                     = "Unknown Term"
-
-instance Eq t => Eq (Term t) where
-  TConst a == TConst b = a == b
-
-instance Monoid t => Monoid (Term t) where
-  mempty = TEmpty
-  mappend a b = TAppend a b
 
 data PlayerChoice =
   ChooseCard SpecificCard |
@@ -329,16 +287,11 @@ data Action =
   ActionNone |
   ActionCombine Action Action |
   ActionAllowFail Action |
-  ActionReveal (Term SpecificCard) |
-  ActionHide (Term SpecificCard) |
-  ActionMove (Term SpecificCard) (Term Location) (Term MoveDestination) |
-  ActionMoney (Term PlayerId) (Term SummableInt) |
-  ActionAttack (Term PlayerId) (Term SummableInt) |
-  ActionFight (Term SpecificCard) |
+  ActionReveal SpecificCard |
+  ActionHide SpecificCard |
+  ActionMove SpecificCard Location MoveDestination |
   ApplyResources PlayerId Resources |
   ActionShuffle Location |
-  ActionIf Condition Action Action |
-  ActionIf2 (Term Bool) Action Action |
   ActionOptional Action Action Action |
   ActionHalt Action T.Text |
   ActionTagged T.Text Action |
@@ -471,10 +424,10 @@ isPlaying board = case view boardState board of
                     (WaitingForChoice _) -> True
                     _                    -> False
 
-extractMoney (ActionMoney TCurrentPlayer (TConst n)) = n
+extractMoney (ActionRecruit _ n) = n
 extractMoney _ = mempty
 
-extractAttack (ActionAttack TCurrentPlayer (TConst n)) = n
+extractAttack (ActionAttack2 _ n) = n
 extractAttack _ = mempty
 
 extractDescription (ActionTagged d _) = d

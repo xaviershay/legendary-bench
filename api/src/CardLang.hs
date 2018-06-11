@@ -74,10 +74,10 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "recruit" ("Int" ~> "Action")          $ uliftA2 ActionRecruit B.currentPlayer (argAt 0)
   , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)
   , mkBuiltIn "draw" ("Int" ~> "Action")             $ uliftA2 ActionDraw B.currentPlayer (argAt 0)
-  , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 (ActionReveal . TConst) (argAt 0)
+  , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 ActionReveal (argAt 0)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
-    $ uliftA3 ActionMove (TConst <$> argAt 0) (TConst <$> argAt 1) (pure $ TConst Front)
+    $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Front)
 
   -- Card functions
   , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost

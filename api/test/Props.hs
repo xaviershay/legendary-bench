@@ -129,15 +129,12 @@ instance Arbitrary Condition where
   shrink = genericShrink
   arbitrary = ConditionCostLTE <$> arbitrary <*> arbitrary
 
-instance Arbitrary a => Arbitrary (Term a) where
-  shrink (TConst x) = map TConst . shrink $ x
-
 instance Arbitrary Action where
   shrink = genericShrink
   arbitrary = sized f
     where
       f 0 = oneof [ pure ActionNone
-                  , liftM3 ActionMove (TConst <$> arbitrary) (TConst <$> arbitrary) (TConst <$> arbitrary)
+                  , liftM3 ActionMove arbitrary arbitrary arbitrary
                   ]
       f n = oneof [f 0, liftM2 ActionCombine sub sub]
         where

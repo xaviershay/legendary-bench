@@ -10,28 +10,6 @@ import Utils
 import GameMonad
 import Control.Lens
 
--- Convert card effects to actions
--- ===============================
---playAction :: CardInPlay -> GameMonad Action
---playAction = effectAction . view (cardTemplate . playEffect)
-
-effectAction :: Effect -> GameMonad Action
-effectAction (EffectMoney n) = applyResourcesAction (set money n mempty)
-effectAction (EffectAttack n) = applyResourcesAction (set attack n mempty)
-effectAction EffectNone = return ActionNone
-effectAction (EffectCustom _ f) = return f
-effectAction (EffectCombine a b) = do
-  x <- effectAction a
-  y <- effectAction b
-
-  return $ x <> y
-
-applyResourcesAction :: Resources -> GameMonad Action
-applyResourcesAction rs = do
-  player <- currentPlayer
-
-  return $ ApplyResources player rs
-
 -- Action Builders
 -- ===============
 
@@ -39,8 +17,8 @@ replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
   revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
 
 revealAndMove source destination spot =
-     ActionReveal (TConst source)
-  <> ActionMove (TConst source) (TConst destination) (TConst spot)
+     ActionReveal source
+  <> ActionMove source destination spot
 
 drawAction :: Int -> PlayerId -> Action
 drawAction n pid = ActionTagged (playerDesc pid <> " draws " <> showT n) $

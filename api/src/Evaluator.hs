@@ -6,7 +6,6 @@
 module Evaluator
   ( apply
   , lookupCard
-  , query
   )
   where
 
@@ -35,78 +34,6 @@ import CardLang.Evaluator (fromU, toU)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
-
-defaultEnv :: M.HashMap T.Text (Term a)
-defaultEnv = mempty
-
-query :: Show a => Term a -> GameMonad a
-query (TConst x) = return x
---query (TVar x) = query $ M.lookupDefault (TConst 0) x defaultEnv
-query (TAppend TEmpty TEmpty) = lose "Can't append two empty queries"
-query (TAppend a TEmpty) = query a
-query (TAppend TEmpty b) = query b
-query (TAppend a b) = (<>) <$> query a <*> query b
-query TCurrentPlayer = currentPlayer
-query (TSpecificCard x y) = (,) <$> query x <*> query y
-query (TCardCost tl) = do
-  l <- query tl
-  card <- requireCard l
-
-  return $ view (cardTemplate . heroCost) card
-
-query (TPlayerLocation tpid tsl) =
-  PlayerLocation <$> query tpid <*> query tsl
-
-query (TOp cond lhs rhs) = cond <$> query lhs <*> query rhs
--- TODO: This function has no way of clearing choices. Not sure if good or bad
--- but something is weird.
-query (TChooseCard desc qwho qoptions) = do
-  who <- query qwho
-  options <- query qoptions
-  choices <- view (playerChoices . at who . non mempty) <$> currentBoard
-
-  case choices of
-    (ChooseCard specificCard :<| _)
-      | elem specificCard options -> return specificCard
-    -- TODO: Throwing ActionNone here and relying on callers to catch it sucks.
-    -- Need to revisit, probably by placing current action into GameMonad.
-    _ -> wait ActionNone $ playerDesc who <> ": " <> desc
-
-query (TAllCardsAt qloc) = do
-  loc <- query qloc
-  cs <- view (cardsAtLocation loc) <$> currentBoard
-
-  let n = length cs
-
-  return $ S.zip (S.replicate n loc) (S.fromList [0..n-1])
-
-query (TPlayedOfType t) = do
-  pid <- currentPlayer
-
-  id
-    . Sum
-    . S.length
-    . S.filter (\c -> t == view (cardTemplate . heroType) c)
-    . view (cardsAtLocation (PlayerLocation pid Played))
-    <$> currentBoard
-
-query (TBystandersAt qloc) = do
-  loc <- query qloc
-
-  id
-    . Sum
-    . S.length
-    . S.filter (isBystander . view cardTemplate)
-    . view (cardsAtLocation loc)
-    <$> currentBoard
-
-  where
-    isBystander BystanderCard = True
-    isBystander _ = False
-
-query x = lose $ "Unknown term: " <> showT x
-
-queryFailed a (board, action) = throwError (board, a)
 
 -- Applies an action to the current board, returning the resulting one.
 apply :: Action -> GameMonad Board
@@ -138,11 +65,7 @@ apply (ActionAllowFail a) = do
       else
         throwError (board, ActionAllowFail action)
 
-apply a@(ActionMove qfrom qto qdest) = do
-  specificCard@(location, i) <- query qfrom `catchError` (queryFailed a)
-  to <- query qto
-  dest <- query qdest
-
+apply a@(ActionMove specificCard@(location, i) to dest) = do
   maybeCard <- lookupCard specificCard
 
   case maybeCard of
@@ -150,7 +73,7 @@ apply a@(ActionMove qfrom qto qdest) = do
     Just card -> do
                    board <- currentBoard
 
-                   logAction (ActionMove (TConst specificCard) (TConst to) (TConst dest))
+                   logAction (ActionMove specificCard to dest)
 
                    return $
                        over (cardsAtLocation location) (S.deleteAt i)
@@ -162,8 +85,7 @@ apply a@(ActionMove qfrom qto qdest) = do
     insertF Back = flip (|>)
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
-apply a@(ActionReveal ql) = do
-  location <- query ql
+apply a@(ActionReveal location) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
@@ -174,8 +96,7 @@ apply a@(ActionReveal ql) = do
       --logAction a
 
       return board
-apply a@(ActionHide ql) = do
-  location <- query ql
+apply a@(ActionHide location) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
@@ -187,30 +108,19 @@ apply a@(ActionHide ql) = do
 
       return board
 
-apply (ActionMoney qp pi) = do
-  pid <- query qp
-  amount <- query pi
-
-  apply (ApplyResources pid $ set money amount mempty)
-
 apply (ActionRecruit pid amount) = do
   apply (ApplyResources pid $ set money amount mempty)
 
-apply (ActionAttack qp pi) = do
-  pid <- query qp
-  amount <- query pi
-
-  apply (ApplyResources pid $ set attack amount mempty)
 apply (ActionAttack2 pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
-apply (ActionKO location) = apply (ActionMove (TConst location) (TConst KO) (TConst Front))
+apply (ActionKO location) = apply $ ActionMove location KO Front
 apply (ActionDraw pid amount) = apply -- TODO: Respect amount
-     ((ActionReveal (TConst (PlayerLocation pid PlayerDeck, 0)))
+     ((ActionReveal (PlayerLocation pid PlayerDeck, 0))
   <> (ActionMove
-    (TConst (PlayerLocation pid PlayerDeck, 0))
-    (TConst (PlayerLocation pid Hand))
-    (TConst Front)))
+        (PlayerLocation pid PlayerDeck, 0)
+        (PlayerLocation pid Hand)
+        Front))
 
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -225,15 +135,6 @@ apply a@(ApplyResources (PlayerId id) rs) = do
     return board'
 
 apply ActionNone = currentBoard
-
-apply (ActionIf cond a b) = do
-  branch <- checkCondition cond
-
-  apply $ if branch then a else b
-apply (ActionIf2 qcond a b) = do
-  branch <- query qcond
-
-  apply $ if branch then a else b
 
 apply (ActionCombine a b) = do
   board' <- apply a `catchError` handler
@@ -388,8 +289,8 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       let template = view cardTemplate card
 
       return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-           ActionMove (TConst location) (TConst $ PlayerLocation pid Discard) (TConst Front)
-        <> ActionMoney (TConst pid) (TConst $ -(view heroCost template))
+           (ActionMove location (PlayerLocation pid Discard) Front)
+        <> (ActionRecruit pid (-(view heroCost template)))
         <> replaceHeroInHQ i
 
     f (ChooseCard location@(City n, i) :<| _) = do
@@ -399,8 +300,8 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       let template = view cardTemplate card
 
       return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
-           ActionMove (TConst location) (TConst $ PlayerLocation pid Victory) (TConst Front)
-        <> ActionAttack (TConst pid) (TConst . negate . view baseHealth $ template)
+           ActionMove location (PlayerLocation pid Victory) Front
+        <> ActionAttack2 pid (negate . view baseHealth $ template)
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
@@ -454,9 +355,9 @@ apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
         card <- requireCard location
 
         return $ ActionMove
-          (TConst location)
-          (TConst $ PlayerLocation pid Discard)
-          (TConst Front)
+                   location
+                   (PlayerLocation pid Discard)
+                   Front
     discardSelection _ = return . ActionHalt a $
       playerDesc pid <> ": select a card in hand to discard"
 
@@ -467,7 +368,7 @@ apply ActionKOHero = applyChoices koHero
       valid <- checkCondition (ConditionCostLTE location 6)
 
       return $ if valid then
-             ActionMove (TConst location) (TConst KO) (TConst Front)
+             ActionMove location KO Front
           <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
       else
         ActionHalt ActionKOHero $
@@ -566,8 +467,8 @@ tryShuffleDiscardToDeck a specificCard = do
     moveAndHide :: Int -> Location -> Location -> Action
     moveAndHide n from to =
       mconcat . toList . replicate n $
-           ActionMove (TConst $ (from, 0)) (TConst to) (TConst Front)
-        <> ActionHide (TConst (to, 0))
+           ActionMove (from, 0) to Front
+        <> ActionHide (to, 0)
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
 overCard (location, i) f = do
