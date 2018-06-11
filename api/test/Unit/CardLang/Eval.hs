@@ -68,4 +68,6 @@ test_Eval = testGroup "CardLang evaluation"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
+  , testEval (UInt 4) "((. (fn [a] (add a 1)) (fn [b] (add b 2))) 1)"
+  , testEval (UInt 7) "((. (add 1) (add 2) (add 3)) 1)"
   ]

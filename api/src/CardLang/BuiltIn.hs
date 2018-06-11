@@ -93,6 +93,13 @@ chooseCard = do
     Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose onPass
     Left y -> throwError y
 
+compose = do
+  f1 <- argAt 0
+  f2 <- argAt 1
+  x  <- argAt 2
+
+  return $ UApp f1 (UApp f2 x)
+
 currentBoard = do
   board <- view envBoard <$> get
 

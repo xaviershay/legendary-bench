@@ -80,4 +80,8 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "(a -> Bool) -> [a] -> [a]" "(fn [f xs] (reduce (fn [a x] (if (f x) [x] [x])) [] xs))"
   , testInfer "(Int -> Bool) -> Int -> Int" "(fn [f x] (if (f x) x 1))"
   , testInfer "[a] -> a -> [a]" "(fn [a x] (concat [a (if (<= 0 1) [x] [])]))"
+  , testInfer "Int -> Int" "(. (add 1) (add 2))"
+  , testInfer "Int -> Bool" "(. (>= 1) (add 2))"
+  , testInfer "[[a]] -> Int" "(. (reduce (fn [a x] 0) 0) concat)"
+  , testInfer "Int -> Bool" "(def x (. (>= 1) (add 2))) x"
   ]

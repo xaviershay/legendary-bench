@@ -48,7 +48,7 @@ pAtom =  parseInt
 
 parseInt = ((AInt . read) <$> many1 digit)
 parseBool = ABool <$> (parseSpecific "true" True <|> parseSpecific "false" False)
-parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>_"))
+parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>_."))
 parseString = AString . T.pack <$> quotedString
 
 parseSpecific match value = do
@@ -114,6 +114,7 @@ toExpr (A (ASymbol "if") ::: cond ::: lhs ::: rhs ::: Nil) =
   UIf <$> toExpr cond <*> toExpr lhs <*> toExpr rhs
 
 toExpr (A (ASymbol "combine") ::: L args) = convertCombine args
+toExpr (A (ASymbol ".") ::: L args) = convertComposition args
 toExpr (A (ASymbol "list") ::: L rest) = UConst . UList <$> convertList rest
 toExpr (A (ASymbol x)) = Right . UVar $ x
 toExpr (L args) = convertApp (reverse args)
@@ -146,6 +147,13 @@ convertCombine (x:xs) = do
   y' <- convertCombine xs
 
   return $ UApp (UApp (UVar "combine") x') y'
+
+convertComposition [x] = toExpr x
+convertComposition (x:xs) = do
+  x' <- toExpr x
+  y' <- convertComposition xs
+
+  return $ UApp (UApp (UVar "compose") x') y'
 
 convertApp [A (ASymbol x)] = return . UVar $ x
 convertApp [a] = toExpr a

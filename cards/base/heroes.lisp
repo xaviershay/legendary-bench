@@ -1,4 +1,20 @@
+; TODO: Extract this to a prelude
+(defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
+(defn filter [f xs] (reduce
+                      (fn [a x] (concat [a (if (f x) [x] [])]))
+                      []
+                      xs))
+(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
+(defn any [f xs] (> (length (filter f xs)) 0))
+;(def any (. (<= 0) length filter))
+(def concat-map (. concat map)) ; TODO: Function composition
+;(defn concat-map [f xs] (concat (map f xs)))
 (defn guard [cond action] (if cond action noop))
+(defn cards-at-current-player-location [scope]
+  (cards-at (player-location current-player scope)))
+(defn is-type [t c] (== t (card-type c)))
+(defn played [type]
+  (any (is-type type) (cards-at (player-location current-player "Played"))))
 
 (hero-set "Spider-Man" "Spider Friends")
 
@@ -23,41 +39,18 @@
 
 (hero-set "Black Widow" "Avengers")
 
-(defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
-;(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
-;(defn filter [f xs] (reduce
-;                      (fn [a x] (concat [a (if (f x) [x] [])]))
-;                      []
-;                      xs))
-
-(defn filter [f_f f_xs] (reduce (fn [f_ra f_rx] (concat [f_ra (if (f_f f_rx) [f_rx] [])])) [] f_xs))
-(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
-(defn any [any_f any_xs] (> (length (filter any_f any_xs)) 0))
-
-(defn cards-at-current-player-location [scope]
-  (cards-at (player-location current-player scope)))
-
-;(defn any [f xs] (> (length (filter f xs)) 0))
-(defn is-type [t c] (== t (card-type c)))
-;(defn is-type [t c] (== t (card-type c)))
-;(defn played [type] (any (fn [x] (== x "a")) ["b" "a"]))
-(defn played [type]
-  (any (is-type type) (cards-at (player-location current-player "Played"))))
-
 (make-hero
   "Dangerous Rescue" "Covert" 3 5
  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
-  ;     (add-play-effect @(attack 2)))
   (add-play-effect
     @(combine
        (attack 2)
        (choose-card
          "Choose a card from hand or discard to KO"
-         (concat (map cards-at-current-player-location ["Hand" "Discard"]))
+         (concat-map cards-at-current-player-location ["Hand" "Discard"])
          (fn [card] (combine (ko card) (rescue-bystander 1)))
          noop)
        )))
-  ;      ;#(append (ko %) (rescue-bystander 1)))))
 ;
 (make-hero
   "Mission Accomplished" "Tech" 2 5
@@ -66,9 +59,7 @@
     (draw 1)
     (guard (played "Tech") (rescue-bystander 1)))))
 
-;(defn make-hero [name type cost amount desc post]
-;  (make-hero-full "Captain America" "Avengers" name type cost amount desc post))
-;
+;(hero-set "Captain America" "Avengers")
 ;(make-hero "Diving Block" "Tech" 6 3
 ;  "If you would gain a Wound, you may reveal this card and draw a card instead."
 ;  (add-play-effect @(attack 4))
