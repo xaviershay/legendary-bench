@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import Servant
@@ -17,10 +19,12 @@ import CardLang
 
 main :: IO ()
 main = do
+  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
 
+  prelude <- T.readFile prelude
   contents <- T.readFile path
-  cards <- readCards contents
+  cards <- readCards (prelude <> "\n" <> contents)
 
 --  forM cards $ \x -> do
 --    putStrLn $ ppShow x
@@ -35,7 +39,7 @@ readCards contents =
   case parse contents of
     Left error -> (putStrLn $ "Parse error: " <> error) >> return mempty
     Right ast -> case typecheck env ast of
-      Left error -> (putStrLn . show $ error) >> return mempty
+      Left e -> error $ show e
       Right _ -> return $ evalCards ast
 
 focus = main

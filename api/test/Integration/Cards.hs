@@ -27,10 +27,12 @@ readCards contents =
       Right _ -> return . Right $ evalCards ast
 
 test_CardsIntegration = do
+  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
 
+  prelude <- T.readFile prelude
   contents <- T.readFile path
-  cards <- readCards contents
+  cards <- readCards (prelude <> "\n" <> contents)
 
   case cards of
     Left x -> return $ testCase "Card smoke tests" (assertFailure x)

@@ -36,6 +36,21 @@ testInferFail expected input =
                        Right x -> error $ show x
                        Left y -> y
 
+testInferWithPrelude :: T.Text -> T.Text -> IO TestTree
+testInferWithPrelude expected input = do
+  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
+  prelude <- T.readFile prelude
+
+  return $ testCase (T.unpack $ input <> " :: " <> expected) $ expected @=? inferType (prelude <> "\n" <> input)
+  where
+    inferType :: T.Text -> T.Text
+    inferType text = let result = showType <$> case parse text of
+                                          Right x -> typecheck (mkEnv Nothing) x -- (mkTypeEnv builtInDefs) x
+                                          Left y  -> error $ "parse error: " <> show y in
+                     case result of
+                       Right x -> x
+                       Left y -> error $ show y
+
 test_TypeInference = testGroup "CardLang Type Inference"
   [ testInfer "Int" "1"
   , testInfer "String" "\"a\""

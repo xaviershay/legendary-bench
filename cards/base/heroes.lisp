@@ -1,21 +1,3 @@
-; TODO: Extract this to a prelude
-(defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
-(defn filter [f xs] (reduce
-                      (fn [a x] (concat [a (if (f x) [x] [])]))
-                      []
-                      xs))
-(defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
-(defn any [f xs] (> (length (filter f xs)) 0))
-;(def any (. (<= 0) length filter))
-(def concat-map (. concat map)) ; TODO: Function composition
-;(defn concat-map [f xs] (concat (map f xs)))
-(defn guard [cond action] (if cond action noop))
-(defn cards-at-current-player-location [scope]
-  (cards-at (player-location current-player scope)))
-(defn is-type [t c] (== t (card-type c)))
-(defn played [type]
-  (any (is-type type) (cards-at (player-location current-player "Played"))))
-
 (hero-set "Spider-Man" "Spider Friends")
 
 (defn spiderman-action [custom]
