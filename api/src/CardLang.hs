@@ -82,7 +82,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
   , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
-    $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Front)
+    $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Back)
 
   -- Card functions
   , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost

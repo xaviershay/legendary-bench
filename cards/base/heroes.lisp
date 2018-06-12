@@ -91,8 +91,19 @@
   "If a card effect makes you discard this card, you may return this card to your hand."
   (.
     (add-play-effect @(attack 4))
-    (add-discarded-effect @(fn [self]
-                              (choose-yesno "Return Unending Energy to your hand?"
-                                (move self (player-location (card-owner self) "Hand"))
-                                noop)))
+    (add-discarded-effect
+      @(fn [self]
+        (choose-yesno "Return Unending Energy to your hand?"
+          ; TODO: This relies on move sending the card to the back of the hand,
+          ; and not changing the indices of existing cards, because the played
+          ; card is still "on the stack" and hasn't been moved out of hand yet.
+          ; Identifying cards by ID would be more reliable, but still need to
+          ; be able to identify cards by index (in the case of unrevealed
+          ; cards). OR as long as card IDs are recalculated whenever they are
+          ; shuffled or hidden, that could work..
+          ;
+          ; In any case, need a way to easily create an integration test to
+          ; ensure this behaviour keeps working.
+          (move self (player-location (card-owner self) "Hand"))
+          noop)))
   ))
