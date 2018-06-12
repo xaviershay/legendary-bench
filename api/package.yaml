@@ -103,3 +103,4 @@ tests:
     - unordered-containers
     - text
     - hashable
+    - mtl
