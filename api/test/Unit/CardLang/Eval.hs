@@ -78,9 +78,9 @@ test_Eval =
   , testEval (UInt 2) "(if false 1 2)"
   , testEval (UInt 6) "(reduce (fn [sum n] (add sum n)) 0 [1 2 3])"
   , testEval (UList [UConst $ UInt 1, UConst $ UInt 2]) "(concat [[1] [2]])"
-  , testEval (UBoardFunc emptyEnv (UConst . UInt . Sum $ 1)) "(board-fn 1)"
-  , testEval (UBoardFunc emptyEnv (UConst . UInt . Sum $ 1)) "@(1)"
-  , testEval (UBoardFunc emptyEnv (UVar "current-player")) "@(current-player)"
+  , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "(board-fn 1)"
+  , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
+  , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"

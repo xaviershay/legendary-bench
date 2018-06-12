@@ -19,7 +19,7 @@ import Utils
 
 import Debug.Trace
 
-genCards n = S.replicate n $ buildCard moneyCard All
+--genCards n = S.replicate n $ buildCard moneyCard All
 
 buildCard template vis = CardInPlay
   { _cardTemplate = template
@@ -55,18 +55,18 @@ test_ConcurrentAction =
         result = runGameMonad mkBoard $ apply action
         action = ActionConcurrent [halt "a", tracer "b", halt "c"]
 
-test_DrawFromEmpty =
-  testGroup "Drawing from empty deck shuffles in discard"
-    [ testCase "Hand contains a card" $ 1 @=? lengthOf Hand
-    , testCase "Discard is empty" $ 0 @=? lengthOf Discard
-    ]
-
-  where
-    board = set (cardsAtLocation (PlayerLocation player Discard)) (genCards 1)
-              $ mkBoard
-    action = drawAction 1 player
-    player = PlayerId 0
-    result = runGameMonad board $ apply action
-    lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
+--test_DrawFromEmpty =
+--  testGroup "Drawing from empty deck shuffles in discard"
+--    [ testCase "Hand contains a card" $ 1 @=? lengthOf Hand
+--    , testCase "Discard is empty" $ 0 @=? lengthOf Discard
+--    ]
+--
+--  where
+--    board = set (cardsAtLocation (PlayerLocation player Discard)) (genCards 1)
+--              $ mkBoard
+--    action = drawAction 1 player
+--    player = PlayerId 0
+--    result = runGameMonad board $ apply action
+--    lengthOf x = length $ view (cardsAtLocation (PlayerLocation player x)) result
 
 addPlayer player = over players (mkPlayer player S.<|)
