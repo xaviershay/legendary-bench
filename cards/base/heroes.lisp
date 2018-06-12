@@ -1,3 +1,13 @@
+(hero-set "S.H.E.I.L.D" "")
+
+(make-hero "S.H.E.I.L.D Agent" "Shield" 0 0
+    ""
+    (add-play-effect @(recruit 1)))
+
+(make-hero "S.H.E.I.L.D Trooper" "Shield" 0 0
+    ""
+    (add-play-effect @(attack 1)))
+
 (hero-set "Spider-Man" "Spider Friends")
 
 (defn spiderman-action [custom]
@@ -93,10 +103,3 @@
 ;;(def hero-name "S.H.E.I.L.D")
 ;;(def hero-team "S.H.E.I.L.D")
 ;;
-;;(make-hero "S.H.E.I.L.D Agent" :shield 0 0
-;;    ""
-;;    ["play" (recruit 1)])
-;;
-;;(make-hero "S.H.E.I.L.D Trooper" :shield 0 0
-;;    ""
-;;    ["play" (attack 1)])

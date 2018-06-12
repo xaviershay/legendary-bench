@@ -149,7 +149,7 @@ makeHero = do
                   , _heroDescription = desc
                   , _playEffect = ActionNone
                   , _playCode = UConst . UAction $ ActionNone
-                  , _playGuard = parseUnsafe "id"
+                  , _playGuard = parseUnsafe "@(fn [x] x)"
                   }
 
   template' <- eval (UApp callback template)

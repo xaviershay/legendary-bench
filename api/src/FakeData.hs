@@ -5,7 +5,9 @@ module FakeData where
 import           Control.Lens        (set, view)
 import           Control.Monad       (foldM)
 import           Control.Monad.State (State, evalState, get, put)
+import           Data.Foldable       (find)
 import qualified Data.HashMap.Strict as M
+import           Data.Maybe          (fromJust)
 import qualified Data.Sequence       as S
 import           System.Random       (StdGen, mkStdGen)
 
@@ -40,34 +42,37 @@ genBoard g playerCount cards = evalState a 1
         <$> foldM setPlayerDeck mkBoard ps
 
     setPlayerDeck board pid = do
-      playerDeck <- mkPlayerDeck
+      playerDeck <- mkPlayerDeck cards
 
       return $ set
         (cardsAtLocation (PlayerLocation pid PlayerDeck))
         playerDeck
         board
 
-mkHeroDeck cards =
-  sequence
-    . fmap (mkCardInPlay Hidden)
+mkHeroDeck =
+  traverse (mkCardInPlay Hidden)
     . mconcat
     . fmap (\c -> S.replicate (toInt $ view heroStartingNumber c) c)
     . toList
-    $ cards
 
 mkBystanderDeck =
-  sequence . fmap (mkCardInPlay All) $
+  traverse (mkCardInPlay All) $
     S.replicate 30 BystanderCard
 
 mkVillainDeck =
-  sequence . fmap (mkCardInPlay Hidden) $
+  traverse (mkCardInPlay Hidden) $
     S.replicate 30 villianCard <> S.replicate 30 BystanderCard
 
 
-mkPlayerDeck =
-  sequence . fmap (mkCardInPlay Hidden) $
-       S.replicate 8 moneyCard
+mkPlayerDeck cards =
+  traverse (mkCardInPlay Hidden) $
+       S.replicate 8 recruitCard
     <> S.replicate 4 attackCard
+
+  where
+    recruitCard = findCard "S.H.E.I.L.D Agent"
+    attackCard  = findCard "S.H.E.I.L.D Trooper"
+    findCard name = fromJust $ find ((==) name . view heroAbilityName) cards
 
 mkCardInPlay :: Visibility -> Card -> State Int CardInPlay
 mkCardInPlay visibility template = do
