@@ -71,7 +71,12 @@ showCode (UConst (UFunc fn)) = "(fn {"
                                    <> showCode (view fnBody fn) <> ")"
   where
     f (k, v) = k <> ": " <> showCode v
-showCode (UConst (UBoardFunc _ expr)) = "@" <> showCode expr
+showCode (UConst (UBoardFunc bindings expr)) = "@{"
+                                   <> T.intercalate ", " (fmap f . M.toList $ bindings)
+                                   <> "} "
+                                   <> showCode expr
+  where
+    f (k, v) = k <> ": " <> showCode v
 showCode (UConst (UInt (Sum x))) = showT x
 showCode (UConst (UString x)) = x
 showCode (UConst UNone) = "()"
@@ -123,16 +128,19 @@ eval' (UDef name expr) = do
   modify (setNon (envVariables . at name) (UConst body))
   pure UNone
 
-eval' (UConst fn@(UBoardFunc env' expr)) = do
+eval' e@(UConst fn@(UBoardFunc bindings expr)) = do
   env <- get
   board <- view envBoard <$> get
 
   case board of
-    Nothing -> pure (UBoardFunc (extendEnv (view envVariables env') env) expr)
-    Just b -> do
-      modify (extendEnv (view envVariables env'))
-      eval expr
-      -- TODO: Put env back the way we found it?
+    Nothing -> pure (UBoardFunc (bindVars env bindings) expr)
+    Just b  -> withVars bindings $ eval expr
+
+  where
+    bindVars env b =
+      let free = freeVars env e in
+      let bindings = view envVariables env `M.intersection` M.fromList (zip (toList free) (repeat ())) in
+      b `M.union` bindings
 
 eval' e@(UConst (UFunc d)) = do
   env <- get
@@ -143,7 +151,6 @@ eval' e@(UConst (UFunc d)) = do
       let free = freeVars env e in
       let bindings = view envVariables env `M.intersection` M.fromList (zip (toList free) (repeat ())) in
       over fnBindings (\x -> x `M.union` bindings) d
-
 
 eval' (UConst (UList xs)) = do
   xs' <- sequenceA (map eval xs)
@@ -314,6 +321,9 @@ instance ToU ScopedLocation where
 
 instance ToU HeroType where
   toU (HeroType x) = UString x
+
+instance ToU HeroTeam where
+  toU (HeroTeam x) = UString x
 
 instance FromU PlayerId where
   fromU (UPlayerId x) = return x

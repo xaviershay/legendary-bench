@@ -111,7 +111,7 @@ toExpr (A (ASymbol "hero-set") ::: name ::: team ::: Nil) = do
 toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   expr <- toExpr body
 
-  return . UConst $ UBoardFunc emptyEnv expr
+  return . UConst $ UBoardFunc mempty expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
 toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do

@@ -80,12 +80,14 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "draw" ("Int" ~> "Action")             $ uliftA2 ActionDraw B.currentPlayer (argAt 0)
   , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 ActionReveal (argAt 0)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
+  , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
     $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Front)
 
   -- Card functions
   , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost
   , mkBuiltIn "card-type" ("SpecificCard" ~> "String") $ B.cardAttr heroType
+  , mkBuiltIn "card-team" ("SpecificCard" ~> "String") $ B.cardAttr heroTeam
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
   , mkBuiltIn "player-location" ("PlayerId" ~> "String" ~> "Location")
@@ -102,6 +104,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   -- Misc
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
   , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
+  , mkBuiltIn "add-play-guard" (WBoardF ("Action" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addPlayGuard
   , mkBuiltIn "make-hero-full"
      (  "String"
      ~> "String"

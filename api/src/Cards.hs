@@ -24,6 +24,7 @@ moneyCard = HeroCard
   , _heroDescription = mempty
   , _playEffect = ActionNone
   , _playCode = parseUnsafe "@(recruit 1)"
+  , _playGuard = parseUnsafe "@(fn [x] x)"
   , _heroCost = 0
   , _heroStartingNumber = 0
   }
@@ -36,6 +37,7 @@ attackCard = HeroCard
   , _heroDescription = mempty
   , _playEffect = ActionNone
   , _playCode = parseUnsafe "@(attack 1)"
+  , _playGuard = parseUnsafe "@(fn [x] x)"
   , _heroCost = 0
   , _heroStartingNumber = 0
   }

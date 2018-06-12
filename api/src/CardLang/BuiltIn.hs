@@ -9,6 +9,7 @@ import           Control.Lens         (Traversal')
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State  (get, modify)
 
+import CardLang.Parser (parseUnsafe)
 import CardLang.Evaluator hiding (argAt)
 import Utils
 import Types
@@ -38,6 +39,16 @@ addPlayEffect = do
   case fromU action of
     Right action' -> return . toUConst $ set playCode action' template
     Left x        -> throwError x
+
+addPlayGuard = do
+  env <- get
+
+  guardF   <- argAt 0
+  template <- argAt 1
+
+  case fromU guardF of
+    Right expr -> return . toUConst $ set playGuard expr template
+    Left x     -> throwError x
 
 concat = do
   es :: [UExpr] <- argAt 0
@@ -138,6 +149,7 @@ makeHero = do
                   , _heroDescription = desc
                   , _playEffect = ActionNone
                   , _playCode = UConst . UAction $ ActionNone
+                  , _playGuard = parseUnsafe "id"
                   }
 
   template' <- eval (UApp callback template)

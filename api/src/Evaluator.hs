@@ -30,7 +30,7 @@ import           Types
 import           Utils
 
 import CardLang
-import CardLang.Evaluator (fromU, toU)
+import CardLang.Evaluator (fromU, toU, showCode)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
@@ -115,6 +115,14 @@ apply (ActionAttack pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply $ ActionMove location KO Front
+apply (ActionDiscardCard location) = do
+  pid <- owner location
+  apply $ ActionMove location (PlayerLocation pid Discard) Front
+
+  where
+    owner (PlayerLocation pid _, _) = return pid
+    owner _ = lose "Cannot discard a card not in a player location"
+
 apply (ActionDraw pid amount) = apply -- TODO: Respect amount
      ((ActionReveal (PlayerLocation pid PlayerDeck, 0))
   <> (ActionMove
@@ -275,18 +283,27 @@ apply a@(ActionPlayerTurn _) = applyChoices f
         do
           board <- currentBoard
           card       <- requireCard location
+
           let cardCode = fromJust $ preview (cardTemplate . playCode) card
 
           let ret = evalWith (mkEnv $ Just board) cardCode
 
           action <- case fromU $ ret of
-                         Right x -> return x
-                         Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+                      Right x -> return x
+                      Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
-          return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
-               revealAndMove location (PlayerLocation pid Played) Front
-            <> action
-            <> a
+
+          let continue = revealAndMove location (PlayerLocation pid Played) Front
+                      <> action
+          let guardCode = fromJust $ preview (cardTemplate . playGuard) card
+
+          let ret = evalWith (mkEnv $ Just board) (UApp guardCode (UConst . toU $ continue))
+
+          case fromU ret of
+            Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+            Right x -> return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
+                         x
+                      <> a
       else
         f mempty
 

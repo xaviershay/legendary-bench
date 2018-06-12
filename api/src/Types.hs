@@ -104,7 +104,7 @@ data UValue =
  | UString T.Text
  | UBool Bool
  | UFunc UFuncData
- | UBoardFunc UEnv UExpr
+ | UBoardFunc Bindings UExpr
  | UAction Action
  | USpecificCard SpecificCard
  | UCardTemplate Card
@@ -169,6 +169,7 @@ data Card = HeroCard
   , _heroDescription :: T.Text
   , _playEffect :: Action
   , _playCode :: UExpr
+  , _playGuard :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
   } | EnemyCard
@@ -304,6 +305,7 @@ data Action =
   ActionRescueBystander PlayerId SummableInt |
   ActionDraw PlayerId SummableInt|
   ActionKO SpecificCard |
+  ActionDiscardCard SpecificCard |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |

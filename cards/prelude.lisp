@@ -14,5 +14,6 @@
 (defn cards-at-current-player-location [scope]
   (cards-at (player-location current-player scope)))
 (defn is-type [t c] (== t (card-type c)))
+(defn is-team [t c] (== t (card-team c)))
 (defn played [type]
   ((. (any (is-type type)) cards-at) (player-location current-player "Played")))
