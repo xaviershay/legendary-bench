@@ -30,7 +30,11 @@ Concepts
 
 The state of the game is represented by the _board_. The
 only way the board can be modified is by applying an
-_action_. An action is able to _halt_ application if it is unable to complete due to insufficient player _choices_ (i.e. the player hasn't selected a card yet). When an action halts, it provides a _resume_ action to be stored in the board. When the set of player choices changes, the action can be resumed by applying the saved action.
+_action_. An action is able to _halt_ application if it is unable to complete
+due to insufficient player _choices_ (i.e. the player hasn't selected a card
+yet). When an action halts, it provides a _resume_ action to be stored in the
+board. When the set of player choices changes, the action can be resumed by
+applying the saved action.
 
 Perhaps surprisingly, there is no way to apply an action
 directly via the API! The entire game is modeled as a
