@@ -16,7 +16,7 @@ import CardLang
 testEval = testEvalWith mempty
 testEvalWith env expected input =
   let env' = extendEnv (M.fromList env) (mkEnv Nothing) in
-  testCase (T.unpack . escape $ input) $ expected @=? query env' input
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' input
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
@@ -26,7 +26,23 @@ testEvalWith env expected input =
                         Left y -> error $ show y
 
 
-test_Eval = testGroup "CardLang evaluation"
+testEvalWithPrelude expected input = do
+  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
+  prelude <- T.readFile prelude
+
+  let env' = extendEnv mempty (mkEnv Nothing)
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> "\n" <> input)
+  where
+    query :: UEnv -> Name -> UValue
+    query env text = case parse text of
+                        Right x -> case typecheck env x of
+                                     Right _ -> evalWith env x
+                                     Left y -> error $ "Typecheck fail: " <> show y
+                        Left y -> error $ show y
+
+test_Eval :: IO TestTree
+test_Eval =
+  testGroup "CardLang evaluation" <$> sequence
   [ testEval (UInt 1) "1"
   , testEval (UInt 1) "; comment\n1"
   , testEval (UString "") "\"\""
@@ -70,4 +86,11 @@ test_Eval = testGroup "CardLang evaluation"
   , testEval (UList [UConst (UInt (Sum 1))]) "(reduce (fn [a x] (concat [a [x]])) [] [1])"
   , testEval (UInt 4) "((. (fn [a] (add a 1)) (fn [b] (add b 2))) 1)"
   , testEval (UInt 7) "((. (add 1) (add 2) (add 3)) 1)"
+  , testEvalWithPrelude (UList [UConst (UInt (Sum 3))]) "(drop 2 [1 2 3])"
+  , testEvalWithPrelude (UList []) "(drop 1 [])"
+  , testEvalWithPrelude (UBool False) "(any (fn [x] false) [0])"
+  , testEvalWithPrelude (UBool True) "(any (fn [x] true) [0])"
+  , testEvalWithPrelude (UBool False) "(any (fn [x] true) [])"
   ]
+
+focus = test_Eval >>= defaultMain

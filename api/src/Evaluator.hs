@@ -122,6 +122,14 @@ apply (ActionDraw pid amount) = apply -- TODO: Respect amount
         (PlayerLocation pid Hand)
         Front))
 
+apply (ActionRescueBystander pid 0) = apply ActionNone
+apply (ActionRescueBystander pid n) = do
+  apply $ ActionMove
+            (BystanderDeck, 0)
+            (PlayerLocation pid Victory)
+            Front
+       <> ActionRescueBystander pid (n - 1)
+
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
 

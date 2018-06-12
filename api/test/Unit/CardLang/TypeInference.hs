@@ -73,7 +73,7 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "Int" "(def y (fn [z] z)) (y 1)"
   , testInfer "Int" "(def y (fn [z] z)) (def x 2) (y 2)"
   , testInfer "Int" "(def y (fn [z] z)) (def x (y 2)) x"
-  , testInfer "a -> a" "(def y (fn [z] z)) (def x (y 2)) y" -- TODO: Currently Int -> Int, due to generalize/or not in UDef infer
+  , testInfer "a -> a" "(defn y [z] z) (def x (y 2)) y"
   , testInfer "Int" "(defn foo [x] x) (if (foo false) (foo 1) (foo 2))" -- Requires polymorphic defn
   , testInfer "Int" "(if false 1 2)"
   , testInferFail (CannotUnify "Bool" "Int") "(if false false 2)"
@@ -99,4 +99,6 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "Int -> Bool" "(. (>= 1) (add 2))"
   , testInfer "[[a]] -> Int" "(. (reduce (fn [a x] 0) 0) concat)"
   , testInfer "Int -> Bool" "(def x (. (>= 1) (add 2))) x"
+  , testInfer "Int -> Int" "(defn recur [n] (if (<= n 0) 8 (recur (add n 1) 9))) recur"
+  , testInfer "a" "(defn recur [n] recur) (recur 1)"
   ]

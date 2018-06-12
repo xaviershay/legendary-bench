@@ -6,14 +6,15 @@ module CardLang.Parser
   , parseUnsafe
   ) where
 
-import Control.Lens (view)
 import           Control.Applicative     ((<|>))
+import           Control.Lens            (view)
+import qualified Data.HashMap.Strict     as M
 import           Data.SCargot
 import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
+import qualified Data.Set                as Set
 import           Data.String             (IsString, fromString)
 import qualified Data.Text               as T
-import qualified Data.Set                as Set
 import           Text.Parsec             (alphaNum, between, char, digit, many,
                                           many1, noneOf, oneOf, string, try)
 import           Text.Parsec.Text        (Parser)
@@ -56,13 +57,23 @@ parseSpecific match value = do
 
   return value
 
+escapeChars = M.fromList
+  [('\\', '\\')
+  ,('"', '"')
+  ,('n', '\n')
+  ]
 quotedString = do
   string <- between (char '"') (char '"') (many quotedStringChar)
   return string
   where
     quotedStringChar = escapedChar <|> normalChar
-    escapedChar = (char '\\') *> (oneOf ['\\', '"', 'n'])
-    normalChar = noneOf "\""
+    escapedChar = do
+      _    <- char '\\'
+      char <- oneOf ['\\', '"', 'n']
+
+      return $ M.lookupDefault char char escapeChars
+
+    normalChar = noneOf "\\\""
 
 vec p = do
   atoms <- vec' p

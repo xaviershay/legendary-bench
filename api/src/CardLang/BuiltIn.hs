@@ -148,3 +148,13 @@ makeHero = do
       upure ()
 
     Left y -> throwError y
+
+tail = do
+  xs <- argAt 0
+
+  return . UConst . UList $ f xs
+
+
+  where
+    f [] = []
+    f (_:xs) = xs

@@ -255,8 +255,19 @@ infer env x = error . show $ "Unknown form in infer: " <> show x
 
 inferWithNewEnv :: WEnv -> UExpr -> Infer (Subst, MType, WEnv)
 inferWithNewEnv env (UDef name e) = do
-  (s1, t1) <- infer env e
+  -- Low confidence this algorithm is correct...
+  --
+  -- Extend the environment with a new variable for the name to allow for
+  -- recursion. Don't unify this variable with anything though, since we don't
+  -- want to add any new restrictions on the type.
+  v <- fresh
+  let sigmaV = Forall mempty v
+  let envV = extendEnv env (name, sigmaV)
 
+  (s1, t1) <- infer envV e
+
+  -- We can now discard the new variable, and instead use a generalization of
+  -- the inferred type to put into the environment.
   let env' = applySubst s1 env
   let sigma = generalize env' t1
   let env'' = extendEnv env' (name, sigma)

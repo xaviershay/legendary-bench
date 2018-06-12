@@ -59,6 +59,8 @@ genBuiltInExpr bi = typeToFn 0 bi mtype
 
 defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   [ mkBuiltIn "add" ("Int" ~> "Int" ~> "Int") $ B.binOp ((+) :: Int -> Int -> Int)
+  , mkBuiltIn "+" ("Int" ~> "Int" ~> "Int") $ B.binOp ((+) :: Int -> Int -> Int)
+  , mkBuiltIn "-" ("Int" ~> "Int" ~> "Int") $ B.binOp ((-) :: Int -> Int -> Int)
   , mkBuiltIn "<=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<=) :: Int -> Int -> Bool)
   , mkBuiltIn ">=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>=) :: Int -> Int -> Bool)
   , mkBuiltIn "<" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<) :: Int -> Int -> Bool)
@@ -68,6 +70,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
   , mkBuiltIn "compose" (("b" ~> "c") ~> ("a" ~> "b") ~> ("a" ~> "c")) $ B.compose
+  , mkBuiltIn "tail" (WList "a" ~> WList "a") $ B.tail
 
   --- Action generators
   , mkBuiltIn "noop" "Action" $ upure ActionNone
