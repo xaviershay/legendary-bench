@@ -50,6 +50,16 @@ addPlayGuard = do
     Right expr -> return . toUConst $ set playGuard expr template
     Left x     -> throwError x
 
+addDiscardedEffect = do
+  env <- get
+
+  guardF   <- argAt 0
+  template <- argAt 1
+
+  case fromU guardF of
+    Right expr -> return . toUConst $ set discardEffect expr template
+    Left x     -> throwError x
+
 concat = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es
@@ -90,6 +100,14 @@ cardAttr lens = do
     Just c -> return . toUConst $ c
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
+cardOwner :: EvalMonad UExpr
+cardOwner = do
+  (location, _) :: SpecificCard <- argAt 0
+
+  case location of
+    (PlayerLocation pid _) -> return . toUConst $ pid
+    _ -> return . UConst $ (UError $ "Location is not a player location: " <> showT location)
+
 chooseCard = do
   pid <- currentPlayer
 
@@ -103,6 +121,15 @@ chooseCard = do
   case sequence $ fmap fromU from of
     Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose onPass
     Left y -> throwError y
+
+chooseYesNo = do
+  pid <- currentPlayer
+
+  desc   <- argAt 0
+  onYes  <- argAt 1
+  onNo   <- argAt 2
+
+  return . toUConst $ ActionChooseYesNo desc onYes onNo
 
 compose = do
   f1 <- argAt 0
@@ -150,6 +177,7 @@ makeHero = do
                   , _playEffect = ActionNone
                   , _playCode = UConst . UAction $ ActionNone
                   , _playGuard = parseUnsafe "@(fn [x] x)"
+                  , _discardEffect = parseUnsafe "@(fn [x] noop)"
                   }
 
   template' <- eval (UApp callback template)

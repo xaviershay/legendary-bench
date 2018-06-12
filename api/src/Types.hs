@@ -170,6 +170,7 @@ data Card = HeroCard
   , _playEffect :: Action
   , _playCode :: UExpr
   , _playGuard :: UExpr
+  , _discardEffect :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
   } | EnemyCard
@@ -277,6 +278,7 @@ showTerms3 t (x, y, z) = showTerms t [show x, show y, show z]
 
 data PlayerChoice =
   ChooseCard SpecificCard |
+  ChooseBool Bool |
   ChoosePass |
   ChooseEndTurn
   deriving (Show, Generic, Eq)
@@ -299,6 +301,7 @@ data Action =
   ActionTrace T.Text |
   ActionConcurrent [Action] |
   ActionChooseCard T.Text [SpecificCard] UExpr Action |
+  ActionChooseYesNo T.Text Action Action |
 
   ActionAttack PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |

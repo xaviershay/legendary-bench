@@ -66,8 +66,10 @@ mkVillainDeck =
 
 mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
-       S.replicate 8 recruitCard
-    <> S.replicate 4 attackCard
+       S.replicate 1 recruitCard
+    <> S.replicate 1 attackCard
+    <> S.replicate 2 (findCard "Determination")
+    <> S.replicate 2 (findCard "Unending Energy")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

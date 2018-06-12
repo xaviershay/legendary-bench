@@ -87,19 +87,12 @@
                         noop)))
   ))
 
-;(make-hero "Unending Energy" "Ranged" 6 3
-;  "If a card effect makes you discard this card, you may return this card to your hand."
-;  {
-;    "play"             @(attack 4)
-;    "effect-discarded" @(#(choose-yesno "Return Unending Energy to your hand?"
-;                            (move % (player-location (owner %) "Hand"))
-;                            noop))
-;  }
-;)
-;
-;;(cons 1 Nil)
-;;(cons 1 (cons 2 (Nil))
-;
-;;(def hero-name "S.H.E.I.L.D")
-;;(def hero-team "S.H.E.I.L.D")
-;;
+(make-hero "Unending Energy" "Ranged" 6 3
+  "If a card effect makes you discard this card, you may return this card to your hand."
+  (.
+    (add-play-effect @(attack 4))
+    (add-discarded-effect @(fn [self]
+                              (choose-yesno "Return Unending Energy to your hand?"
+                                (move self (player-location (card-owner self) "Hand"))
+                                noop)))
+  ))

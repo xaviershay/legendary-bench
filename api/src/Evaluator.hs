@@ -30,7 +30,7 @@ import           Types
 import           Utils
 
 import CardLang
-import CardLang.Evaluator (fromU, toU, showCode)
+import CardLang.Evaluator (fromU, toU, toUConst, showCode)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)
@@ -117,7 +117,17 @@ apply (ActionAttack pid amount) = do
 apply (ActionKO location) = apply $ ActionMove location KO Front
 apply (ActionDiscardCard location) = do
   pid <- owner location
-  apply $ ActionMove location (PlayerLocation pid Discard) Front
+
+  board <- apply $ ActionMove location (PlayerLocation pid Discard) Front
+
+  withBoard board $ do
+    let newLocation = ((PlayerLocation pid Discard), 0)
+    card <- requireCard newLocation
+    let expr = fromJust $ preview (cardTemplate . discardEffect) card
+
+    case fromU $ evalWith (mkEnv $ Just board) (UApp expr (toUConst newLocation)) of
+      Left y -> lose $ "Unexpected state: board function doesn't evalute to an action. Got: " <> y
+      Right action -> apply action
 
   where
     owner (PlayerLocation pid _, _) = return pid
@@ -264,6 +274,13 @@ apply a@(ActionChooseCard desc options expr pass) = applyChoices f
 
       else
         return mempty
+    f _ = wait a desc
+
+apply a@(ActionChooseYesNo desc onYes onNo) = applyChoices f
+  where
+    f (ChoosePass :<| _) = return onNo
+    f (ChooseBool True :<| _) = return onYes
+    f (ChooseBool False :<| _) = return onNo
     f _ = wait a desc
 
 
