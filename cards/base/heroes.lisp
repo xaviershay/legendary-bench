@@ -99,21 +99,29 @@
     "You get +3 Attack for each other Avengers Hero you played this turn"
     (add-play-effect @(combine
       (attack 1)
-      (attack ((. length (filter (is-team "Avengers")) cards-at-current-player-location) "Played"))
+      (attack ((. (* 3) length (filter (is-team "Avengers")) cards-at-current-player-location) "Played"))
     )))
 
 (hero-set "Cyclops" "X-Men")
+
+(def must-discard @(fn [continue] (choose-card
+                        "Choose a card in hand to discard"
+                        (cards-at-current-player-location "Hand")
+                        (fn [card] (combine (discard card) continue))
+                        noop)))
 
 (make-hero "Determination" "Strength" 2 5
   "To play this card, you must discard a card from your hand."
   (.
     (add-play-effect @(recruit 3))
-    (add-play-guard
-      @(fn [continue] (choose-card
-                        "Choose a card in hand to discard"
-                        (cards-at-current-player-location "Hand")
-                        (fn [card] (combine (discard card) continue))
-                        noop)))
+    (add-play-guard must-discard)
+  ))
+
+(make-hero "Optic Blast" "Ranged" 3 5
+  "To play this card, you must discard a card from your hand."
+  (.
+    (add-play-effect @(attack 3))
+    (add-play-guard must-discard)
   ))
 
 (make-hero "Unending Energy" "Ranged" 6 3
@@ -136,3 +144,8 @@
           (move self (player-location (card-owner self) "Hand"))
           noop)))
   ))
+
+(make-hero "X-Men United" "Ranged" 8 1
+  "|x-men|: You get +2 Attack for each other X-Men Hero you played this turn."
+  (add-play-effect @(attack ((. (* 2) length (filter (is-team "X-Men")) cards-at-current-player-location) "Played"))))
+

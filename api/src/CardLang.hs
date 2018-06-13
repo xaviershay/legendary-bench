@@ -61,6 +61,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   [ mkBuiltIn "add" ("Int" ~> "Int" ~> "Int") $ B.binOp ((+) :: Int -> Int -> Int)
   , mkBuiltIn "+" ("Int" ~> "Int" ~> "Int") $ B.binOp ((+) :: Int -> Int -> Int)
   , mkBuiltIn "-" ("Int" ~> "Int" ~> "Int") $ B.binOp ((-) :: Int -> Int -> Int)
+  , mkBuiltIn "*" ("Int" ~> "Int" ~> "Int") $ B.binOp ((*) :: Int -> Int -> Int)
   , mkBuiltIn "<=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<=) :: Int -> Int -> Bool)
   , mkBuiltIn ">=" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>=) :: Int -> Int -> Bool)
   , mkBuiltIn "<" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<) :: Int -> Int -> Bool)
