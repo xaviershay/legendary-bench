@@ -409,7 +409,9 @@ class Location extends Component {
           if (cardDetail) {
             cardRender = (
               <div>
-                <Card card={cardDetail} />
+                <a className="cardLink" href='#x' onClick={actions(cards[0], 0)}>
+                  <Card card={cardDetail} />
+                </a>
                 <span>({cards.length} cards)</span>
               </div>
             )

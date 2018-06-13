@@ -309,6 +309,7 @@ data Action =
   ActionDraw PlayerId SummableInt|
   ActionKO SpecificCard |
   ActionDiscardCard SpecificCard |
+  ActionDefeat PlayerId SpecificCard |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |

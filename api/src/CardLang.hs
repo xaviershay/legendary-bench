@@ -81,16 +81,20 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 ActionReveal (argAt 0)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
   , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
+  , mkBuiltIn "defeat" ("SpecificCard" ~> "Action")  $ uliftA2 ActionDefeat B.currentPlayer (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
     $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Back)
 
   -- Card functions
+  , mkBuiltIn "is-bystander" ("SpecificCard" ~> "Bool")    $ B.isBystander
   , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost
   , mkBuiltIn "card-type" ("SpecificCard" ~> "String") $ B.cardAttr heroType
   , mkBuiltIn "card-team" ("SpecificCard" ~> "String") $ B.cardAttr heroTeam
   , mkBuiltIn "card-owner" ("SpecificCard" ~> "PlayerId") $ B.cardOwner
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
+  , mkBuiltIn "city-locations" (WList "Location") (pure . UConst . UList $ fmap toUConst allCityLocations)
+  , mkBuiltIn "villians-at" ("Location" ~> WList "SpecificCard") B.villiansAt
   , mkBuiltIn "player-location" ("PlayerId" ~> "String" ~> "Location")
     $ uliftA2 PlayerLocation (argAt 0) (argAt 1)
   , mkBuiltIn "choose-card"

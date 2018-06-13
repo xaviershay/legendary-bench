@@ -115,6 +115,15 @@ apply (ActionAttack pid amount) = do
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply $ ActionMove location KO Front
+
+apply (ActionDefeat pid sloc@(location, index)) = do
+  cs <- view (cardsAtLocation location) <$> currentBoard
+
+  apply . mconcat $
+    replicate
+      (length cs)
+      (ActionMove (location, 0) (PlayerLocation pid Victory) Front)
+
 apply (ActionDiscardCard location) = do
   pid <- owner location
 
@@ -273,7 +282,7 @@ apply a@(ActionChooseCard desc options expr pass) = applyChoices f
              Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
       else
-        return mempty
+        f mempty
     f _ = wait a desc
 
 apply a@(ActionChooseYesNo desc onYes onNo) = applyChoices f

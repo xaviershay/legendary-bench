@@ -43,13 +43,31 @@
          (fn [card] (combine (ko card) (rescue-bystander 1)))
          noop)
        )))
-;
+
 (make-hero
   "Mission Accomplished" "Tech" 2 5
   "Draw a card.\n|tech|: Rescue a Bystander."
   (add-play-effect @(combine
     (draw 1)
     (guard (played "Tech") (rescue-bystander 1)))))
+
+(make-hero
+  "Covert Operation" "Covert" 4 3
+  "You get +1 Attack for each Bystander in your Victory pile."
+  (add-play-effect @(attack
+    ((. length (filter is-bystander) cards-at (player-location current-player)) "Victory"))))
+
+(make-hero
+  "Silent Sniper" "Covert" 7 1
+  "Defeat a Villain or Mastermind that has a Bystander."
+  (add-play-effect @(combine
+    (attack 4)
+    (choose-card
+      "Choose a Villian or Mastermind that has a Bystander"
+      ((. (concat-map villians-at) (filter (. (any is-bystander) cards-at))) city-locations)
+      defeat
+      noop)
+  )))
 
 (hero-set "Captain America" "Avengers")
 

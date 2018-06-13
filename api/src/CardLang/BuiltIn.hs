@@ -90,6 +90,20 @@ cardsAt = do
   return . UConst . UList . fmap (UConst . USpecificCard) $
     zip (repeat loc) [0..length cards -1]
 
+villiansAt = do
+  loc <- argAt 0
+
+  cards <- view (cardsAtLocation loc) <$> currentBoard
+
+  let villians = filter isVillian $ zip (toList cards) [0..length cards - 1]
+
+  return . UConst . UList . fmap (UConst . USpecificCard) . fmap (\(_, y) -> specificCard loc y) $ villians
+
+  where
+    isVillian (card, _) = case view cardTemplate card of
+                           EnemyCard{} -> True
+                           _           -> False
+
 cardAttr :: ToU a => Traversal' Card a -> EvalMonad UExpr
 cardAttr lens = do
   sloc@(location, index) <- argAt 0
@@ -107,6 +121,16 @@ cardOwner = do
   case location of
     (PlayerLocation pid _) -> return . toUConst $ pid
     _ -> return . UConst $ (UError $ "Location is not a player location: " <> showT location)
+
+isBystander = do
+  sloc@(location, index) <- argAt 0
+
+  attr <- preview (cardsAtLocation location . ix index . cardTemplate) <$> currentBoard
+
+  case attr of
+    Just BystanderCard -> return . toUConst $ True
+    Just _ -> return . toUConst $ False
+    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
 chooseCard = do
   pid <- currentPlayer
