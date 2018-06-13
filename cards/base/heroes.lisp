@@ -25,9 +25,14 @@
     "Reveal top card of deck, if cost ≤ 2 then draw it."
     (add-play-effect @(spiderman-action (recruit 1))))
 
-(make-hero "Web Shooters" "Instinct" 2 5
+(make-hero "Web Shooters" "Tech" 2 3
     "Rescue a Bystander.\nReveal top card of deck, if cost ≤ 2 then draw it."
     (add-play-effect @(spiderman-action (rescue-bystander 1))))
+
+(make-hero "The Amazing Spider-Man" "Covert" 2 1
+    "Reveal the top three cards of your deck. Put any that cost 2 or less into your hand. Put the rest back in any order."
+    ; TODO: Implement this
+    (add-play-effect @(noop)))
 
 (hero-set "Black Widow" "Avengers")
 
