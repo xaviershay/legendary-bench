@@ -91,6 +91,8 @@
   (.
     (add-play-effect @(attack 4))
     ; TODO: This is untested and unimplemented. Do so when adding Hulk.
+    ; Think through how to handle two of these cards in hand. Since replacement
+    ; effect, should only be able to trigger one of them (right?).
     (add-gain-effect
       @(fn [continue player self source card]
         (let [owning-player (card-owner self)]
@@ -154,3 +156,19 @@
   "|x-men|: You get +2 Attack for each other X-Men Hero you played this turn."
   (add-play-effect @(attack ((. (* 2) length (filter (is-team "X-Men")) cards-at-current-player-location) "Played"))))
 
+(hero-set "Deadpool" "")
+
+(make-hero "Here, Hold This for a Second" "Tech" 3 5
+  "A Villain of your choice captures a Bystander."
+  (add-play-effect @(combine
+    (recruit 2)
+    (let [villians (concat-map villians-at city-locations)]
+      ; TODO: Consider whether this empty check should be part of
+      ; must-choose-card
+      (if (empty villians)
+        noop
+        (must-choose-card
+          "Choose a Villian"
+          (concat-map villians-at city-locations)
+          (fn [card] (capture-bystander card 1)))
+      )))))

@@ -80,6 +80,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "attack" ("Int" ~> "Action")           $ uliftA2 ActionAttack B.currentPlayer (argAt 0)
   , mkBuiltIn "recruit" ("Int" ~> "Action")          $ uliftA2 ActionRecruit B.currentPlayer (argAt 0)
   , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)
+  , mkBuiltIn "capture-bystander" ("SpecificCard" ~> "Int" ~> "Action") $ uliftA2 ActionCaptureBystander (argAt 0) (argAt 1)
   , mkBuiltIn "draw" ("Int" ~> "Action")             $ uliftA2 ActionDraw B.currentPlayer (argAt 0)
   , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 ActionReveal (argAt 0)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
@@ -110,6 +111,13 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> "Action"
       )
       B.chooseCard
+  , mkBuiltIn "must-choose-card"
+      (  "String"
+      ~> WList "SpecificCard"
+      ~> ("SpecificCard" ~> "Action")
+      ~> "Action"
+      )
+      B.mustChooseCard
   , mkBuiltIn "choose-yesno"
       (  "String"
       ~> "Action"

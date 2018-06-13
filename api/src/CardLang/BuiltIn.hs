@@ -164,7 +164,20 @@ chooseCard = do
   from <- traverse eval fromExprs
 
   case sequence $ fmap fromU from of
-    Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose onPass
+    Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose (Just onPass)
+    Left y -> throwError y
+
+mustChooseCard = do
+  pid <- currentPlayer
+
+  desc      <- argAt 0
+  fromExprs <- argAt 1
+  onChoose  <- argAt 2
+
+  from <- traverse eval fromExprs
+
+  case sequence $ fmap fromU from of
+    Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose Nothing
     Left y -> throwError y
 
 chooseYesNo = do

@@ -149,13 +149,22 @@ apply (ActionDraw pid amount) = apply -- TODO: Respect amount
         (PlayerLocation pid Hand)
         Front))
 
-apply (ActionRescueBystander pid 0) = apply ActionNone
+-- TODO: Handle not having any bystanders left
+apply (ActionRescueBystander _ 0) = apply ActionNone
 apply (ActionRescueBystander pid n) = do
   apply $ ActionMove
             (BystanderDeck, 0)
             (PlayerLocation pid Victory)
             Front
        <> ActionRescueBystander pid (n - 1)
+
+apply (ActionCaptureBystander _ 0) = apply ActionNone
+apply (ActionCaptureBystander sloc@(location, _) n) = do
+  apply $ ActionMove
+            (BystanderDeck, 0)
+            location
+            Back
+       <> ActionCaptureBystander sloc (n - 1)
 
 apply a@(ApplyResources (PlayerId id) rs) = do
   board <- currentBoard
@@ -272,7 +281,9 @@ apply (ActionTagged reason action) = tag reason (apply action)
 
 apply a@(ActionChooseCard desc options expr pass) = applyChoices f
   where
-    f (ChoosePass :<| _) = return pass
+    f (ChoosePass :<| _) = case pass of
+                             Nothing     -> f mempty
+                             Just action -> return action
     f (ChooseCard location :<| _) = do
       if elem location options then
         do

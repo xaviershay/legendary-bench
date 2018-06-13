@@ -9,6 +9,7 @@
 (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
 (defn any [f] (. (< 0) length (filter f)))
 (defn concat-map [f] (. concat (map f)))
+(defn empty [xs] (== 0 (length xs)))
 
 (defn guard [cond action] (if cond action noop))
 (defn cards-at-current-player-location [scope]

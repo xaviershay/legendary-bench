@@ -69,7 +69,7 @@ mkPlayerDeck cards =
        S.replicate 2 recruitCard
     <> S.replicate 2 attackCard
     <> S.replicate 1 (findCard "Avengers Assemble!")
-    <> S.replicate 1 (findCard "Diving Block")
+    <> S.replicate 1 (findCard "Here, Hold This for a Second")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

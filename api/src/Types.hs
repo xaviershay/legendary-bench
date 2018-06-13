@@ -302,12 +302,13 @@ data Action =
   ActionTagged T.Text Action |
   ActionTrace T.Text |
   ActionConcurrent [Action] |
-  ActionChooseCard T.Text [SpecificCard] UExpr Action |
+  ActionChooseCard T.Text [SpecificCard] UExpr (Maybe Action) |
   ActionChooseYesNo T.Text Action Action |
 
   ActionAttack PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
   ActionRescueBystander PlayerId SummableInt |
+  ActionCaptureBystander SpecificCard SummableInt |
   ActionDraw PlayerId SummableInt|
   ActionKO SpecificCard |
   ActionDiscardCard SpecificCard |
