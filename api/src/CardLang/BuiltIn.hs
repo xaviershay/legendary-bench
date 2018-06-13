@@ -96,10 +96,10 @@ binOp f = toUConst <$> (f <$> argAt 0 <*> argAt 1)
 cardsAt = do
   loc <- argAt 0
 
-  cards <- view (cardsAtLocation loc) <$> currentBoard
+  cards <- toList . view (cardsAtLocation loc) <$> currentBoard
 
   return . UConst . UList . fmap (UConst . USpecificCard) .
-    map (uncurry specificCardByIndex) $ zip (repeat loc) [0..length cards -1]
+    map (uncurry cardById) $ zip (repeat loc) (fmap (view cardId) cards)
 
 villiansAt = do
   loc <- argAt 0

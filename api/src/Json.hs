@@ -82,8 +82,8 @@ instance FromJSON SpecificCard where
     t :: String <- v .: "type"
 
     case t of
-      "ByIndex" -> specificCardByIndex <$> v .: "location" <*> v .: "index"
-      "ById"    -> specificCardById    <$> v .: "location" <*> v .: "id"
+      "ByIndex" -> cardByIndex <$> v .: "location" <*> v .: "index"
+      "ById"    -> cardById    <$> v .: "location" <*> v .: "id"
 
 instance FromJSON PlayerChoice where
   parseJSON = withObject "PlayerChoice" $ \v -> do

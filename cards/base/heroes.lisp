@@ -152,6 +152,10 @@
           ; ACTUALLY: Based on FAQ, this effect should resolve _after_ the
           ; previous card's effect. To do that, pass in "continue" action and
           ; chain this one on to it. Avoids the above issue.
+          ; ACTUALLY ACTUALLY: This is probably a replacement effect? Otherwise
+          ; weird things can happen say if a card causes you to discard then
+          ; draw, this card can "dissapper" if discard is shuffled back into
+          ; deck.
           (move self (player-location (card-owner self) "Hand"))
           noop)))
   ))
@@ -184,11 +188,14 @@
     (attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
     )))
 
+; TODO: Currently this discards the card being played also, since it isn't
+; moved out of hand until after this action function evalutes. Consider whether
+; a new location ("the stack") is needed when playing cards.
 (defn discard-hand [player]
   (let [hand (player-location player "Hand")]
     (if (empty (cards-at hand))
       noop
-      ((. (apply combine) (map discard) (replicate (length (cards-at hand)))) (card-location hand 0))
+      ((. (apply combine) (map discard) cards-at) hand)
                                 )))
 
 (make-hero "Hey, Can I Get a Do-Over?" "Instinct" 3 3

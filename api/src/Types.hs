@@ -484,15 +484,11 @@ specificCardByIndex x y = CardByIndex (x, y)
 cardByIndex :: Location -> Int -> SpecificCard
 cardByIndex x y = CardByIndex (x, y)
 
-specificCardById :: Location -> CardId -> SpecificCard
-specificCardById x y = CardById (x, y)
+cardById :: Location -> CardId -> SpecificCard
+cardById x y = CardById (x, y)
 
 cardLocation (CardByIndex (l, _)) = l
 cardLocation (CardById (l, _)) = l
-
-cardLocationIndex (CardByIndex (_, i)) = i
--- TODO: To fix this, this function needs to be moved into board monad
-cardLocationIndex _ = error "Can't extract index location from Card ID"
 
 cardAtLocation (CardByIndex (location, index)) = cardsAtLocation location . ix index
 cardAtLocation (CardById (location, cid))      = cardsAtLocation location . folded . filtered (\card -> view cardId card == cid)
