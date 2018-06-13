@@ -344,6 +344,9 @@ instance FromU [UExpr] where
 instance ToU Bool where
   toU x = UBool x
 
+instance FromU Bool where
+  fromU (UBool x) = return x
+
 instance ToU () where
   toU () = UNone
 

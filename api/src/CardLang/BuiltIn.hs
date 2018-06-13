@@ -8,6 +8,7 @@ import           Control.Lens         (element)
 import           Control.Lens         (Traversal')
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State  (get, modify)
+import           Data.List            (nub)
 
 import CardLang.Parser (parseUnsafe)
 import CardLang.Evaluator hiding (argAt)
@@ -58,6 +59,16 @@ addDiscardedEffect = do
 
   case fromU guardF of
     Right expr -> return . toUConst $ set discardEffect expr template
+    Left x     -> throwError x
+
+addGainEffect = do
+  env <- get
+
+  f        <- argAt 0
+  template <- argAt 1
+
+  case fromU f of
+    Right expr -> return . toUConst $ set gainEffect expr template
     Left x     -> throwError x
 
 concat = do
@@ -132,6 +143,16 @@ isBystander = do
     Just _ -> return . toUConst $ False
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
+isWound = do
+  sloc@(location, index) <- argAt 0
+
+  attr <- preview (cardsAtLocation location . ix index . cardTemplate) <$> currentBoard
+
+  case attr of
+    Just WoundCard -> return . toUConst $ True
+    Just _ -> return . toUConst $ False
+    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
+
 chooseCard = do
   pid <- currentPlayer
 
@@ -202,6 +223,7 @@ makeHero = do
                   , _playCode = UConst . UAction $ ActionNone
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
+                  , _gainEffect = parseUnsafe "@(fn [continue b c d e] continue)"
                   }
 
   template' <- eval (UApp callback template)
@@ -222,3 +244,8 @@ tail = do
   where
     f [] = []
     f (_:xs) = xs
+
+uniq = do
+  xs <- argAt 0
+
+  return . UConst . UList $ nub xs

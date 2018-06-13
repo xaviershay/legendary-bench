@@ -109,11 +109,23 @@ h4 {
 }
 
 .ability-type-Instinct {
-  background-color: #e5d3d3;
+  background-color: #fceeae;
 }
 
 .ability-type-Strength {
   background-color: #d3e5d8;
+}
+
+.ability-type-Tech {
+  background-color: #cccccc;
+}
+
+.ability-type-Covert {
+  background-color: #e5d3d3;
+}
+
+.ability-type-Ranged {
+  background-color: #ceecff;
 }
 
 .footer {

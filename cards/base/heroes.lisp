@@ -71,18 +71,29 @@
 
 (hero-set "Captain America" "Avengers")
 
+(defn uniq-card-types [player] ((. length uniq (map card-type) cards-player-has) player))
+
+(make-hero "Avengers Assemble!" "Instinct" 3 5
+  "You get +1 Recruit for each color of Hero you have."
+  (add-play-effect @(recruit (uniq-card-types current-player))))
+
+(make-hero "Perfect Teamwork" "Strength" 4 5
+  "You get +1 Attack for each color of Hero you have."
+  (add-play-effect @(attack (uniq-card-types current-player))))
+
 (make-hero "Diving Block" "Tech" 6 3
   "If you would gain a Wound, you may reveal this card and draw a card instead."
-  (add-play-effect @(attack 4))
-;  {
-;    "play" (attack 4)
-;    "gain-card" @(fn [continue player source card]
-;                   (if (and (== player (owner self)) (is-wound card))
-;                     (choose-yesno "Reveal Diving Block instead of gaining wound?"
-;                       (append [(reveal self) (draw (owner self) 1)])
-;                       continue)))
-;  }
-)
+  (.
+    (add-play-effect @(attack 4))
+    ; TODO: This is untested and unimplemented. Do so when adding Hulk.
+    (add-gain-effect
+      @(fn [continue player self source card]
+        (let [owning-player (card-owner self)]
+          (if (and (== player owning-player) (is-wound card))
+            (choose-yesno "Reveal Diving Block instead of gaining wound?"
+              (combine (reveal self) (draw-player owning-player 1))
+              continue) continue)))
+    )))
 
 (make-hero "A Day Unlike Any Other" "Covert" 7 1
     "You get +3 Attack for each other Avengers Hero you played this turn"

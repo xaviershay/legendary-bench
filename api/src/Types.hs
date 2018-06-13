@@ -171,12 +171,14 @@ data Card = HeroCard
   , _playCode :: UExpr
   , _playGuard :: UExpr
   , _discardEffect :: UExpr
+  , _gainEffect :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
   , _baseHealth :: SummableInt
   } | BystanderCard
+  | WoundCard
 
   deriving (Show, Generic)
 

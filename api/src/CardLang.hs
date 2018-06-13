@@ -66,11 +66,13 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "<" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((<) :: Int -> Int -> Bool)
   , mkBuiltIn ">" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>) :: Int -> Int -> Bool)
   , mkBuiltIn "==" ("a" ~> "a" ~> "Bool") $ B.binOp ((==) :: UValue -> UValue -> Bool)
+  , mkBuiltIn "and" ("Bool" ~> "Bool" ~> "Bool") $ B.binOp (&&)
   , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b")  B.reduce
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
   , mkBuiltIn "compose" (("b" ~> "c") ~> ("a" ~> "b") ~> ("a" ~> "c")) $ B.compose
   , mkBuiltIn "tail" (WList "a" ~> WList "a") $ B.tail
+  , mkBuiltIn "uniq" (WList "a" ~> WList "a") $ B.uniq
 
   --- Action generators
   , mkBuiltIn "noop" "Action" $ upure ActionNone
@@ -84,12 +86,14 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "defeat" ("SpecificCard" ~> "Action")  $ uliftA2 ActionDefeat B.currentPlayer (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
     $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Back)
+  , mkBuiltIn "draw-player" ("PlayerId" ~> "Int" ~> "Action") $ uliftA2 ActionDraw (argAt 0) (argAt 1)
 
   -- Card functions
-  , mkBuiltIn "is-bystander" ("SpecificCard" ~> "Bool")    $ B.isBystander
-  , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")    $ B.cardAttr heroCost
-  , mkBuiltIn "card-type" ("SpecificCard" ~> "String") $ B.cardAttr heroType
-  , mkBuiltIn "card-team" ("SpecificCard" ~> "String") $ B.cardAttr heroTeam
+  , mkBuiltIn "is-bystander" ("SpecificCard" ~> "Bool")   $ B.isBystander
+  , mkBuiltIn "is-wound" ("SpecificCard" ~> "Bool")       $ B.isWound
+  , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")       $ B.cardAttr heroCost
+  , mkBuiltIn "card-type" ("SpecificCard" ~> "String")    $ B.cardAttr heroType
+  , mkBuiltIn "card-team" ("SpecificCard" ~> "String")    $ B.cardAttr heroTeam
   , mkBuiltIn "card-owner" ("SpecificCard" ~> "PlayerId") $ B.cardOwner
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
@@ -118,6 +122,15 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
   , mkBuiltIn "add-play-guard" (WBoardF ("Action" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addPlayGuard
   , mkBuiltIn "add-discarded-effect" (WBoardF ("SpecificCard" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addDiscardedEffect
+  , mkBuiltIn "add-gain-effect" (WBoardF
+     (  "Action"
+     ~> "PlayerId"
+     ~> "SpecificCard"
+     ~> "SpecificCard"
+     ~> "SpecificCard"
+     ~> "Action"
+     ) ~> "CardTemplate" ~> "CardTemplate")
+     B.addGainEffect
   , mkBuiltIn "make-hero-full"
      (  "String"
      ~> "String"
