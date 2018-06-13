@@ -68,8 +68,8 @@ mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
        S.replicate 2 recruitCard
     <> S.replicate 2 attackCard
-    <> S.replicate 1 (findCard "Oddball")
-    <> S.replicate 1 (findCard "Here, Hold This for a Second")
+    <> S.replicate 1 (findCard "Unending Energy")
+    <> S.replicate 1 (findCard "Hey, Can I Get a Do-Over?")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

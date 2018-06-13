@@ -11,6 +11,8 @@
 (defn any [f] (. (< 0) length (filter f)))
 (defn concat-map [f] (. concat (map f)))
 (defn empty [xs] (== 0 (length xs)))
+(defn apply [f xs] (reduce (fn [a x] (f a x)) (head xs) (tail xs)))
+(defn replicate [n x] (if (== 0 n) [] (concat [[x] (replicate (- n 1) x)])))
 
 (defn guard [cond action] (if cond action noop))
 (defn cards-at-current-player-location [scope]

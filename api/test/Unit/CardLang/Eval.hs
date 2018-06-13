@@ -93,6 +93,7 @@ test_Eval =
   , testEvalWithPrelude (UBool False) "(any (fn [x] true) [])"
   , testEvalWithPrelude (UList [UConst (UInt (Sum 1)), UConst (UInt (Sum 2))]) "(uniq [1 1 2])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool True)]) "(uniq [false false true])"
+  , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool False)]) "(replicate 2 false)"
   ]
 
 focus = test_Eval >>= defaultMain

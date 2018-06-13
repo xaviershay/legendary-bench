@@ -148,6 +148,10 @@
           ;
           ; In any case, need a way to easily create an integration test to
           ; ensure this behaviour keeps working.
+          ;
+          ; ACTUALLY: Based on FAQ, this effect should resolve _after_ the
+          ; previous card's effect. To do that, pass in "continue" action and
+          ; chain this one on to it. Avoids the above issue.
           (move self (player-location (card-owner self) "Hand"))
           noop)))
   ))
@@ -178,4 +182,27 @@
   (add-play-effect @(combine
     (attack 2)
     (attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
+    )))
+
+(defn discard-hand [player]
+  (let [hand (player-location player "Hand")]
+    (if (empty (cards-at hand))
+      noop
+      ((. (apply combine) (map discard) (replicate (length (cards-at hand)))) (card-location hand 0))
+                                )))
+
+(make-hero "Hey, Can I Get a Do-Over?" "Instinct" 3 3
+  "If this is the first Hero you played this turn, you may discard the rest of your hand and draw four cards."
+  (add-play-effect @(combine
+    (attack 2)
+    (if
+      ((. empty cards-at-current-player-location) "Played")
+      (choose-yesno "Discard your hand?"
+        (combine
+          (discard-hand current-player)
+          (draw 4))
+        noop
+        )
+      noop
+      )
     )))

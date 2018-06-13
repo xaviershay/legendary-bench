@@ -73,6 +73,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
   , mkBuiltIn "compose" (("b" ~> "c") ~> ("a" ~> "b") ~> ("a" ~> "c")) $ B.compose
+  , mkBuiltIn "head" (WList "a" ~> "a") $ B.head
   , mkBuiltIn "tail" (WList "a" ~> WList "a") $ B.tail
   , mkBuiltIn "uniq" (WList "a" ~> WList "a") $ B.uniq
 

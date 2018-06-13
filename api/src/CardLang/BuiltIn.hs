@@ -258,6 +258,13 @@ tail = do
     f [] = []
     f (_:xs) = xs
 
+head = do
+  xs :: [UExpr] <- argAt 0
+
+  case xs of
+    (x:_) -> return x
+    _     -> return . UConst $ UError "head called on empty list"
+
 uniq = do
   xs <- argAt 0
 
