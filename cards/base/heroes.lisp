@@ -172,3 +172,10 @@
           (concat-map villians-at city-locations)
           (fn [card] (capture-bystander card 1)))
       )))))
+
+(make-hero "Oddball" "Covert" 5 5
+  "You get +1 Attack for each other Hero with an odd-numbered Cost you played this turn."
+  (add-play-effect @(combine
+    (attack 2)
+    (attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
+    )))

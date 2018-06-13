@@ -1,4 +1,5 @@
 (defn id [x] x)
+(defn is-odd [x] (== 1 (mod x 2)))
 
 (defn drop [n xs] (if (<= n 0) xs (drop (- n 1) (tail xs))))
 (defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
