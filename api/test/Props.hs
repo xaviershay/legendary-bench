@@ -125,6 +125,9 @@ instance Arbitrary Visibility where
   shrink = genericShrink
   arbitrary = elements [(minBound :: Visibility)..]
 
+instance Arbitrary SpecificCard where
+  shrink = genericShrink
+  arbitrary = CardByIndex <$> arbitrary
 instance Arbitrary Condition where
   shrink = genericShrink
   arbitrary = ConditionCostLTE <$> arbitrary <*> arbitrary

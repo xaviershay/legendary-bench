@@ -326,7 +326,11 @@ function chooseCard(playerId, specificCard) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({type: "ChooseCard", card: specificCard})
+      body: JSON.stringify({type: "ChooseCard", card: {
+        type: "ByIndex",
+        location: specificCard[0],
+        index: specificCard[1]
+      }})
     })
   }
 }

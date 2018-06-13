@@ -14,7 +14,7 @@ import Control.Lens
 -- ===============
 
 replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
-  revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+  revealAndMove (specificCardByIndex HeroDeck 0) HQ (LocationIndex i)
 
 revealAndMove source destination spot =
      ActionReveal source
@@ -24,7 +24,7 @@ drawAction :: Int -> PlayerId -> Action
 drawAction n pid = ActionTagged (playerDesc pid <> " draws " <> showT n) $
    mconcat . replicate n $
      revealAndMove
-       (PlayerLocation pid PlayerDeck, 0)
+       (specificCardByIndex (PlayerLocation pid PlayerDeck) 0)
        (PlayerLocation pid Hand)
        Front
 

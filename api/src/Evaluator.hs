@@ -65,7 +65,10 @@ apply (ActionAllowFail a) = do
       else
         throwError (board, ActionAllowFail action)
 
-apply a@(ActionMove specificCard@(location, i) to dest) = do
+apply a@(ActionMove specificCard to dest) = do
+  let location = cardLocation specificCard
+  let i = cardLocationIndex specificCard
+
   maybeCard <- lookupCard specificCard
 
   case maybeCard of
@@ -116,13 +119,14 @@ apply (ActionAttack pid amount) = do
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply $ ActionMove location KO Front
 
-apply (ActionDefeat pid sloc@(location, index)) = do
+apply (ActionDefeat pid address) = do
+  let location = cardLocation address
   cs <- view (cardsAtLocation location) <$> currentBoard
 
   apply . mconcat $
     replicate
       (length cs)
-      (ActionMove (location, 0) (PlayerLocation pid Victory) Front)
+      (ActionMove (cardByIndex location 0) (PlayerLocation pid Victory) Front)
 
 apply (ActionDiscardCard location) = do
   pid <- owner location
@@ -130,7 +134,7 @@ apply (ActionDiscardCard location) = do
   board <- apply $ ActionMove location (PlayerLocation pid Discard) Front
 
   withBoard board $ do
-    let newLocation = ((PlayerLocation pid Discard), 0)
+    let newLocation = (cardByIndex (PlayerLocation pid Discard) 0)
     card <- requireCard newLocation
     let expr = fromJust $ preview (cardTemplate . discardEffect) card
 
@@ -139,13 +143,14 @@ apply (ActionDiscardCard location) = do
       Right action -> apply action
 
   where
-    owner (PlayerLocation pid _, _) = return pid
-    owner _ = lose "Cannot discard a card not in a player location"
+    owner address = case cardLocation address of
+                      PlayerLocation pid _ -> return pid
+                      _ -> lose "Cannot discard a card not in a player location"
 
 apply (ActionDraw pid amount) = apply -- TODO: Respect amount
-     ((ActionReveal (PlayerLocation pid PlayerDeck, 0))
+     ((ActionReveal (cardByIndex (PlayerLocation pid PlayerDeck) 0))
   <> (ActionMove
-        (PlayerLocation pid PlayerDeck, 0)
+        (cardByIndex (PlayerLocation pid PlayerDeck) 0)
         (PlayerLocation pid Hand)
         Front))
 
@@ -153,16 +158,16 @@ apply (ActionDraw pid amount) = apply -- TODO: Respect amount
 apply (ActionRescueBystander _ 0) = apply ActionNone
 apply (ActionRescueBystander pid n) = do
   apply $ ActionMove
-            (BystanderDeck, 0)
+            (cardByIndex BystanderDeck 0)
             (PlayerLocation pid Victory)
             Front
        <> ActionRescueBystander pid (n - 1)
 
 apply (ActionCaptureBystander _ 0) = apply ActionNone
-apply (ActionCaptureBystander sloc@(location, _) n) = do
+apply (ActionCaptureBystander sloc n) = do
   apply $ ActionMove
-            (BystanderDeck, 0)
-            location
+            (cardByIndex BystanderDeck 0)
+            (cardLocation sloc)
             Back
        <> ActionCaptureBystander sloc (n - 1)
 
@@ -247,7 +252,7 @@ apply ActionStartTurn = do
   pid <- currentPlayer
 
   tag (playerDesc pid <> " turn start") $ do
-    let topCard = (VillainDeck, 0)
+    let topCard = cardByIndex VillainDeck 0
     nextCard <- lookupCard topCard
 
     case view cardTemplate <$> nextCard of
@@ -271,7 +276,7 @@ apply ActionStartTurn = do
 
         withBoard board . apply $
              effect
-          <> revealAndMove (VillainDeck, 0) (City 0) Front
+          <> revealAndMove (cardByIndex VillainDeck 0) (City 0) Front
           <> ActionPlayerTurn pid
   where
     villainAtLocation board l =
@@ -313,57 +318,59 @@ apply a@(ActionPlayerTurn _) = applyChoices f
       withBoard board' . apply $ action
 
     f :: S.Seq PlayerChoice -> GameMonad Action
-    f (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _) = do
-      pid <- currentPlayer
+    f (ChooseCard address :<| _) = case cardLocation address of
+      PlayerLocation pid' Hand -> do
+        pid <- currentPlayer
 
-      if pid == pid' then
-        do
-          board <- currentBoard
-          card       <- requireCard location
+        if pid == pid' then
+          do
+            board <- currentBoard
+            card  <- requireCard address
 
-          let cardCode = fromJust $ preview (cardTemplate . playCode) card
+            let cardCode = fromJust $ preview (cardTemplate . playCode) card
 
-          let ret = evalWith (mkEnv $ Just board) cardCode
+            let ret = evalWith (mkEnv $ Just board) cardCode
 
-          action <- case fromU $ ret of
-                      Right x -> return x
-                      Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+            action <- case fromU $ ret of
+                        Right x -> return x
+                        Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
 
-          let continue = revealAndMove location (PlayerLocation pid Played) Front
-                      <> action
-          let guardCode = fromJust $ preview (cardTemplate . playGuard) card
+            let continue = revealAndMove address (PlayerLocation pid Played) Front
+                        <> action
+            let guardCode = fromJust $ preview (cardTemplate . playGuard) card
 
-          let ret = evalWith (mkEnv $ Just board) (UApp guardCode (UConst . toU $ continue))
+            let ret = evalWith (mkEnv $ Just board) (UApp guardCode (UConst . toU $ continue))
 
-          case fromU ret of
-            Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
-            Right x -> return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
-                         x
-                      <> a
-      else
-        f mempty
+            case fromU ret of
+              Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+              Right x -> return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
+                           x
+                        <> a
+        else
+          f mempty
 
-    f (ChooseCard location@(HQ, i) :<| _) = do
-      card <- requireCard location
-      pid <- currentPlayer
+      HQ -> do
+        card <- requireCard address
+        pid <- currentPlayer
 
-      let template = view cardTemplate card
+        let template = view cardTemplate card
 
-      return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-           (ActionMove location (PlayerLocation pid Discard) Front)
-        <> (ActionRecruit pid (-(view heroCost template)))
-        <> replaceHeroInHQ i
+        return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
+             (ActionMove address (PlayerLocation pid Discard) Front)
+          <> (ActionRecruit pid (-(view heroCost template)))
+          <> replaceHeroInHQ (cardLocationIndex address)
 
-    f (ChooseCard location@(City n, i) :<| _) = do
-      card <- requireCard location
-      pid <- currentPlayer
+      City n -> do
+        card <- requireCard address
+        pid <- currentPlayer
 
-      let template = view cardTemplate card
+        let template = view cardTemplate card
 
-      return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
-           ActionMove location (PlayerLocation pid Victory) Front
-        <> ActionAttack pid (negate . view baseHealth $ template)
+        return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
+             ActionMove address (PlayerLocation pid Victory) Front
+          <> ActionAttack pid (negate . view baseHealth $ template)
+      _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
@@ -412,26 +419,32 @@ apply (ActionConcurrent as) = do
 
 apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where
-    discardSelection (ChooseCard location@(PlayerLocation pid' Hand, i) :<| _)
-      | pid == pid' = do
-        card <- requireCard location
+    discardSelection (ChooseCard address :<| _) = do
+      case cardLocation address of
+        PlayerLocation pid' Hand | pid == pid' -> do
+          card <- requireCard address
 
-        return $ ActionMove
-                   location
-                   (PlayerLocation pid Discard)
-                   Front
-    discardSelection _ = return . ActionHalt a $
+          return $ ActionMove
+                     address
+                     (PlayerLocation pid Discard)
+                     Front
+        _ -> defaultAction
+    discardSelection _ = defaultAction
+
+    defaultAction = return . ActionHalt a $
       playerDesc pid <> ": select a card in hand to discard"
 
 apply ActionKOHero = applyChoices koHero
   where
-    koHero (ChooseCard location@(HQ, i) :<| _) = do
+    koHero (ChooseCard address :<| _)
+      | HQ == cardLocation address = do
+
       pid   <- currentPlayer
-      valid <- checkCondition (ConditionCostLTE location 6)
+      valid <- checkCondition (ConditionCostLTE address 6)
 
       return $ if valid then
-             ActionMove location KO Front
-          <> revealAndMove (HeroDeck, 0) HQ (LocationIndex i)
+             ActionMove address KO Front
+          <> revealAndMove (cardByIndex HeroDeck 0) HQ (LocationIndex $ cardLocationIndex address)
       else
         ActionHalt ActionKOHero $
           playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
@@ -500,8 +513,7 @@ tryShuffleDiscardToDeck :: Action -> SpecificCard -> GameMonad Board
 tryShuffleDiscardToDeck a specificCard = do
   board <- currentBoard
 
-  let (location, _) = specificCard
-  location <- resolveLocation location
+  let location = cardLocation specificCard
 
   case playerDeck location of
     Nothing -> lose $ "Card does not exist: " <> showT specificCard
@@ -529,14 +541,20 @@ tryShuffleDiscardToDeck a specificCard = do
     moveAndHide :: Int -> Location -> Location -> Action
     moveAndHide n from to =
       mconcat . toList . replicate n $
-           ActionMove (from, 0) to Front
-        <> ActionHide (to, 0)
+           ActionMove (cardByIndex from 0) to Front
+        <> ActionHide (cardByIndex to 0)
 
 overCard :: SpecificCard -> (CardInPlay -> CardInPlay) -> GameMonad Board
-overCard (location, i) f = do
-  location <- resolveLocation location
+overCard address f = do
+  let location = cardLocation address
+  over (cardsAtLocation location) updateF <$> currentBoard
 
-  over (cardsAtLocation location . ix i) f <$> currentBoard
+  where
+    updateF xs = case address of
+                  CardByIndex (_, i) -> S.adjust' f i xs
+                  CardById (_, cid) -> case S.findIndexL (\c -> cid == view cardId c) xs of
+                                         Nothing -> error $ "Card does not exist: " <> show address
+                                         Just i -> S.adjust' f i xs
 
 halt a = do
   b <- currentBoard
@@ -564,9 +582,8 @@ resolveLocation (PlayerLocation CurrentPlayer x) = do
 resolveLocation x = return x
 
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
-lookupCard (location, i) = do
-  location <- resolveLocation location
-  preview (cardsAtLocation location . ix i) <$> currentBoard
+lookupCard cardAddress = do
+  preview (cardAtLocation cardAddress) <$> currentBoard
 
 requireCard :: SpecificCard -> GameMonad CardInPlay
 requireCard location = do

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Json where
 
@@ -72,6 +73,17 @@ readError :: Read a => T.Text -> Parser a
 readError x = case readMaybe . T.unpack $ x of
                 Just x' -> return x'
                 Nothing -> fail "Could not parse"
+
+instance FromJSON CardId where
+  parseJSON v = CardId <$> parseJSON v
+
+instance FromJSON SpecificCard where
+  parseJSON = withObject "SpecificCard" $ \v -> do
+    t :: String <- v .: "type"
+
+    case t of
+      "ByIndex" -> specificCardByIndex <$> v .: "location" <*> v .: "index"
+      "ById"    -> specificCardById    <$> v .: "location" <*> v .: "id"
 
 instance FromJSON PlayerChoice where
   parseJSON = withObject "PlayerChoice" $ \v -> do
@@ -182,6 +194,10 @@ instance ToJSON MoveDestination where
   toJSON Front = "front"
   toJSON Back = "back"
   toJSON (LocationIndex i) = toJSON i
+
+instance ToJSON SpecificCard where
+  toJSON (CardByIndex (l, ix)) = toJSON (l, ix)
+  toJSON (CardById (l, cid)) = toJSON (l, cid)
 
 instance ToJSON Action where
   toJSON (ActionCombine a ActionNone) = toJSON a

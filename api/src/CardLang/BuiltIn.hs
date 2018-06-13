@@ -98,8 +98,8 @@ cardsAt = do
 
   cards <- view (cardsAtLocation loc) <$> currentBoard
 
-  return . UConst . UList . fmap (UConst . USpecificCard) $
-    zip (repeat loc) [0..length cards -1]
+  return . UConst . UList . fmap (UConst . USpecificCard) .
+    map (uncurry specificCardByIndex) $ zip (repeat loc) [0..length cards -1]
 
 villiansAt = do
   loc <- argAt 0
@@ -117,9 +117,9 @@ villiansAt = do
 
 cardAttr :: ToU a => Traversal' Card a -> EvalMonad UExpr
 cardAttr lens = do
-  sloc@(location, index) <- argAt 0
+  sloc <- argAt 0
 
-  attr <- preview (cardsAtLocation location . ix index . cardTemplate . lens) <$> currentBoard
+  attr <- preview (cardAtLocation sloc . cardTemplate . lens) <$> currentBoard
 
   case attr of
     Just c -> return . toUConst $ c
@@ -127,16 +127,16 @@ cardAttr lens = do
 
 cardOwner :: EvalMonad UExpr
 cardOwner = do
-  (location, _) :: SpecificCard <- argAt 0
+  specificCard :: SpecificCard <- argAt 0
 
-  case location of
+  case cardLocation specificCard of
     (PlayerLocation pid _) -> return . toUConst $ pid
-    _ -> return . UConst $ (UError $ "Location is not a player location: " <> showT location)
+    _ -> return . UConst $ (UError $ "Location is not a player location: " <> showT specificCard)
 
 isBystander = do
-  sloc@(location, index) <- argAt 0
+  sloc <- argAt 0
 
-  attr <- preview (cardsAtLocation location . ix index . cardTemplate) <$> currentBoard
+  attr <- preview (cardAtLocation sloc . cardTemplate) <$> currentBoard
 
   case attr of
     Just BystanderCard -> return . toUConst $ True
@@ -144,9 +144,9 @@ isBystander = do
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
 isWound = do
-  sloc@(location, index) <- argAt 0
+  sloc <- argAt 0
 
-  attr <- preview (cardsAtLocation location . ix index . cardTemplate) <$> currentBoard
+  attr <- preview (cardAtLocation sloc . cardTemplate) <$> currentBoard
 
   case attr of
     Just WoundCard -> return . toUConst $ True

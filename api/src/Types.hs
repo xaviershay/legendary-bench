@@ -34,7 +34,14 @@ data GameMonadState = GameMonadState
 type GameHalt = (Board, Action)
 type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Action) Identity))) a
 
-type SpecificCard = (Location, Int)
+data SpecificCard =
+    CardByIndex (Location, Int)
+  -- Location tehnically not needed here, but don't currently keep an index of
+  -- where cards are so this helps find it, given we always have the location
+  -- when specifying a card anyways (at least for now).
+  | CardById (Location, CardId)
+  deriving (Show, Generic, Eq)
+
 data MoveDestination = Top | Front | Back | LocationIndex Int deriving (Show, Generic, Eq)
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
@@ -469,4 +476,23 @@ infixr 8 ~>
 a ~> b = WFun a b
 
 specificCard :: Location -> Int -> SpecificCard
-specificCard x y = (x, y)
+specificCard x y = CardByIndex (x, y)
+
+specificCardByIndex :: Location -> Int -> SpecificCard
+specificCardByIndex x y = CardByIndex (x, y)
+
+cardByIndex :: Location -> Int -> SpecificCard
+cardByIndex x y = CardByIndex (x, y)
+
+specificCardById :: Location -> CardId -> SpecificCard
+specificCardById x y = CardById (x, y)
+
+cardLocation (CardByIndex (l, _)) = l
+cardLocation (CardById (l, _)) = l
+
+cardLocationIndex (CardByIndex (_, i)) = i
+-- TODO: To fix this, this function needs to be moved into board monad
+cardLocationIndex _ = error "Can't extract index location from Card ID"
+
+cardAtLocation (CardByIndex (location, index)) = cardsAtLocation location . ix index
+cardAtLocation (CardById (location, cid))      = cardsAtLocation location . folded . filtered (\card -> view cardId card == cid)

@@ -27,7 +27,7 @@ module CardLang.Evaluator
 
 import Control.Applicative (liftA2, liftA3)
 import           Control.Lens         (at, element, ix, non, over, preview, set,
-                                       view, Traversal')
+                                       view, Traversal', filtered, folded)
 import           Control.Monad        (foldM, forM)
 import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
 import           Control.Monad.Except (runExceptT, throwError)
@@ -220,13 +220,13 @@ uliftA3 w x y z = toUConst <$> liftA3 w x y z
 
 builtInCardAttribute :: ToU a => Traversal' Card a -> EvalMonad UExpr
 builtInCardAttribute lens = do
-  sloc@(location, index) <- argAt 0
+  specificCard <- argAt 0
 
-  attr <- preview (cardsAtLocation location . ix index . cardTemplate . lens) <$> currentBoard
+  attr <- preview (cardAtLocation specificCard . cardTemplate . lens) <$> currentBoard
 
   case attr of
     Just c -> return . UConst . toU $ c
-    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
+    Nothing -> return . UConst $ (UError $ "No card at location: " <> showT specificCard)
 
 showEnvOneLine vars =
   T.intercalate ", " $ fmap f $ (sortOn fst $ M.toList vars)
