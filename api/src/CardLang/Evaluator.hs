@@ -341,6 +341,8 @@ instance FromU [UExpr] where
   fromU (UList xs) = return xs
   fromU x        = throwError ("Expected UList, got " <> showT x)
 
+instance ToU a => ToU [a] where
+  toU = UList . fmap toUConst
 instance ToU Bool where
   toU x = UBool x
 

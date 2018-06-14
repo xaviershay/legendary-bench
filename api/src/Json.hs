@@ -27,6 +27,7 @@ showLocation = \case
       HQ -> "hq"
       KO -> "ko"
       BystanderDeck -> "bystander"
+      WoundDeck -> "wound"
       HeroDeck -> "hero-deck"
       VillainDeck -> "villian-deck"
       City i -> "city-" <> showT i
@@ -129,6 +130,9 @@ instance ToJSON Card where
     , "health" .= view baseHealth c
     ]
   toJSON c@BystanderCard = object
+    [ "type" .= view cardType c
+    ]
+  toJSON c@WoundCard = object
     [ "type" .= view cardType c
     ]
 

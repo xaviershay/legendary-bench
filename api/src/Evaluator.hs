@@ -170,6 +170,16 @@ apply (ActionRescueBystander pid n) = do
             Front
        <> ActionRescueBystander pid (n - 1)
 
+-- TODO: Handle not having any wounds left
+apply (ActionGainWound _ _ 0) = apply mempty
+apply (ActionGainWound pid dest n) = do
+  traceM $ "Gaining wound"
+  apply $ ActionMove
+            (cardByIndex WoundDeck 0)
+            dest
+            Front
+       <> ActionGainWound pid dest (n - 1)
+
 apply (ActionCaptureBystander _ 0) = apply ActionNone
 apply (ActionCaptureBystander sloc n) = do
   apply $ ActionMove
@@ -291,13 +301,16 @@ apply ActionStartTurn = do
 
 apply (ActionTagged reason action) = tag reason (apply action)
 
-apply a@(ActionChooseCard desc options expr pass) = applyChoices f
+apply a@(ActionChooseCard pid desc options expr pass) = applyChoicesFor pid f
   where
     f (ChoosePass :<| _) = case pass of
                              Nothing     -> f mempty
                              Just action -> return action
     f (ChooseCard location :<| _) = do
-      if elem location options then
+      options' <- catMaybes <$> mapM lookupCard options
+      card <- requireCard location
+
+      if elem card options' then
         do
           board <- currentBoard
           case fromU $ evalWith (mkEnv $ Just board) (UApp expr (UConst $ toU location)) of
@@ -306,17 +319,17 @@ apply a@(ActionChooseCard desc options expr pass) = applyChoices f
 
       else
         f mempty
-    f _ = wait a desc
+    f _ = wait a $ playerDesc pid <> ": " <> desc
 
 apply a@(ActionChooseYesNo desc onYes onNo) = applyChoices f
   where
     f (ChoosePass :<| _) = return onNo
-    f (ChooseBool True :<| _) = return onYes
+    f (ChooseBool True :<| _) = trace (show onYes) $ return onYes
     f (ChooseBool False :<| _) = return onNo
     f _ = wait a desc
 
 
-apply a@(ActionPlayerTurn _) = applyChoices f
+apply a@(ActionPlayerTurn _) = applyChoicesBoard f
   where
     clearAndApply action = do
       pid <- currentPlayer
@@ -324,7 +337,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
       withBoard board' . apply $ action
 
-    f :: S.Seq PlayerChoice -> GameMonad Action
+    f :: S.Seq PlayerChoice -> GameMonad Board
     f (ChooseCard address :<| _) = case cardLocation address of
       PlayerLocation pid' Hand -> do
         pid <- currentPlayer
@@ -334,14 +347,11 @@ apply a@(ActionPlayerTurn _) = applyChoices f
             board <- currentBoard
             card  <- requireCard address
 
-            let cardCode = fromJust $ preview (cardTemplate . playCode) card
+            let cardCodes = fromJust $ preview (cardTemplate . playCode) card
 
-            let ret = evalWith (mkEnv $ Just board) cardCode
-
-            action <- case fromU $ ret of
-                        Right x -> return x
-                        Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
-
+            -- Deferring execution here allow play effects to be evaluated
+            -- sequentially
+            let action = mconcat . toList $ fmap ActionEval cardCodes
 
             let continue = revealAndMove address (PlayerLocation pid Played) Front
                         <> action
@@ -351,7 +361,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
             case fromU ret of
               Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
-              Right x -> return . ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
+              Right x -> apply $ ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                            x
                         <> a
         else
@@ -364,7 +374,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
         let template = view cardTemplate card
 
-        return . ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
+        apply $ ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
              (ActionMove address (PlayerLocation pid Discard) Front)
           <> (ActionRecruit pid (-(view heroCost template)))
           <> replaceHeroInHQ index
@@ -375,7 +385,7 @@ apply a@(ActionPlayerTurn _) = applyChoices f
 
         let template = view cardTemplate card
 
-        return . ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
+        apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
              ActionMove address (PlayerLocation pid Victory) Front
           <> ActionAttack pid (negate . view baseHealth $ template)
       _ -> f mempty
@@ -383,13 +393,23 @@ apply a@(ActionPlayerTurn _) = applyChoices f
     f (ChooseEndTurn :<| _) = do
       pid <- currentPlayer
 
-      return $
+      apply $
            ActionEndTurn
         <> ActionStartTurn
     f _ = do
       pid <- currentPlayer
 
       wait a $ playerDesc pid <> "'s turn"
+
+apply a@(ActionEval expr) = do
+  board <- currentBoard
+  let ret = evalWith (mkEnv $ Just board) expr
+
+  action <- case fromU $ ret of
+              Right x -> return x
+              Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+
+  apply action
 
 apply a@(ActionLose reason) = lose reason
 apply (ActionHalt a reason) = wait a reason
@@ -613,6 +633,17 @@ clearChoices =
 
 clearChoicesFor pid =
   set (playerChoices . at pid) mempty
+
+applyChoicesBoard f = do
+  pid <- currentPlayer
+
+  applyChoicesForBoard pid f
+
+applyChoicesForBoard pid f = do
+  choices <- view (playerChoices . at pid . non mempty) <$> currentBoard
+
+  board <- clearChoicesFor pid <$> currentBoard
+  withBoard board (f choices)
 
 applyChoices f = do
   pid <- currentPlayer

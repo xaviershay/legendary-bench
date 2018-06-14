@@ -278,6 +278,8 @@ class Board extends Component {
             layout="stacked" />
           <Location cards={board.cards["bystander"]} title="Bystander"
             layout="stacked" />
+          <Location cards={board.cards["wound"]} title="Wound"
+            layout="stacked" />
         </div>
         <div className='boardRow'>
           <Location cards={board.cards["hero-deck"]} title="Hero Deck"
@@ -497,6 +499,17 @@ class Card extends Component {
         <div>
           <div className="card">
             <span className="cardName">Bystander</span>
+            <span className="cardDescription"></span>
+            <div className="footer">
+            </div>
+          </div>
+        </div>
+      )
+    } else if (card.type === "wound") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">Wound</span>
             <span className="cardDescription"></span>
             <div className="footer">
             </div>

@@ -64,6 +64,7 @@ data Location = PlayerLocation PlayerId ScopedLocation
   | Escaped
   | Boss
   | BystanderDeck
+  | WoundDeck
   deriving (Show, Generic, Eq)
 
 type Name = T.Text
@@ -175,7 +176,7 @@ data Card = HeroCard
   , _heroTeam :: HeroTeam
   , _heroDescription :: T.Text
   , _playEffect :: Action
-  , _playCode :: UExpr
+  , _playCode :: S.Seq UExpr
   , _playGuard :: UExpr
   , _discardEffect :: UExpr
   , _gainEffect :: UExpr
@@ -309,7 +310,7 @@ data Action =
   ActionTagged T.Text Action |
   ActionTrace T.Text |
   ActionConcurrent [Action] |
-  ActionChooseCard T.Text [SpecificCard] UExpr (Maybe Action) |
+  ActionChooseCard PlayerId T.Text [SpecificCard] UExpr (Maybe Action) |
   ActionChooseYesNo T.Text Action Action |
 
   ActionAttack PlayerId SummableInt |
@@ -320,6 +321,7 @@ data Action =
   ActionKO SpecificCard |
   ActionDiscardCard SpecificCard |
   ActionDefeat PlayerId SpecificCard |
+  ActionGainWound PlayerId Location SummableInt |
 
   ActionLose T.Text |
   ActionPlayerTurn PlayerId |
@@ -329,7 +331,8 @@ data Action =
 
   -- TODO: Think through these cases more
   ActionKOHero |
-  ActionDiscard PlayerId
+  ActionDiscard PlayerId |
+  ActionEval UExpr
 
   deriving (Generic, Show)
 
@@ -392,7 +395,7 @@ cardDictionary board =
     allLocations board =
       let playerIds = [0 .. (S.length . view players $ board) - 1] in
 
-         [HQ, HeroDeck, VillainDeck, Escaped, Boss]
+         [HQ, HeroDeck, VillainDeck, Escaped, Boss, BystanderDeck, WoundDeck]
       <> allCityLocations
       <> concatMap allPlayerLocations playerIds
 
@@ -406,16 +409,18 @@ cardName = lens getter setter
     getter c@HeroCard{} = view heroName c
     getter c@EnemyCard{} = view enemyName c
     getter c@BystanderCard = view (to (const "Bystander")) c
+    getter c@WoundCard = view (to (const "Wound")) c
 
     setter c@HeroCard{} x = set heroName x c
     setter c@EnemyCard{} x = set enemyName x c
-    setter c@BystanderCard x = c
+    setter c _ = c
 
 cardType = lens getter setter
   where
     getter c@HeroCard{} = "hero"
     getter c@EnemyCard{} = "enemy"
     getter c@BystanderCard = "bystander"
+    getter c@WoundCard = "wound"
 
     setter c = const c
 

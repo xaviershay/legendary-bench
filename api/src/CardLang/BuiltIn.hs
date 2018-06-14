@@ -9,6 +9,8 @@ import           Control.Lens         (Traversal')
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State  (get, modify)
 import           Data.List            (nub)
+import           Data.Sequence ((<|))
+import qualified Data.Sequence        as S
 
 import CardLang.Parser (parseUnsafe)
 import CardLang.Evaluator hiding (argAt)
@@ -38,7 +40,7 @@ addPlayEffect = do
   action <- eval effect
 
   case fromU action of
-    Right action' -> return . toUConst $ set playCode action' template
+    Right action' -> return . toUConst $ over playCode (action' <|) template
     Left x        -> throwError x
 
 addPlayGuard = do
@@ -78,6 +80,14 @@ concat = do
   case mapM fromU vs of
     Right vs' -> return . UConst . UList $ mconcat vs'
     Left y    -> throwError $ "Unexpected error in concat: " <> showT y
+
+concurrently = do
+  es :: [UExpr] <- argAt 0
+  vs :: [UValue] <- traverse eval es
+
+  case sequence . map fromU $ vs of
+    Right as -> return . toUConst $ ActionConcurrent as
+    Left err -> throwError $ "concurrently didn't get an action: " <> showT err
 
 reduce = do
   f       <- argAt 0
@@ -153,8 +163,8 @@ isWound = do
     Just _ -> return . toUConst $ False
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
 
-chooseCard = do
-  pid <- currentPlayer
+chooseCard who = do
+  pid <- who
 
   desc      <- argAt 0
   fromExprs <- argAt 1
@@ -164,11 +174,11 @@ chooseCard = do
   from <- traverse eval fromExprs
 
   case sequence $ fmap fromU from of
-    Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose (Just onPass)
+    Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose (Just onPass)
     Left y -> throwError y
 
-mustChooseCard = do
-  pid <- currentPlayer
+mustChooseCard who = do
+  pid <- who
 
   desc      <- argAt 0
   fromExprs <- argAt 1
@@ -177,8 +187,24 @@ mustChooseCard = do
   from <- traverse eval fromExprs
 
   case sequence $ fmap fromU from of
-    Right from' -> return . toUConst $ ActionChooseCard desc from' onChoose Nothing
+    Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose Nothing
     Left y -> throwError y
+
+mkChooseCard who descM exprM onChooseM onPassM = do
+  pid <- who
+  desc <- descM
+  exprs <- exprM
+  onChoose <- onChooseM
+  onPass <- onPassM
+
+  if null exprs then
+    return . toUConst $ ActionNone
+  else do
+    from <- traverse eval exprs
+
+    case sequence $ fmap fromU from of
+      Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose onPass
+      Left y -> throwError y
 
 chooseYesNo = do
   pid <- currentPlayer
@@ -214,6 +240,28 @@ currentPlayer = do
         Nothing -> throwError "No current player"
         Just p -> return p
 
+allPlayers = do
+  board <- currentBoard
+  ps <- toList . view players <$> currentBoard
+
+  return . toUConst . map (view playerId) $ ps
+
+playerDirection dir = do
+  pid <- argAt 0
+
+  ps <- view players <$> currentBoard
+  
+  let mi = S.findIndexL (\p -> view playerId p == pid) ps
+
+  case mi of
+    Nothing -> throwError $ "Not a valid player id: " <> showT pid
+    Just i -> do
+      let ni = (i + dir + (length ps)) `mod` length ps
+
+      return . toUConst . view playerId . S.index ps $ ni
+
+
+
 makeHero = do
   name     <- argAt 0
   team     <- argAt 1
@@ -233,7 +281,7 @@ makeHero = do
                   , _heroStartingNumber = amount
                   , _heroDescription = desc
                   , _playEffect = ActionNone
-                  , _playCode = UConst . UAction $ ActionNone
+                  , _playCode = mempty
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
                   , _gainEffect = parseUnsafe "@(fn [continue b c d e] continue)"

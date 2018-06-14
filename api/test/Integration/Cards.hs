@@ -46,9 +46,9 @@ test_CardsIntegration = do
     fakeBoard cards = genBoard (mkStdGen 0) 2 cards
 
     forCard board card = let code = fromJust $ preview playCode card in
-
                    testCase (T.unpack $ view templateId card) $
                      let env = mkEnv (Just board) in
-                     case evalWith env code of
+                     -- TODO: Evaluate all effects, not just the first one
+                     case evalWith env (head . toList $ code) of
                        (UAction _) ->  True @=? True
                        y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y

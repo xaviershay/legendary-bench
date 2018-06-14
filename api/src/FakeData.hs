@@ -32,11 +32,13 @@ genBoard g playerCount cards = evalState a 1
       villainDeck   <- mkVillainDeck
       heroDeck      <- mkHeroDeck cards
       bystanderDeck <- mkBystanderDeck
+      woundDeck     <- mkWoundDeck
 
       id
         . set (cardsAtLocation VillainDeck) villainDeck
         . set (cardsAtLocation HeroDeck) heroDeck
         . set (cardsAtLocation BystanderDeck) bystanderDeck
+        . set (cardsAtLocation WoundDeck) woundDeck
         . set players (fmap mkPlayer ps)
         . set rng g
         <$> foldM setPlayerDeck mkBoard ps
@@ -59,6 +61,10 @@ mkBystanderDeck =
   traverse (mkCardInPlay All) $
     S.replicate 30 BystanderCard
 
+mkWoundDeck =
+  traverse (mkCardInPlay All) $
+    S.replicate 30 WoundCard
+
 mkVillainDeck =
   traverse (mkCardInPlay Hidden) $
     S.replicate 30 villianCard <> S.replicate 30 BystanderCard
@@ -69,7 +75,7 @@ mkPlayerDeck cards =
        S.replicate 2 recruitCard
     <> S.replicate 2 attackCard
     <> S.replicate 1 (findCard "Unending Energy")
-    <> S.replicate 1 (findCard "Hey, Can I Get a Do-Over?")
+    <> S.replicate 1 (findCard "Random Acts of Unkindness")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

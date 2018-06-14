@@ -76,6 +76,7 @@
 
 (hero-set "Captain America" "Avengers")
 
+; TODO: Need to make this exclude wounds
 (defn uniq-card-types [player] ((. length uniq (map card-type) cards-player-has) player))
 
 (make-hero "Avengers Assemble!" "Instinct" 3 5
@@ -171,15 +172,11 @@
   (add-play-effect @(combine
     (recruit 2)
     (let [villians (concat-map villians-at city-locations)]
-      ; TODO: Consider whether this empty check should be part of
-      ; must-choose-card
-      (if (empty villians)
-        noop
-        (must-choose-card
-          "Choose a Villian"
-          (concat-map villians-at city-locations)
-          (fn [card] (capture-bystander card 1)))
-      )))))
+      (must-choose-card
+        "Choose a Villian"
+        (concat-map villians-at city-locations)
+        (fn [card] (capture-bystander card 1)))
+    ))))
 
 (make-hero "Oddball" "Covert" 5 5
   "You get +1 Attack for each other Hero with an odd-numbered Cost you played this turn."
@@ -213,3 +210,25 @@
       noop
       )
     )))
+
+(make-hero "Random Acts of Unkindness" "Instinct" 7 1
+  "You may gain a Wound to your hand. Then each player passes a card from their hand to the player on their left."
+  (.
+    (add-play-effect @(attack 6))
+    (add-play-effect @(choose-yesno "Gain wound to hand?"
+                        (gain-wound-to (player-location current-player "Hand") 1)
+                        noop))
+    ; TODO: The way concurrently works, the chosen card can show up in
+    ; someone's hand before they themselves have selected a card to pass. But
+    ; they can't select it, because selection is limited to what was in their
+    ; hand at the beginning of the effect! So it's a weird UI experience, but
+    ; results in correct gameplay behaviour. To fix, consider making
+    ; ActionConcurrent apply all-or-nothing rather than partial. This probably
+    ; makes the most sense for villian escape discarding also.
+    (add-play-effect @(concurrently (map (fn [player]
+                        (player-must-choose-card player
+                          "Choose card to pass to left"
+                          (cards-at (player-location player "Hand"))
+                          (fn [card] (move card (player-location (player-left player) "Hand"))))
+                      ) all-players)))
+  ))
