@@ -385,9 +385,11 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         let template = view cardTemplate card
 
+        requiredAttack <- evalInt $ view enemyAttack template
+
         apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
              ActionMove address (PlayerLocation pid Victory) Front
-          <> ActionAttack pid (negate . view baseHealth $ template)
+          <> ActionAttack pid (negate requiredAttack)
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
@@ -688,3 +690,11 @@ cardLocationIndex address@(CardById (location, cid)) = do
   case S.findIndexL (\c -> cid == view cardId c) (view (cardsAtLocation location) board) of
     Nothing -> lose $ "No such card: " <> showT address
     Just i -> return i
+
+evalInt (ModifiableInt base modifier) = do
+  board <- currentBoard
+  let ret = maybe (UInt 0) (evalWith (mkEnv $ Just board)) modifier
+
+  case fromU $ ret of
+    Right x -> return (base <> x)
+    Left y -> lose $ "Unexpected state: expr doesn't evaluate to an int. Got: " <> y

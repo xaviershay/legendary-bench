@@ -169,6 +169,21 @@ data BuiltInDef = BuiltInDef
 
 data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
+type LabeledExpr = (T.Text, UExpr)
+
+-- A SummableInt that has a base value, and potentially an expression that can
+-- be dynamically evaluated to modify that value. The expression is stored as a
+-- Maybe rather than an empty expression so that it can be displayed
+-- differently in human-readable form.
+data ModifiableInt = ModifiableInt SummableInt (Maybe UExpr)
+  deriving (Show, Generic)
+
+mkModifiableInt base modifier = ModifiableInt base modifier
+
+instance Monoid ModifiableInt where
+  mempty = ModifiableInt mempty Nothing
+  mappend (ModifiableInt b1 m1) (ModifiableInt b2 m2) = error "mappend unimplemented for ModifiableInt"
+
 data Card = HeroCard
   { _heroName   :: T.Text
   , _heroAbilityName :: T.Text
@@ -184,7 +199,15 @@ data Card = HeroCard
   , _heroStartingNumber :: SummableInt
   } | EnemyCard
   { _enemyName :: T.Text
-  , _baseHealth :: SummableInt
+  , _enemyTribe :: T.Text
+  , _enemyStartingNumber :: SummableInt
+  , _enemyAttack :: ModifiableInt
+  , _enemyVP :: (SummableInt, Maybe UExpr)
+  , _enemyDescription :: T.Text
+  , _fightCode :: Maybe LabeledExpr
+  , _fightGuard :: UExpr
+  , _escapeCode :: Maybe LabeledExpr
+  , _ambushCode :: Maybe LabeledExpr
   } | BystanderCard
   | WoundCard
 
@@ -472,7 +495,7 @@ isLost board = f $ view boardState board
 playerDesc (PlayerId id) = "Player " <> showT id
 playerDesc CurrentPlayer = "Current player"
 
-emptyEnv = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty }
+emptyEnv = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty, _envBuiltInDefs = mempty }
 extendEnv :: M.HashMap Name UExpr -> UEnv -> UEnv
 extendEnv newVars env = over envVariables (\x -> newVars `M.union` x) env
 

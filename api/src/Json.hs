@@ -127,7 +127,7 @@ instance ToJSON Card where
   toJSON c@EnemyCard{} = object
     [ "type" .= view cardType c
     , "name" .= view cardName c
-    , "health" .= view baseHealth c
+    , "health" .= view enemyAttack c
     ]
   toJSON c@BystanderCard = object
     [ "type" .= view cardType c
@@ -135,6 +135,12 @@ instance ToJSON Card where
   toJSON c@WoundCard = object
     [ "type" .= view cardType c
     ]
+
+instance ToJSON ModifiableInt where
+  toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> (modifierStr modifier)
+    where
+      modifierStr Nothing = mempty
+      modifierStr _ = "+"
 
 instance ToJSON Game where
   toJSON game = object

@@ -13,5 +13,5 @@ import CardLang.Parser
 
 villianCard = EnemyCard
   { _enemyName = "Villain"
-  , _baseHealth = 3
+  , _enemyAttack = mkModifiableInt 3 Nothing
   }

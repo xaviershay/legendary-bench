@@ -113,6 +113,10 @@ instance Arbitrary SummableInt where
   shrink = genericShrink
   arbitrary = Sum <$> arbitrary
 
+instance Arbitrary ModifiableInt where
+  shrink = genericShrink
+  arbitrary = ModifiableInt <$> arbitrary <*> pure Nothing
+
 instance Arbitrary Resources where
   shrink = genericShrink
   arbitrary = do
@@ -163,11 +167,11 @@ genHero = do
 
 genEnemy = do
   name   <- T.pack . getPrintableString <$> arbitrary
-  (Positive health) <- arbitrary
+  (Positive attack) <- arbitrary
 
   return $ EnemyCard
     { _enemyName = name
-    , _baseHealth = health
+    , _enemyAttack = mkModifiableInt attack Nothing
     }
 
 genLocation ps = oneof
