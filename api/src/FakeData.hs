@@ -29,7 +29,7 @@ genBoard g playerCount cards = evalState a 1
     a = do
       let ps = S.fromList $ fmap PlayerId [0..playerCount -1]
 
-      villainDeck   <- mkVillainDeck
+      villainDeck   <- mkVillainDeck cards
       heroDeck      <- mkHeroDeck cards
       bystanderDeck <- mkBystanderDeck
       woundDeck     <- mkWoundDeck
@@ -66,9 +66,10 @@ mkWoundDeck =
     S.replicate 30 WoundCard
 
 mkVillainDeck =
-  traverse (mkCardInPlay Hidden) $
-    S.replicate 30 villianCard <> S.replicate 30 BystanderCard
-
+  traverse (mkCardInPlay Hidden)
+    . mconcat
+    . fmap (\c -> S.replicate (toInt $ view enemyStartingNumber c) c)
+    . toList
 
 mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $

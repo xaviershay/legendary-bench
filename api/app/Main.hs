@@ -21,13 +21,15 @@ main :: IO ()
 main = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
+  let henchmen = "/home/xavier/Code/legendary-bench/cards/base/henchmen.lisp"
 
   prelude <- T.readFile prelude
   contents <- T.readFile path
-  cards <- readCards (prelude <> "\n" <> contents)
+  contents2 <- T.readFile henchmen
+  cards <- readCards (prelude <> "\n" <> contents <> contents2)
 
---  forM cards $ \x -> do
---    putStrLn $ ppShow x
+  forM cards $ \x -> do
+    putStrLn . T.unpack $ view templateId x
 
   let port = 8080
   state <- mkState cards

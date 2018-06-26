@@ -73,6 +73,19 @@ addGainEffect = do
     Right expr -> return . toUConst $ set gainEffect expr template
     Left x     -> throwError x
 
+addFightEffect = do
+  env <- get
+
+  label    <- argAt 0
+  effect   <- argAt 1
+  template <- argAt 2
+
+  action <- eval effect
+
+  case fromU action of
+    Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
+    Left x        -> throwError x
+
 concat = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es
@@ -125,6 +138,20 @@ villiansAt = do
                            EnemyCard{} -> True
                            _           -> False
 
+heroesAt = do
+  loc <- argAt 0
+
+  cards <- view (cardsAtLocation loc) <$> currentBoard
+
+  let villians = filter isHero $ zip (toList cards) [0..length cards - 1]
+
+  return . UConst . UList . fmap (UConst . USpecificCard) . fmap (\(_, y) -> specificCard loc y) $ villians
+
+  where
+    isHero (card, _) = case view cardTemplate card of
+                           HeroCard{} -> True
+                           _          -> False
+
 cardAttr :: ToU a => Traversal' Card a -> EvalMonad UExpr
 cardAttr lens = do
   sloc <- argAt 0
@@ -162,33 +189,6 @@ isWound = do
     Just WoundCard -> return . toUConst $ True
     Just _ -> return . toUConst $ False
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT sloc)
-
-chooseCard who = do
-  pid <- who
-
-  desc      <- argAt 0
-  fromExprs <- argAt 1
-  onChoose  <- argAt 2
-  onPass    <- argAt 3
-
-  from <- traverse eval fromExprs
-
-  case sequence $ fmap fromU from of
-    Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose (Just onPass)
-    Left y -> throwError y
-
-mustChooseCard who = do
-  pid <- who
-
-  desc      <- argAt 0
-  fromExprs <- argAt 1
-  onChoose  <- argAt 2
-
-  from <- traverse eval fromExprs
-
-  case sequence $ fmap fromU from of
-    Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose Nothing
-    Left y -> throwError y
 
 mkChooseCard who descM exprM onChooseM onPassM = do
   pid <- who
@@ -250,7 +250,7 @@ playerDirection dir = do
   pid <- argAt 0
 
   ps <- view players <$> currentBoard
-  
+
   let mi = S.findIndexL (\p -> view playerId p == pid) ps
 
   case mi of
@@ -285,6 +285,34 @@ makeHero = do
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
                   , _gainEffect = parseUnsafe "@(fn [continue b c d e] continue)"
+                  }
+
+  template' <- eval (UApp callback template)
+
+  case fromU template' of
+    Right x -> do
+      modify (over envCards (x <|))
+      upure ()
+
+    Left y -> throwError y
+
+makeHenchmen = do
+  name     <- argAt 0
+  attack   <- argAt 1
+  vp       <- argAt 2
+  callback <- argAt 3
+
+  let template = UConst . UCardTemplate $ EnemyCard
+                  { _enemyName = name
+                  , _enemyTribe = "Henchmen"
+                  , _enemyStartingNumber = 10 -- TODO: No idea what this should be
+                  , _enemyAttack = mkModifiableInt attack Nothing
+                  , _enemyVP = mkModifiableInt vp Nothing
+                  , _enemyDescription = mempty
+                  , _fightCode = Nothing
+                  , _fightGuard = parseUnsafe "@(fn [x] x)"
+                  , _escapeCode = Nothing
+                  , _ambushCode = Nothing
                   }
 
   template' <- eval (UApp callback template)

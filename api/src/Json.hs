@@ -127,7 +127,11 @@ instance ToJSON Card where
   toJSON c@EnemyCard{} = object
     [ "type" .= view cardType c
     , "name" .= view cardName c
-    , "health" .= view enemyAttack c
+    , "attack" .= view enemyAttack c
+    , "fight" .= case view fightCode c of
+                   Nothing -> ""
+                   Just x  -> extractLabel x
+    , "vp" .= view enemyVP c
     ]
   toJSON c@BystanderCard = object
     [ "type" .= view cardType c

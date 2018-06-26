@@ -21,4 +21,5 @@
 (defn is-team [t c] (== t (card-team c)))
 (defn played [type]
   ((. (any (is-type type)) cards-at) (player-location current-player "Played")))
-(defn cards-player-has [p] (concat-map (. cards-at (player-location current-player)) ["Played" "Hand"]))
+(defn cards-player-has [p] (concat-map (. cards-at (player-location p)) ["Played" "Hand"]))
+(defn heroes-player-has [p] (concat-map (. heroes-at (player-location p)) ["Played" "Hand"]))

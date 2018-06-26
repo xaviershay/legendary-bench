@@ -80,6 +80,10 @@ data UExpr =
   | USequence [UExpr]
   deriving (Show)
 
+instance Monoid UExpr where
+  mempty = UConst UNone
+  mappend a b = USequence [a, b]
+
 data UEnv = UEnv
   { _envVariables :: M.HashMap Name UExpr
   , _envBoard :: Maybe Board
@@ -171,6 +175,11 @@ data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
 type LabeledExpr = (T.Text, UExpr)
 
+extractLabel = fst
+extractCode = snd
+
+mkLabeledExpr = (,)
+
 -- A SummableInt that has a base value, and potentially an expression that can
 -- be dynamically evaluated to modify that value. The expression is stored as a
 -- Maybe rather than an empty expression so that it can be displayed
@@ -202,7 +211,7 @@ data Card = HeroCard
   , _enemyTribe :: T.Text
   , _enemyStartingNumber :: SummableInt
   , _enemyAttack :: ModifiableInt
-  , _enemyVP :: (SummableInt, Maybe UExpr)
+  , _enemyVP :: ModifiableInt
   , _enemyDescription :: T.Text
   , _fightCode :: Maybe LabeledExpr
   , _fightGuard :: UExpr
@@ -450,7 +459,9 @@ cardType = lens getter setter
 templateId :: Lens' Card T.Text
 templateId = lens getter setter
   where
-    getter c = view cardName c <> "/" <> view heroAbilityName c
+    getter c@HeroCard{} = "Hero" <> "/" <> view cardName c <> "/" <> view heroAbilityName c
+    getter c@EnemyCard{} = "Enemy" <> "/" <> view enemyTribe c <> "/" <> view cardName c
+    getter c = "Other" <> "/" <> view cardName c
 
     -- TODO: In theory should be able to define a Getter but I couldn't figure
     -- it out.

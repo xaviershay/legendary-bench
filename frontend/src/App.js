@@ -219,7 +219,7 @@ class Board extends Component {
 
     return (
       <div className='board'>
-        <div class='boardHeader'>
+        <div className='boardHeader'>
           <div>
           <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
           <br />
@@ -349,9 +349,8 @@ function chooseBool(playerId, choice) {
   }
 }
 
-
-function playCardActions(playerId) {
-  return (c, i) => chooseCard(playerId, ["player-" + playerId + "-hand", i])
+function chooseCardActions(loc, playerId) {
+  return (c, i) => chooseCard(playerId, [loc, i])
 }
 
 function purchaseCardActions(playerId) {
@@ -377,8 +376,8 @@ class Player extends Component {
           </div>
           <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
           <div className="workingArea">
-            <Location cards={cardsAt("hand")} title="Hand" actions={playCardActions(id)} />
-            <Location cards={cardsAt("played")} title="Played" />
+            <Location cards={cardsAt("hand")} title="Hand" actions={chooseCardActions(playerLocation(id, "hand"), id)} />
+            <Location cards={cardsAt("played")} title="Played" actions={chooseCardActions(playerLocation(id, "played"), id)} />
           </div>
           <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
           <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
@@ -485,10 +484,12 @@ class Card extends Component {
         <div>
           <div className="card">
             <span className="cardName">{card.name}</span>
-            <span className="cardDescription">{card.description}</span>
+            <span className="cardDescription">
+            {card.fight && <span><strong>Fight:</strong> {card.fight}</span>}
+            </span>
             <div className="footer">
-              <span></span>
-              <span>{"⚔" + card.health}</span>
+              <span className="card-vp">{"♕" + card.vp}</span>
+              <span className="cardAttack">{"⚔" + card.attack}</span>
             </div>
 
           </div>
@@ -517,7 +518,7 @@ class Card extends Component {
         </div>
       )
     } else {
-      throw "Unknown card type: " + card.type
+      throw new Error("Unknown card type: " + card.type)
     }
   }
 }

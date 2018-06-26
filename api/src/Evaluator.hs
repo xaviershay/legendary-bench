@@ -387,9 +387,16 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         requiredAttack <- evalInt $ view enemyAttack template
 
-        apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
-             ActionMove address (PlayerLocation pid Victory) Front
-          <> ActionAttack pid (negate requiredAttack)
+        board <- currentBoard
+        let fightAction = maybe (UAction ActionNone) (evalWith (mkEnv $ Just board) . extractCode) (view fightCode template)
+
+        case fromU fightAction of
+          Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
+          Right x -> apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
+                               ActionMove address (PlayerLocation pid Victory) Front
+                            <> ActionAttack pid (negate requiredAttack)
+                            <> x
+                            <> a
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do

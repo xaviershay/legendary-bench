@@ -105,6 +105,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
   , mkBuiltIn "city-locations" (WList "Location") (pure . UConst . UList $ fmap toUConst allCityLocations)
   , mkBuiltIn "villians-at" ("Location" ~> WList "SpecificCard") B.villiansAt
+  , mkBuiltIn "heroes-at" ("Location" ~> WList "SpecificCard") B.heroesAt
   , mkBuiltIn "player-location" ("PlayerId" ~> "String" ~> "Location")
     $ uliftA2 PlayerLocation (argAt 0) (argAt 1)
   , mkBuiltIn "choose-card"
@@ -155,6 +156,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
      ~> "Action"
      ) ~> "CardTemplate" ~> "CardTemplate")
      B.addGainEffect
+  , mkBuiltIn "add-fight-effect" ("String" ~> WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addFightEffect
   , mkBuiltIn "make-hero-full"
      (  "String"
      ~> "String"
@@ -167,6 +169,14 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
      ~> "Void"
      )
      B.makeHero
+  , mkBuiltIn "make-henchmen"
+     (  "String"
+     ~> "Int"
+     ~> "Int"
+     ~> ("CardTemplate" ~> "CardTemplate")
+     ~> "Void"
+     )
+     B.makeHenchmen
   ]
   where
     mkBuiltIn name t f = BuiltInDef
