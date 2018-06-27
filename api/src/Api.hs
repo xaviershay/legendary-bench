@@ -6,20 +6,15 @@
 module Api where
 
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
-                                                       newTVar, readTVar,
-                                                       writeTVar)
-import           Control.Lens                         (at, non, over, view)
+                                                       newTVar, readTVar)
+import           Control.Lens                         (over, view)
 import           Control.Monad.IO.Class               (liftIO)
-import           Control.Monad.Reader                 (Reader)
 import           Control.Monad.STM                    (atomically, check)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
 import           Data.Maybe                           (fromMaybe)
-import           Data.Monoid                          (mempty, (<>))
 import qualified Data.Sequence                        as S
 import qualified Data.Text                            as T
-import           GHC.Generics
-import           GHC.TypeLits
 import           Network.Wai.Middleware.Cors          (cors, corsRequestHeaders,
                                                        simpleCorsResourcePolicy)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -28,12 +23,10 @@ import           System.Random                        (newStdGen)
 import           System.Timeout                       (timeout)
 
 import FakeData
-import Utils
 import Types
-import Json
 import GameMonad
 import Evaluator
-import Action
+import Json()
 
 newtype State = State
   { game :: TVar Game -- TODO: Handle multiple games at once

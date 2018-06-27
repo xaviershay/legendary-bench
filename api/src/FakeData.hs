@@ -6,17 +6,14 @@ import           Control.Lens        (set, view)
 import           Control.Monad       (foldM)
 import           Control.Monad.State (State, evalState, get, put)
 import           Data.Foldable       (find)
-import qualified Data.HashMap.Strict as M
 import           Data.Maybe          (fromJust)
 import qualified Data.Sequence       as S
-import           System.Random       (StdGen, mkStdGen)
+import           System.Random       (StdGen)
 
 import Types
 import Evaluator
-import Cards
 import Utils
 import GameMonad
-import Action
 
 mkGame :: StdGen -> S.Seq Card -> Game
 mkGame g cards = Game

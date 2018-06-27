@@ -18,7 +18,6 @@ import           Data.Foldable        (find)
 import           Data.Maybe           (catMaybes, fromJust)
 import           Data.Sequence        (Seq ((:<|), Empty), (<|), (|>))
 import qualified Data.Sequence        as S
-import qualified Data.HashMap.Strict  as M
 import qualified Data.Text            as T
 
 import Debug.Trace
@@ -30,7 +29,7 @@ import           Types
 import           Utils
 
 import CardLang
-import CardLang.Evaluator (fromU, toU, toUConst, showCode)
+import CardLang.Evaluator (fromU, toU, toUConst)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)

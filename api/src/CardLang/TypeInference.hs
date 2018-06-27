@@ -47,7 +47,6 @@ instance Substitutable MType where
   applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
   applySubst s (WBoardF x) = WBoardF (applySubst s x)
   applySubst s (WList x) = WList (applySubst s x)
-  applySubst a b = error $ "applySubst error " <> show a <> ", " <> show b
 
 freeMType :: MType -> Set.Set Name
 freeMType (WBoardF x) = freeMType x

@@ -89,7 +89,6 @@ showCode (UIf cond e1 e2) = showSExpr ["if", showCode cond, showCode e1, showCod
 showCode (UDef name expr) = showSExpr ["def", name, showCode expr]
 showCode (USequence xs) = T.intercalate " " $ fmap showCode xs
 showCode (UBuiltIn x) = "<" <> x <> ">"
-showCode x = "!!! UNKNOWN: " <> showT x
 
 showSExpr atoms = "(" <> T.intercalate " " atoms <>  ")"
 

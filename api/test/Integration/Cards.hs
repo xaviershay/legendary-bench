@@ -4,9 +4,7 @@ module Integration.Cards where
 
 import Unit.Utils
 
-import Control.Monad.Except (throwError)
 import qualified Data.Sequence as S
-import qualified Data.Set      as Set
 import qualified Data.Text     as T
 import qualified Data.Text.IO  as T
 import Data.Maybe (fromJust)
