@@ -10,7 +10,7 @@ module Random
 
 import           Data.Foldable (toList)
 import qualified Data.Sequence as S
-import           System.Random (RandomGen, mkStdGen, randomR)
+import           System.Random (RandomGen, randomR)
 
 -- /O(nlog(n))/ Randomize the order of a list with a "perfect shuffle": each
 -- possible permuation is equally likely.

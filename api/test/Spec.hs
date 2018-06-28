@@ -13,12 +13,6 @@ import Data.Foldable (toList)
 import Types
 import Evaluator
 import GameMonad
-import Action
-import Utils
-
-import Debug.Trace
-
---genCards n = S.replicate n $ buildCard moneyCard All
 
 buildCard template vis = CardInPlay
   { _cardTemplate = template

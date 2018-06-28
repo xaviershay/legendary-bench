@@ -16,7 +16,6 @@ import           Data.Maybe           (fromJust)
 import qualified Data.Set             as Set
 import qualified Data.Text            as T
 
-import CardLang.Evaluator
 import Types hiding (extendEnv)
 import Utils
 
@@ -43,7 +42,7 @@ instance Substitutable Subst where
 
 instance Substitutable MType where
   applySubst (Subst s) c@(WVar a) = M.lookupDefault c a s
-  applySubst s c@(WConst {}) = c
+  applySubst s c@WConst {} = c
   applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
   applySubst s (WBoardF x) = WBoardF (applySubst s x)
   applySubst s (WList x) = WList (applySubst s x)
@@ -61,14 +60,14 @@ freePType (Forall qs mType) = freeMType mType `Set.difference` qs
 instance Substitutable PType where
   -- Remove the free types from the env and then substitute mType with that
   applySubst (Subst s) (Forall qs mType) =
-    let qs' = M.fromList (fmap (\t -> (t, ())) $ toList qs)
+    let qs' = M.fromList ((\t -> (t, ())) <$> toList qs)
         s'  = Subst (s `M.difference` qs')
     in Forall qs (applySubst s' mType)
 
 newtype WEnv = WEnv (M.HashMap Name PType) deriving (Show)
 
 freeEnv :: WEnv -> Set.Set Name
-freeEnv (WEnv e) = Set.unions (fmap freePType $ M.elems e)
+freeEnv (WEnv e) = Set.unions (freePType <$> M.elems e)
 
 instance Substitutable WEnv where
   applySubst s (WEnv env) = WEnv (M.map (applySubst s) env)
@@ -80,7 +79,7 @@ typecheck :: UEnv -> UExpr -> Either InferError MType
 typecheck env expr = recode . snd <$> runInfer (infer (toTypeEnv env) expr)
 
 toTypeEnv :: UEnv -> WEnv
-toTypeEnv env = WEnv $ M.map (\x -> (view builtInType x)) (view envBuiltInDefs env)
+toTypeEnv env = WEnv $ M.map (view builtInType) (view envBuiltInDefs env)
 
 boardFuncs = mempty
 
@@ -91,11 +90,12 @@ runInfer :: Infer a -> Either InferError a
 runInfer (Infer inf) = evalState (runExceptT inf) typeNames
 
 alphabet = map T.singleton ['a'..'z']
-typeNames = (infiniteSupply alphabet)
+typeNames = infiniteSupply alphabet
+
 -- [a, b, c] ==> [a,b,c, a1,b1,c1, a2,b2,c2, …]
 infiniteSupply supply = supply <> addSuffixes supply (1 :: Integer)
   where
-    addSuffixes xs n = map (\x -> addSuffix x n) xs <> addSuffixes xs (n+1)
+    addSuffixes xs n = map (`addSuffix` n) xs <> addSuffixes xs (n+1)
 
 throw :: InferError -> Infer a
 throw = Infer . throwError
@@ -295,7 +295,7 @@ instantiate (Forall qs t) = do
 
   where
     substituteAllWithFresh xs = do
-      xs' <- sequenceA . fmap freshTuple . toList $ xs
+      xs' <- traverse freshTuple . toList $ xs
       pure (Subst $ M.fromList xs')
     freshTuple x = do
       v <- fresh

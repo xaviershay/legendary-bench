@@ -4,8 +4,6 @@ module Unit.CardLang.TypeInference where
 
 import Unit.Utils
 
-import qualified Data.Sequence as S
-import qualified Data.Set      as Set
 import qualified Data.Text     as T
 import qualified Data.Text.IO  as T
 

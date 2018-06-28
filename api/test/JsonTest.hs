@@ -6,7 +6,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Types
-import Json
+import Json()
 
 import Data.Aeson (encode, eitherDecode)
 

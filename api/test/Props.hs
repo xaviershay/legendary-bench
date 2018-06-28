@@ -1,16 +1,13 @@
 {-# LANGUAGE FlexibleInstances #-}
-
 module Props where
 
-import           Control.Lens          (over, set, view)
-import           Control.Monad         (liftM, liftM2, liftM3)
-import           Data.Hashable         (Hashable)
+import           Control.Lens          (set, view)
+import           Control.Monad         (liftM2, liftM3)
 import qualified Data.HashMap.Strict   as M
 import qualified Data.Sequence         as S
 import qualified Data.Text             as T
 import           Evaluator
 import           GameMonad
-import           System.Random         (mkStdGen)
 import           Test.Tasty.QuickCheck
 
 import Types
@@ -53,6 +50,7 @@ instance Arbitrary T.Text where
 
 instance Arbitrary UExpr where
   shrink = const []
+  arbitrary = pure $ UConst UNone -- TODO
 
 instance Arbitrary Card where
   shrink = genericShrink
@@ -158,11 +156,17 @@ genHero = do
 
   return $ HeroCard
     { _heroName = name
+    , _heroDescription = mempty
     , _heroCost = cost
     , _heroAbilityName = mempty
     , _heroType = mempty
     , _heroTeam = mempty
+    , _playGuard = mempty
     , _playEffect = effect
+    , _discardEffect = mempty
+    , _gainEffect = mempty
+    , _heroStartingNumber = mempty
+    , _playCode = mempty
     }
 
 genEnemy = do
@@ -172,6 +176,14 @@ genEnemy = do
   return $ EnemyCard
     { _enemyName = name
     , _enemyAttack = mkModifiableInt attack Nothing
+    , _enemyTribe = mempty
+    , _enemyStartingNumber = mempty
+    , _enemyVP = mempty
+    , _enemyDescription = mempty
+    , _fightCode = mempty
+    , _fightGuard = mempty
+    , _escapeCode = mempty
+    , _ambushCode = mempty
     }
 
 genLocation ps = oneof

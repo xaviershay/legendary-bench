@@ -79,7 +79,7 @@ apply a@(ActionMove specificCard to dest) = do
 
                    return $
                        over (cardsAtLocation location) (S.deleteAt i)
-                     . over (cardsAtLocation to) ((insertF dest) card)
+                     . over (cardsAtLocation to) (insertF dest card)
                      . clearChoices -- TODO: This is a bit weird. See notes at query TChooseCard
                      $ board
 
@@ -92,28 +92,19 @@ apply a@(ActionReveal location) = do
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a location
-    Just card -> do
-      board <- overCard location (setVisibility All)
+    Just card -> overCard location (setVisibility All)
 
-      --logAction a
-
-      return board
 apply a@(ActionHide location) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a location
-    Just card -> do
-      board <- overCard location (setVisibility Hidden)
+    Just card -> overCard location (setVisibility Hidden)
 
-      --logAction a
-
-      return board
-
-apply (ActionRecruit pid amount) = do
+apply (ActionRecruit pid amount) =
   apply (ApplyResources pid $ set money amount mempty)
 
-apply (ActionAttack pid amount) = do
+apply (ActionAttack pid amount) =
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
 apply (ActionKO location) = apply $ ActionMove location KO Front
@@ -139,7 +130,7 @@ apply (ActionDiscardCard location) = do
       board <- apply $ ActionMove location (PlayerLocation pid Discard) Front
 
       withBoard board $ do
-        let newLocation = (cardById (PlayerLocation pid Discard) (view cardId card))
+        let newLocation = cardById (PlayerLocation pid Discard) (view cardId card)
         let expr = fromJust $ preview (cardTemplate . discardEffect) card
 
         case fromU $ evalWith (mkEnv $ Just board) (UApp expr (toUConst newLocation)) of
@@ -162,7 +153,7 @@ apply (ActionDraw pid n) = apply $
 
 -- TODO: Handle not having any bystanders left
 apply (ActionRescueBystander _ 0) = apply mempty
-apply (ActionRescueBystander pid n) = do
+apply (ActionRescueBystander pid n) =
   apply $ ActionMove
             (cardByIndex BystanderDeck 0)
             (PlayerLocation pid Victory)
@@ -171,8 +162,7 @@ apply (ActionRescueBystander pid n) = do
 
 -- TODO: Handle not having any wounds left
 apply (ActionGainWound _ _ 0) = apply mempty
-apply (ActionGainWound pid dest n) = do
-  traceM $ "Gaining wound"
+apply (ActionGainWound pid dest n) =
   apply $ ActionMove
             (cardByIndex WoundDeck 0)
             dest
@@ -180,7 +170,7 @@ apply (ActionGainWound pid dest n) = do
        <> ActionGainWound pid dest (n - 1)
 
 apply (ActionCaptureBystander _ 0) = apply ActionNone
-apply (ActionCaptureBystander sloc n) = do
+apply (ActionCaptureBystander sloc n) =
   apply $ ActionMove
             (cardByIndex BystanderDeck 0)
             (cardLocation sloc)
@@ -229,7 +219,7 @@ apply a@(ActionShuffle location) = do
     . set rng g'
     $ board
 
-apply ActionPrepareGame = do
+apply ActionPrepareGame =
   tag "Prepare game" $ do
     preparePlayers <-   mconcat . toList
                       . fmap (preparePlayer . view playerId)
@@ -238,8 +228,8 @@ apply ActionPrepareGame = do
 
     apply $
                preparePlayers
-            <> (mconcat $ fmap ActionShuffle [HeroDeck, VillainDeck])
-            <> (mconcat $ fmap replaceHeroInHQ [0..4])
+            <> mconcat (fmap ActionShuffle [HeroDeck, VillainDeck])
+            <> mconcat (fmap replaceHeroInHQ [0..4])
             <> ActionStartTurn
 
   where
@@ -309,7 +299,7 @@ apply a@(ActionChooseCard pid desc options expr pass) = applyChoicesFor pid f
       options' <- catMaybes <$> mapM lookupCard options
       card <- requireCard location
 
-      if elem card options' then
+      if card `elem` options' then
         do
           board <- currentBoard
           case fromU $ evalWith (mkEnv $ Just board) (UApp expr (UConst $ toU location)) of
@@ -374,8 +364,8 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
         let template = view cardTemplate card
 
         apply $ ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-             (ActionMove address (PlayerLocation pid Discard) Front)
-          <> (ActionRecruit pid (-(view heroCost template)))
+             ActionMove address (PlayerLocation pid Discard) Front
+          <> ActionRecruit pid (-(view heroCost template))
           <> replaceHeroInHQ index
 
       City n -> do
@@ -413,7 +403,7 @@ apply a@(ActionEval expr) = do
   board <- currentBoard
   let ret = evalWith (mkEnv $ Just board) expr
 
-  action <- case fromU $ ret of
+  action <- case fromU ret of
               Right x -> return x
               Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
@@ -444,7 +434,7 @@ apply (ActionConcurrent as) = do
     throwError (set boardState (mconcat messages) board, ActionConcurrent as')
 
   where
-    f (board, as) a = do
+    f (board, as) a =
       withBoard board (do
         board' <- apply a
 
@@ -455,7 +445,7 @@ apply (ActionConcurrent as) = do
 
 apply a@(ActionDiscard pid) = applyChoicesFor pid discardSelection
   where
-    discardSelection (ChooseCard address :<| _) = do
+    discardSelection (ChooseCard address :<| _) =
       case cardLocation address of
         PlayerLocation pid' Hand | pid == pid' -> do
           card <- requireCard address
@@ -504,7 +494,7 @@ moveCity Escaped incoming =
                             let discardAction = ActionConcurrent . toList $
                                                   fmap (ActionDiscard . view playerId) (view players board)
 
-                            return $ (board, ActionKOHero <> discardAction)
+                            return (board, ActionKOHero <> discardAction)
                           _ -> loseWithEffect "Unhandled incoming in Escaped handler"
     _                -> loseWithEffect "No incoming cards in Escaped handler"
 
@@ -528,10 +518,10 @@ moveCity location@(City i) incoming = do
 
                          return (board, ActionNone)
 
-  return $ (moveAllFrom
-             (cardsAtLocation location)
-             (cardsAtLocation nextLocation)
-             board, effect)
+  return (moveAllFrom
+           (cardsAtLocation location)
+           (cardsAtLocation nextLocation)
+           board, effect)
 
   where
     nextL (City 4) = Escaped
@@ -560,11 +550,10 @@ tryShuffleDiscardToDeck a specificCard = do
       case view (cards . at discardDeck . non mempty) board of
         Empty -> lose $ "No cards left to draw for " <> showT playerId
         cs -> apply $
-                (ActionTagged
-                  (playerDesc playerId <> " shuffles discard into deck") $
-                    moveAndHide (length cs) discardDeck location
-                  <> ActionShuffle location
-                )
+                ActionTagged
+                  (playerDesc playerId <> " shuffles discard into deck")
+                  (  moveAndHide (length cs) discardDeck location
+                  <> ActionShuffle location)
                 <> a
 
   where
@@ -599,7 +588,7 @@ halt a = do
   throwError (b, a)
 
 setVisibility :: Visibility -> CardInPlay -> CardInPlay
-setVisibility v = set cardVisibility v
+setVisibility = set cardVisibility
 
 invalidResources :: Resources -> Bool
 invalidResources r = (view money r < mempty) || (view attack r < mempty)
@@ -619,7 +608,7 @@ resolveLocation (PlayerLocation CurrentPlayer x) = do
 resolveLocation x = return x
 
 lookupCard :: SpecificCard -> GameMonad (Maybe CardInPlay)
-lookupCard cardAddress = do
+lookupCard cardAddress =
   preview (cardAtLocation cardAddress) <$> currentBoard
 
 requireCard :: SpecificCard -> GameMonad CardInPlay
@@ -674,7 +663,7 @@ checkCondition :: Condition -> GameMonad Bool
 checkCondition (ConditionCostLTE location amount) = do
   card <- requireCard location
 
-  return $ view (cardTemplate . heroCost) card <= (Sum amount)
+  return $ view (cardTemplate . heroCost) card <= Sum amount
 
 tag :: T.Text -> GameMonad Board -> GameMonad Board
 tag message m = do
@@ -701,6 +690,6 @@ evalInt (ModifiableInt base modifier) = do
   board <- currentBoard
   let ret = maybe (UInt 0) (evalWith (mkEnv $ Just board)) modifier
 
-  case fromU $ ret of
+  case fromU ret of
     Right x -> return (base <> x)
     Left y -> lose $ "Unexpected state: expr doesn't evaluate to an int. Got: " <> y

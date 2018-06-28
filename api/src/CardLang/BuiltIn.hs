@@ -4,10 +4,9 @@
 
 module CardLang.BuiltIn where
 
-import           Control.Lens         (element)
-import           Control.Lens         (Traversal')
+import           Control.Lens         (element, Traversal')
 import           Control.Monad.Except (throwError)
-import           Control.Monad.State  (get, modify)
+import           Control.Monad.State  (get, gets, modify)
 import           Data.List            (nub)
 import           Data.Sequence ((<|))
 import qualified Data.Sequence        as S
@@ -98,7 +97,7 @@ concurrently = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es
 
-  case sequence . map fromU $ vs of
+  case traverse fromU vs of
     Right as -> return . toUConst $ ActionConcurrent as
     Left err -> throwError $ "concurrently didn't get an action: " <> showT err
 
@@ -131,7 +130,7 @@ villiansAt = do
 
   let villians = filter isVillian $ zip (toList cards) [0..length cards - 1]
 
-  return . UConst . UList . fmap (UConst . USpecificCard) . fmap (\(_, y) -> specificCard loc y) $ villians
+  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villians
 
   where
     isVillian (card, _) = case view cardTemplate card of
@@ -145,7 +144,7 @@ heroesAt = do
 
   let villians = filter isHero $ zip (toList cards) [0..length cards - 1]
 
-  return . UConst . UList . fmap (UConst . USpecificCard) . fmap (\(_, y) -> specificCard loc y) $ villians
+  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villians
 
   where
     isHero (card, _) = case view cardTemplate card of
@@ -202,7 +201,7 @@ mkChooseCard who descM exprM onChooseM onPassM = do
   else do
     from <- traverse eval exprs
 
-    case sequence $ fmap fromU from of
+    case traverse fromU from of
       Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose onPass
       Left y -> throwError y
 
@@ -223,7 +222,7 @@ compose = do
   return $ UApp f1 (UApp f2 x)
 
 currentBoard = do
-  board <- view envBoard <$> get
+  board <- gets $ view envBoard
 
   case board of
     Nothing -> throwError "Board function called outside of context"
@@ -231,11 +230,11 @@ currentBoard = do
 
 currentPlayer :: EvalMonad PlayerId
 currentPlayer = do
-  board <- view envBoard <$> get
+  board <- gets $ view envBoard
 
   case board of
     Nothing -> throwError "Board function called outside of context"
-    Just b -> do
+    Just b ->
       case preview (players . element 0 . playerId) b of
         Nothing -> throwError "No current player"
         Just p -> return p
@@ -256,7 +255,7 @@ playerDirection dir = do
   case mi of
     Nothing -> throwError $ "Not a valid player id: " <> showT pid
     Just i -> do
-      let ni = (i + dir + (length ps)) `mod` length ps
+      let ni = (i + dir + length ps) `mod` length ps
 
       return . toUConst . view playerId . S.index ps $ ni
 

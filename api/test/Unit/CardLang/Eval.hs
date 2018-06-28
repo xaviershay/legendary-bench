@@ -93,5 +93,3 @@ test_Eval =
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool True)]) "(uniq [false false true])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool False)]) "(replicate 2 false)"
   ]
-
-focus = test_Eval >>= defaultMain

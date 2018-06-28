@@ -5,7 +5,6 @@
 module Json where
 
 import Control.Lens (view)
-import qualified Data.Sequence as S
 import Data.Aeson
 import Data.Aeson.Types (toJSONKeyText, Parser)
 import qualified Data.Text as T
@@ -141,7 +140,7 @@ instance ToJSON Card where
     ]
 
 instance ToJSON ModifiableInt where
-  toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> (modifierStr modifier)
+  toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> modifierStr modifier
     where
       modifierStr Nothing = mempty
       modifierStr _ = "+"

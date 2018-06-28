@@ -15,7 +15,7 @@ import           Control.Monad.Writer (WriterT)
 import           Data.Char            (isUpper)
 import           Data.Hashable        (Hashable)
 import qualified Data.HashMap.Strict  as M
-import           Data.List            (intercalate, nub)
+import           Data.List            (nub)
 import qualified Data.Sequence        as S
 import qualified Data.Set             as Set
 import           Data.String          (IsString, fromString)
@@ -23,11 +23,9 @@ import qualified Data.Text            as T
 import           GHC.Generics         hiding (to)
 import           System.Random        (StdGen, mkStdGen)
 
-import Debug.Trace
-
 import Utils
 
-data GameMonadState = GameMonadState
+newtype GameMonadState = GameMonadState
   { _board        :: Board
   }
 
@@ -137,9 +135,9 @@ data MType =
 data PType = Forall (Set.Set Name) MType deriving (Show)
 
 instance IsString MType where
-  fromString x@(h:_) 
+  fromString x@(h:_)
     | isUpper h  = WConst . T.pack $ x
-    | True       = WVar . T.pack $ x
+    | otherwise  = WVar . T.pack $ x
 
 type EvalMonad a = (ExceptT T.Text (ReaderT Int (State UEnv))) a
 type BuiltIn = (MType, EvalMonad UExpr)
@@ -158,7 +156,7 @@ showType (WVar x) = x
 showType (WConst x) = x
 showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType y
   where
-    isFun (WFun{}) = True
+    isFun WFun{} = True
     isFun _ = False
     maybeBracket cond x = if cond then "(" <> x <> ")" else x
 showType (WList x) = "[" <> showType x <> "]"
@@ -187,7 +185,7 @@ mkLabeledExpr = (,)
 data ModifiableInt = ModifiableInt SummableInt (Maybe UExpr)
   deriving (Show, Generic)
 
-mkModifiableInt base modifier = ModifiableInt base modifier
+mkModifiableInt = ModifiableInt
 
 instance Monoid ModifiableInt where
   mempty = ModifiableInt mempty Nothing
@@ -370,7 +368,7 @@ data Action =
 
 instance Monoid Action where
   mempty = ActionNone
-  mappend a b = ActionCombine a b
+  mappend = ActionCombine
 
 makeLenses ''Player
 makeLenses ''CardInPlay
@@ -454,7 +452,7 @@ cardType = lens getter setter
     getter c@BystanderCard = "bystander"
     getter c@WoundCard = "wound"
 
-    setter c = const c
+    setter = const
 
 templateId :: Lens' Card T.Text
 templateId = lens getter setter
@@ -508,7 +506,7 @@ playerDesc CurrentPlayer = "Current player"
 
 emptyEnv = UEnv { _envVariables = mempty, _envBoard = Nothing, _envCards = mempty, _envBuiltIn = mempty, _envBuiltInDefs = mempty }
 extendEnv :: M.HashMap Name UExpr -> UEnv -> UEnv
-extendEnv newVars env = over envVariables (\x -> newVars `M.union` x) env
+extendEnv newVars = over envVariables (\x -> newVars `M.union` x)
 
 infixr 8 ~>
 (~>) :: MType -> MType -> MType

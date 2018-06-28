@@ -10,24 +10,17 @@ module CardLang
   where
 
 import qualified CardLang.BuiltIn       as B
-import           CardLang.Evaluator     (FromU, ToU, argAt, toU, toUConst, upure, uliftA1, uliftA2, uliftA3)
+import           CardLang.Evaluator     (argAt, toUConst, upure, uliftA1, uliftA2, uliftA3)
 import qualified CardLang.Evaluator
 import qualified CardLang.Parser
 import qualified CardLang.TypeInference
-import           Control.Applicative    (liftA2, liftA3)
-import           Control.Lens           (element, preview)
-import           Control.Monad.Except   (throwError)
-import           Control.Monad.State    (get)
 import qualified Data.HashMap.Strict    as M
-import qualified Data.Sequence          as S
-
-import CardLang.Types
 
 import Utils
 import Types
 
 evalWith :: UEnv -> UExpr -> UValue
-evalWith env = CardLang.Evaluator.evalWith env
+evalWith = CardLang.Evaluator.evalWith
 
 evalCards = CardLang.Evaluator.evalCards (mkEnv Nothing)
 typecheck = CardLang.TypeInference.typecheck
@@ -40,7 +33,7 @@ mkEnv board =
     set envBoard board
   $ set envBuiltIn (M.map genBuiltInExpr builtIns)
   $ set envBuiltInDefs builtIns
-  $ emptyEnv
+    emptyEnv
 
 genBuiltInExpr :: BuiltInDef -> UExpr
 genBuiltInExpr bi = typeToFn 0 bi mtype
@@ -51,7 +44,7 @@ genBuiltInExpr bi = typeToFn 0 bi mtype
     typeToFn n def (WFun _ b) = UConst . UFunc
       $ UFuncData
           { _fnBindings = mempty
-          , _fnArgName  = ("_a" <> showT n)
+          , _fnArgName  = "_a" <> showT n
           , _fnBody     = typeToFn (n+1) def b
           , _fnFreeVars = mempty
           }
@@ -69,13 +62,13 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn ">" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>) :: Int -> Int -> Bool)
   , mkBuiltIn "==" ("a" ~> "a" ~> "Bool") $ B.binOp ((==) :: UValue -> UValue -> Bool)
   , mkBuiltIn "and" ("Bool" ~> "Bool" ~> "Bool") $ B.binOp (&&)
-  , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b")  B.reduce
+  , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b") B.reduce
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
-  , mkBuiltIn "compose" (("b" ~> "c") ~> ("a" ~> "b") ~> ("a" ~> "c")) $ B.compose
-  , mkBuiltIn "head" (WList "a" ~> "a") $ B.head
-  , mkBuiltIn "tail" (WList "a" ~> WList "a") $ B.tail
-  , mkBuiltIn "uniq" (WList "a" ~> WList "a") $ B.uniq
+  , mkBuiltIn "compose" (("b" ~> "c") ~> ("a" ~> "b") ~> ("a" ~> "c")) B.compose
+  , mkBuiltIn "head" (WList "a" ~> "a") B.head
+  , mkBuiltIn "tail" (WList "a" ~> WList "a") B.tail
+  , mkBuiltIn "uniq" (WList "a" ~> WList "a") B.uniq
 
   --- Action generators
   , mkBuiltIn "noop" "Action" $ upure ActionNone
@@ -92,15 +85,15 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
     $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Back)
   , mkBuiltIn "draw-player" ("PlayerId" ~> "Int" ~> "Action") $ uliftA2 ActionDraw (argAt 0) (argAt 1)
-  , mkBuiltIn "concurrently" (WList "Action" ~> "Action") $ B.concurrently
+  , mkBuiltIn "concurrently" (WList "Action" ~> "Action") B.concurrently
 
   -- Card functions
-  , mkBuiltIn "is-bystander" ("SpecificCard" ~> "Bool")   $ B.isBystander
-  , mkBuiltIn "is-wound" ("SpecificCard" ~> "Bool")       $ B.isWound
+  , mkBuiltIn "is-bystander" ("SpecificCard" ~> "Bool")   B.isBystander
+  , mkBuiltIn "is-wound" ("SpecificCard" ~> "Bool")       B.isWound
   , mkBuiltIn "card-cost" ("SpecificCard" ~> "Int")       $ B.cardAttr heroCost
   , mkBuiltIn "card-type" ("SpecificCard" ~> "String")    $ B.cardAttr heroType
   , mkBuiltIn "card-team" ("SpecificCard" ~> "String")    $ B.cardAttr heroTeam
-  , mkBuiltIn "card-owner" ("SpecificCard" ~> "PlayerId") $ B.cardOwner
+  , mkBuiltIn "card-owner" ("SpecificCard" ~> "PlayerId") B.cardOwner
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
   , mkBuiltIn "city-locations" (WList "Location") (pure . UConst . UList $ fmap toUConst allCityLocations)
@@ -142,8 +135,8 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   -- Misc
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
   , mkBuiltIn "player-left" ("PlayerId" ~> "PlayerId") $ B.playerDirection (-1)
-  , mkBuiltIn "player-right" ("PlayerId" ~> "PlayerId") $ B.playerDirection (1)
-  , mkBuiltIn "all-players" (WList "PlayerId") $ B.allPlayers
+  , mkBuiltIn "player-right" ("PlayerId" ~> "PlayerId") $ B.playerDirection 1
+  , mkBuiltIn "all-players" (WList "PlayerId") B.allPlayers
   , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
   , mkBuiltIn "add-play-guard" (WBoardF ("Action" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addPlayGuard
   , mkBuiltIn "add-discarded-effect" (WBoardF ("SpecificCard" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addDiscardedEffect

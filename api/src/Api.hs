@@ -35,7 +35,7 @@ newtype State = State
 mkState :: S.Seq Card -> IO State
 mkState cards = do
   rng <- liftIO newStdGen
-  x <- atomically . newTVar $ (mkGame rng cards)
+  x <- atomically . newTVar $ mkGame rng cards
   return $ State { game = x }
 
 instance FromHttpApiData PlayerId where

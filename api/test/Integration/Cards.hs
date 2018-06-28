@@ -77,4 +77,3 @@ test_HenchmenIntegration = do
                      case evalWith env code of
                        (UAction _) ->  True @=? True
                        y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y
-focus = test_HenchmenIntegration >>= defaultMain
