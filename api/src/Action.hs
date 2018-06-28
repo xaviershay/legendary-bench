@@ -20,14 +20,6 @@ revealAndMove source destination spot =
      ActionReveal source
   <> ActionMove source destination spot
 
-drawAction :: Int -> PlayerId -> Action
-drawAction n pid = ActionTagged (playerDesc pid <> " draws " <> showT n) $
-   mconcat . replicate n $
-     revealAndMove
-       (specificCardByIndex (PlayerLocation pid PlayerDeck) 0)
-       (PlayerLocation pid Hand)
-       Front
-
 -- Stuff that is probably in the wrong place
 -- =========================================
 currentPlayer :: GameMonad PlayerId

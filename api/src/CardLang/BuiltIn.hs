@@ -85,6 +85,15 @@ addFightEffect = do
     Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
     Left x        -> throwError x
 
+atEndStep = do
+  effect <- argAt 0
+
+  action <- eval effect
+
+  case fromU action of
+    Right action' -> return . toUConst $ ActionEndStep action'
+    Left x        -> throwError x
+
 concat = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es

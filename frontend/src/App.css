@@ -24,7 +24,7 @@
 }
 
 .logContainer {
-  display: none;
+  /*display: none;*/
   min-width: 400px;
   background-color: #dddddd;
   padding-left: 1em;

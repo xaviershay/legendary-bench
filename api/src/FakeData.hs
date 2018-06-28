@@ -70,8 +70,8 @@ mkVillainDeck =
 
 mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
-       S.replicate 2 recruitCard
-    <> S.replicate 2 attackCard
+       S.replicate 4 recruitCard
+    <> S.replicate 4 attackCard
     <> S.replicate 1 (findCard "Unending Energy")
     <> S.replicate 1 (findCard "Random Acts of Unkindness")
 

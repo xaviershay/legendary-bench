@@ -142,14 +142,14 @@ apply (ActionDiscardCard location) = do
                       PlayerLocation pid _ -> return pid
                       _ -> lose "Cannot discard a card not in a player location"
 
-apply (ActionDraw _ 0) = apply mempty
-apply (ActionDraw pid n) = apply $
-     ActionReveal (cardByIndex (PlayerLocation pid PlayerDeck) 0)
-  <> ActionMove
-        (cardByIndex (PlayerLocation pid PlayerDeck) 0)
-        (PlayerLocation pid Hand)
-        Front
-  <> ActionDraw pid (n - 1)
+apply (ActionDraw pid (Sum n)) = apply $
+  ActionTagged (playerDesc pid <> " draws " <> showT n) $
+    mconcat . replicate n $
+         ActionReveal (cardByIndex (PlayerLocation pid PlayerDeck) 0)
+      <> ActionMove
+            (cardByIndex (PlayerLocation pid PlayerDeck) 0)
+            (PlayerLocation pid Hand)
+            Front
 
 -- TODO: Handle not having any bystanders left
 apply (ActionRescueBystander _ 0) = apply mempty
@@ -234,15 +234,19 @@ apply ActionPrepareGame =
 
   where
     preparePlayer pid =    ActionShuffle (PlayerLocation pid PlayerDeck)
-                        <> drawAction 6 pid
+                        <> ActionDraw pid 6
 
 apply ActionEndTurn = do
-  player <- currentPlayer
+  player     <- currentPlayer
+  postAction <- view (postDrawActions . at player . non mempty) <$> currentBoard
 
   tag (playerDesc player <> " turn end") $ do
     board  <-   set
                   (playerResources player)
                   mempty
+              . set
+                  (postDrawActions . at player)
+                  Nothing
               . moveAllFrom
                   (cardsAtLocation $ PlayerLocation player Played)
                   (cardsAtLocation $ PlayerLocation player Discard)
@@ -252,7 +256,7 @@ apply ActionEndTurn = do
               <$> currentBoard
 
     withBoard board $
-      over players moveHeadToTail <$> apply (drawAction 6 player)
+      over players moveHeadToTail <$> apply (ActionDraw player 6 <> postAction)
 
 apply ActionStartTurn = do
   pid <- currentPlayer
@@ -481,6 +485,11 @@ apply ActionKOHero = applyChoices koHero
       return . ActionHalt ActionKOHero $
         playerDesc pid <> ": select a card in HQ costing 6 or less to KO"
 
+apply (ActionEndStep a) = do
+  player <- currentPlayer
+
+  over (postDrawActions . at player . non mempty) (<> a) <$> currentBoard
+  
 apply a = lose $ "Unknown action: " <> showT a
 
 moveCity :: Location -> S.Seq CardInPlay -> GameMonad (Board, Action)

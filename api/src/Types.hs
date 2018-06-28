@@ -296,6 +296,7 @@ data Board = Board
   , _rng           :: StdGen
   , _version       :: Integer
   , _currentAction :: Action
+  , _postDrawActions :: M.HashMap PlayerId Action
   , _actionLog     :: S.Seq Action
   , _playerChoices :: M.HashMap PlayerId (S.Seq PlayerChoice)
   }
@@ -342,6 +343,7 @@ data Action =
   ActionConcurrent [Action] |
   ActionChooseCard PlayerId T.Text [SpecificCard] UExpr (Maybe Action) |
   ActionChooseYesNo T.Text Action Action |
+  ActionEndStep Action |
 
   ActionAttack PlayerId SummableInt |
   ActionRecruit PlayerId SummableInt |
@@ -403,6 +405,7 @@ mkBoard = Board
   , _version = 1
   , _actionLog = mempty
   , _playerChoices = mempty
+  , _postDrawActions = mempty
   }
 
 mkPlayer :: PlayerId -> Player
