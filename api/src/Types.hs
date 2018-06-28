@@ -151,6 +151,7 @@ data InferError =
 instance Show InferError where
   show (CannotUnify a b) = T.unpack $ "Cannot unify:\n  " <> showType a <> "\n  " <> showType b
   show (UnknownIdentifier n) = "Unknown identifier: " <> T.unpack n
+  show (OccursCheckFailed a b) = T.unpack $ "Occurs check failed:\n  " <> a <> "\n  " <> showType b
 
 showType (WVar x) = x
 showType (WConst x) = x

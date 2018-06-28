@@ -31,8 +31,35 @@
 
 (make-hero "The Amazing Spider-Man" "Covert" 2 1
     "Reveal the top three cards of your deck. Put any that cost 2 or less into your hand. Put the rest back in any order."
-    ; TODO: Implement this
-    (add-play-effect @(noop)))
+    (.
+      (add-play-effect
+        @(let
+          [
+            topcard (card-location (player-location current-player "Deck") 0)
+            dest    (player-location current-player "Working")
+          ]
+          (apply combine (replicate 3 (combine
+            (reveal topcard)
+            (move topcard dest))))))
+      (add-play-effect
+        @(apply-with combine noop (
+          (.
+            (map (fn [card] (combine (reveal-to-owner card) (move-top card (player-location current-player "Hand")))))
+            (filter (fn [card] (<= (card-cost card) 2))))
+          (cards-at (player-location current-player "Working")))))
+      ; At most the player will need to select 2 cards, so replicate this
+      ; action that many times. It will noop if no selection is needed.
+      (apply compose (replicate 2 (add-play-effect
+        @(let
+           [
+             remaining (cards-at (player-location current-player "Working"))
+             put-back (fn [card] (combine (hide card) (move-top card (player-location current-player "Deck"))))
+           ]
+           (if
+             (<= (length remaining) 1)
+             (apply-with combine noop (map put-back remaining))
+             (must-choose-card "Choose card to put back on deck." remaining put-back))))))
+))
 
 (hero-set "Black Widow" "Avengers")
 

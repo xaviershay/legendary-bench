@@ -29,7 +29,7 @@ import           Types
 import           Utils
 
 import CardLang
-import CardLang.Evaluator (fromU, toU, toUConst)
+import CardLang.Evaluator (fromU, toU, toUConst, showCode)
 
 logAction :: Action -> GameMonad ()
 logAction a = tell (S.singleton a)

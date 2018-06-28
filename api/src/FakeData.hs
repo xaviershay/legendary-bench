@@ -70,10 +70,10 @@ mkVillainDeck =
 
 mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
-       S.replicate 4 recruitCard
+       S.replicate 8 recruitCard
     <> S.replicate 4 attackCard
-    <> S.replicate 1 (findCard "Unending Energy")
-    <> S.replicate 1 (findCard "Random Acts of Unkindness")
+    -- <> S.replicate 5 (findCard "Unending Energy")
+    -- <> S.replicate 2 (findCard "The Amazing Spider-Man")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"
