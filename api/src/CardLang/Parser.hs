@@ -7,19 +7,16 @@ module CardLang.Parser
   ) where
 
 import           Control.Applicative     ((<|>))
-import           Control.Lens            (view)
 import qualified Data.HashMap.Strict     as M
 import           Data.SCargot
 import           Data.SCargot.Comments   (withLispComments)
 import           Data.SCargot.Repr.Basic
-import qualified Data.Set                as Set
 import           Data.String             (IsString, fromString)
 import qualified Data.Text               as T
 import           Text.Parsec             (alphaNum, between, char, digit, many,
                                           many1, noneOf, oneOf, string, try)
 import           Text.Parsec.Text        (Parser)
 
-import CardLang.Types
 import Utils
 import Types
 
@@ -47,9 +44,9 @@ pAtom =  parseInt
      <|> parseSymbol
      <|> parseString
 
-parseInt = ((AInt . read) <$> many1 digit)
+parseInt = AInt . read <$> many1 digit
 parseBool = ABool <$> (parseSpecific "true" True <|> parseSpecific "false" False)
-parseSymbol = ((ASymbol . T.pack) <$> many1 (alphaNum <|> oneOf "+*-/<=>_."))
+parseSymbol = ASymbol . T.pack <$> many1 (alphaNum <|> oneOf "+*-/<=>_.")
 parseString = AString . T.pack <$> quotedString
 
 parseSpecific match value = do
@@ -62,9 +59,8 @@ escapeChars = M.fromList
   ,('"', '"')
   ,('n', '\n')
   ]
-quotedString = do
-  string <- between (char '"') (char '"') (many quotedStringChar)
-  return string
+
+quotedString = between (char '"') (char '"') (many quotedStringChar)
   where
     quotedStringChar = escapedChar <|> normalChar
     escapedChar = do
@@ -75,18 +71,13 @@ quotedString = do
 
     normalChar = noneOf "\\\""
 
-vec p = do
-  atoms <- vec' p
+vec p = SCons (A (ASymbol "list")) <$> vec' p
 
-  pure $ SCons (A (ASymbol "list")) atoms
-
-vec' p = do
-  atoms <- (char ']' *> pure SNil) <|> (SCons <$> p <*> vec' p)
-
-  return atoms
+{-# ANN vec' ("HLint: ignore Use $>" :: String) #-}
+vec' p = (char ']' *> pure SNil) <|> (SCons <$> p <*> vec' p)
 
 boardFunc expr = SCons (A (ASymbol "board-fn")) (SCons expr SNil)
-addAtReader = addReader '@' (\ parse -> fmap boardFunc parse)
+addAtReader = addReader '@' $ fmap boardFunc
 myParser = addAtReader $ withLispComments $ addReader '[' vec $ setCarrier toExpr $ mkParser pAtom
 
 toExpr :: SExpr Atom -> Either String UExpr
@@ -114,12 +105,10 @@ toExpr (A (ASymbol "board-fn") ::: body ::: Nil) = do
   return . UConst $ UBoardFunc mempty expr
 toExpr (A (ASymbol "let") ::: (A (ASymbol "list") ::: L ls) ::: rs) = convertLet ls rs
 toExpr (A (ASymbol "fn") ::: (A (ASymbol "list") ::: L vs) ::: rs) = convertFn vs rs
-toExpr (A (ASymbol "defn") ::: (A (ASymbol name)) ::: (A (ASymbol "list") ::: L vs) ::: f) = do
-  fn <- convertFn vs f
-  return $ UDef name fn
-toExpr (A (ASymbol "def") ::: (A (ASymbol name)) ::: rs) = do
-  body <- convertSequence rs
-  return $ UDef name body
+toExpr (A (ASymbol "defn") ::: A (ASymbol name) ::: (A (ASymbol "list") ::: L vs) ::: f) =
+  UDef name <$>  convertFn vs f
+toExpr (A (ASymbol "def") ::: A (ASymbol name) ::: rs) =
+  UDef name <$> convertSequence rs
 
 toExpr (A (ASymbol "if") ::: cond ::: lhs ::: rhs ::: Nil) =
   UIf <$> toExpr cond <*> toExpr lhs <*> toExpr rhs
@@ -182,6 +171,6 @@ convertList (a:as) = do
 
   return $ a':as'
 
-convertSequence (L xs) = USequence <$> (sequence . fmap toExpr $ xs)
+convertSequence (L xs) = USequence <$> traverse toExpr xs
 convertSequence f = toExpr f
 

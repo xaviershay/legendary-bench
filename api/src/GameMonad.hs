@@ -13,7 +13,7 @@ runGameMonad :: Board -> GameMonad Board -> Board
 runGameMonad board m =
   let (board', log) = runGameMonad' board m in
 
-  over actionLog (\xs -> xs <> log) board'
+  over actionLog (<> log) board'
 
 runGameMonad' :: Board -> GameMonad Board -> (Board, S.Seq Action)
 runGameMonad' board m =

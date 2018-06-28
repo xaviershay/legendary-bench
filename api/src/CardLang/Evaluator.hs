@@ -26,27 +26,22 @@ module CardLang.Evaluator
   where
 
 import Control.Applicative (liftA2, liftA3)
-import           Control.Lens         (at, element, ix, non, over, preview, set,
-                                       view, Traversal', filtered, folded)
-import           Control.Monad        (foldM, forM)
+import           Control.Lens         (at, element, over, preview, set,
+                                       view, Traversal')
+import           Control.Monad        (forM_)
 import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
 import           Control.Monad.Except (runExceptT, throwError)
-import           Control.Monad.State  (State, evalState, execState, get, modify,
-                                       put, runState, withStateT)
+import           Control.Monad.State  (evalState, execState, get, modify,
+                                       gets)
 import qualified Data.HashMap.Strict  as M
-import           Data.Maybe           (fromJust)
-import           Data.Sequence        (Seq, (<|))
+import           Data.List            (sortOn)
+import           Data.Maybe           (fromJust, catMaybes)
+import           Data.Sequence        (Seq)
 import qualified Data.Text            as T
 import qualified Data.Set                as Set
-import           Text.Show.Pretty     (ppShow)
-import Data.List (sortBy, sortOn)
-import Data.Maybe (catMaybes)
 
 import Types
 import Utils
-
-import CardLang.Types
-import Debug.Trace
 
 setNon lens value = set lens (Just value)
 
@@ -67,7 +62,7 @@ evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) env of
 showCode (UConst (UFunc fn)) = "(fn {"
                                    <> T.intercalate ", " (fmap f . M.toList $ view fnBindings fn)
                                    <> "} ["
-                                   <> (view fnArgName fn) <> "] "
+                                   <> view fnArgName fn <> "] "
                                    <> showCode (view fnBody fn) <> ")"
   where
     f (k, v) = k <> ": " <> showCode v
@@ -98,7 +93,7 @@ withVars newEnv m = do
   modify (extendEnv newEnv)
   result <- m
   modify (set envVariables oldVars)
-  pure $ result
+  pure result
 
 eval :: UExpr -> EvalMonad UValue
 eval expr = do
@@ -108,12 +103,7 @@ eval expr = do
   if level > 10000 then
     throwError "Execution exceeded stack"
   else
-    do
-      r <- local (+ 1) $ eval' expr
-
-      --traceMT $ showT level <> ": " <> (T.replicate level " ") <> "==> " <> showCode (UConst r)
-
-      return r
+    local (+ 1) $ eval' expr
 
 eval' :: UExpr -> EvalMonad UValue
 eval' (USequence []) = pure UNone
@@ -129,7 +119,7 @@ eval' (UDef name expr) = do
 
 eval' e@(UConst fn@(UBoardFunc bindings expr)) = do
   env <- get
-  board <- view envBoard <$> get
+  board <- gets $ view envBoard
 
   case board of
     Nothing -> pure (UBoardFunc (bindVars env bindings) expr)
@@ -149,18 +139,18 @@ eval' e@(UConst (UFunc d)) = do
     bindVars env d =
       let free = freeVars env e in
       let bindings = view envVariables env `M.intersection` M.fromList (zip (toList free) (repeat ())) in
-      over fnBindings (\x -> x `M.union` bindings) d
+      over fnBindings (`M.union` bindings) d
 
 eval' (UConst (UList xs)) = do
-  xs' <- sequenceA (map eval xs)
+  xs' <- traverse eval xs
 
   pure . UList . map UConst $ xs'
 
-eval' (UConst v) = pure $ v
+eval' (UConst v) = pure v
 eval' (UVar label) = do
   env <- get
   let err = UError $ "Unknown variable: " <> label
-  case catMaybes $ [view (envVariables . at label) env, view (envBuiltIn . at label) env] of
+  case catMaybes [view (envVariables . at label) env, view (envBuiltIn . at label) env] of
     (x:_) -> eval x
     [] -> return err
 
@@ -177,10 +167,10 @@ eval' (UApp fexp arg) = do
   arg' <- UConst <$> eval arg
 
   case fn of
-    UFunc fn -> do
+    UFunc fn ->
       withVars (view fnBindings fn) $ eval (ULet (view fnArgName fn, arg') (view fnBody fn))
 
-    x -> pure . UError $ (showT x) <> " is not a function"
+    x -> pure . UError $ showT x <> " is not a function"
 
 eval' (UIf cond lhs rhs) = do
   UBool result <- eval cond
@@ -227,8 +217,8 @@ builtInCardAttribute lens = do
     Just c -> return . UConst . toU $ c
     Nothing -> return . UConst $ (UError $ "No card at location: " <> showT specificCard)
 
-showEnvOneLine vars =
-  T.intercalate ", " $ fmap f $ (sortOn fst $ M.toList vars)
+showEnvOneLine =
+  T.intercalate ", " . fmap f . sortOn fst . M.toList
 
   where
     f (n, x) = n <> " = " <> showCode x
@@ -237,25 +227,26 @@ traceEnv = do
   vars <- currentVars
 
   traceM ""
-  forM (sortOn fst $ M.toList vars) $ \(n, x) -> do
+  forM_ (sortOn fst $ M.toList vars) $ \(n, x) ->
     traceM . T.unpack $ n <> " = " <> showCode x
   traceM ""
 
 builtInRescue = uliftA2 ActionRescueBystander currentPlayer (argAt 0)
 
-currentVars = view envVariables <$> get
+currentVars = gets $ view envVariables
+
 currentPlayer = do
-  board <- view envBoard <$> get
+  board <- gets $ view envBoard
 
   case board of
     Nothing -> throwError "Board function called outside of context"
-    Just b -> do
+    Just b ->
       case preview (players . element 0 . playerId) b of
         Nothing -> throwError "No current player"
         Just p -> return p
 
 currentBoard = do
-  board <- view envBoard <$> get
+  board <- gets $ view envBoard
 
   case board of
     Nothing -> throwError "Board function called outside of context"
@@ -328,7 +319,7 @@ instance FromU PlayerId where
   fromU (UPlayerId x) = return x
   fromU x        = throwError ("Expected UPlayerId, got " <> showT x)
 instance ToU PlayerId where
-  toU x = UPlayerId x
+  toU = UPlayerId
 
 instance FromU UExpr where
   fromU x = return $ UConst x
@@ -343,7 +334,7 @@ instance FromU [UExpr] where
 instance ToU a => ToU [a] where
   toU = UList . fmap toUConst
 instance ToU Bool where
-  toU x = UBool x
+  toU = UBool
 
 instance FromU Bool where
   fromU (UBool x) = return x

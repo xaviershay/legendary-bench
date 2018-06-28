@@ -141,7 +141,7 @@ instance ToJSON Card where
     ]
 
 instance ToJSON ModifiableInt where
-  toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> (modifierStr modifier)
+  toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> modifierStr modifier
     where
       modifierStr Nothing = mempty
       modifierStr _ = "+"
