@@ -378,6 +378,7 @@ class Player extends Component {
           <div className="workingArea">
             <Location cards={cardsAt("hand")} title="Hand" actions={chooseCardActions(playerLocation(id, "hand"), id)} />
             <Location cards={cardsAt("played")} title="Played" actions={chooseCardActions(playerLocation(id, "played"), id)} />
+            <Location cards={cardsAt("working")} title="Working" actions={chooseCardActions(playerLocation(id, "working"), id)} hideIfEmpty={true} />
           </div>
           <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
           <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
@@ -396,7 +397,7 @@ function lookupCard(cardDb, templateId) {
 class Location extends Component {
   render() {
     return <CardsContext.Consumer>{cardDb => {
-      let {cards, title, layout, actions} = this.props;
+      let {cards, title, layout, actions, hideIfEmpty} = this.props;
 
       if (!layout)
         layout = "horizontal";
@@ -444,9 +445,12 @@ class Location extends Component {
           </div>
         )
       }
+      var locationClass = "";
+      if (hideIfEmpty && cards.length === 0)
+        locationClass = "hidden";
 
       return (
-        <div className='cardLocation'>
+        <div className={'cardLocation ' + locationClass}>
           <h4>{title}</h4>
           {cardRender}
         </div>

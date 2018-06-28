@@ -87,12 +87,12 @@ apply a@(ActionMove specificCard to dest) = do
     insertF Back = flip (|>)
     insertF Front = (<|)
     insertF (LocationIndex i) = S.insertAt i
-apply a@(ActionReveal location) = do
+apply a@(ActionVisibility location vis) = do
   maybeCard <- lookupCard location
 
   case maybeCard of
     Nothing -> tryShuffleDiscardToDeck a location
-    Just card -> overCard location (setVisibility All)
+    Just card -> overCard location (setVisibility vis)
 
 apply a@(ActionHide location) = do
   maybeCard <- lookupCard location
@@ -107,7 +107,7 @@ apply (ActionRecruit pid amount) =
 apply (ActionAttack pid amount) =
   apply (ApplyResources pid $ set attack amount mempty)
 -- Implemented as a separate action so that we don't lose semantic meaning of "KO"
-apply (ActionKO location) = apply $ ActionMove location KO Front
+apply (ActionKO location) = apply $ revealAndMove location KO Front
 
 apply (ActionDefeat pid address) = do
   let location = cardLocation address
@@ -145,7 +145,7 @@ apply (ActionDiscardCard location) = do
 apply (ActionDraw pid (Sum n)) = apply $
   ActionTagged (playerDesc pid <> " draws " <> showT n) $
     mconcat . replicate n $
-         ActionReveal (cardByIndex (PlayerLocation pid PlayerDeck) 0)
+         ActionVisibility (cardByIndex (PlayerLocation pid PlayerDeck) 0) Owner
       <> ActionMove
             (cardByIndex (PlayerLocation pid PlayerDeck) 0)
             (PlayerLocation pid Hand)
@@ -342,8 +342,8 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
             let cardCodes = fromJust $ preview (cardTemplate . playCode) card
 
-            -- Deferring execution here allow play effects to be evaluated
-            -- sequentially
+            -- Deferring execution here allows play effects to be evaluated
+            -- sequentially.
             let action = mconcat . toList $ fmap ActionEval cardCodes
 
             let continue = revealAndMove address (PlayerLocation pid Played) Front
@@ -380,16 +380,17 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         requiredAttack <- evalInt $ view enemyAttack template
 
-        board <- currentBoard
-        let fightAction = maybe (UAction ActionNone) (evalWith (mkEnv $ Just board) . extractCode) (view fightCode template)
+        let fightCodes = fromJust $ preview fightCode template
 
-        case fromU fightAction of
-          Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
-          Right x -> apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
-                               ActionMove address (PlayerLocation pid Victory) Front
-                            <> ActionAttack pid (negate requiredAttack)
-                            <> x
-                            <> a
+        -- Deferring execution here allows play effects to be evaluated
+        -- sequentially.
+        let action = mconcat . toList $ fmap (ActionEval . snd) fightCodes
+
+        apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
+                           ActionMove address (PlayerLocation pid Victory) Front
+                        <> ActionAttack pid (negate requiredAttack)
+                        <> action
+                        <> a
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
@@ -489,7 +490,7 @@ apply (ActionEndStep a) = do
   player <- currentPlayer
 
   over (postDrawActions . at player . non mempty) (<> a) <$> currentBoard
-  
+
 apply a = lose $ "Unknown action: " <> showT a
 
 moveCity :: Location -> S.Seq CardInPlay -> GameMonad (Board, Action)

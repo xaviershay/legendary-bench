@@ -44,7 +44,7 @@ data MoveDestination = Top | Front | Back | LocationIndex Int deriving (Show, Ge
 
 data Visibility = All | Owner | Hidden deriving (Show, Generic, Eq, Bounded, Enum)
 
-data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory
+data ScopedLocation = Hand | Played | PlayerDeck | Discard | Victory | Working
   deriving (Show, Generic, Eq, Enum, Bounded, Read)
 
 newtype HeroType = HeroType T.Text
@@ -211,7 +211,7 @@ data Card = HeroCard
   , _enemyAttack :: ModifiableInt
   , _enemyVP :: ModifiableInt
   , _enemyDescription :: T.Text
-  , _fightCode :: Maybe LabeledExpr
+  , _fightCode :: S.Seq LabeledExpr
   , _fightGuard :: UExpr
   , _escapeCode :: Maybe LabeledExpr
   , _ambushCode :: Maybe LabeledExpr
@@ -331,7 +331,7 @@ data Action =
   ActionNone |
   ActionCombine Action Action |
   ActionAllowFail Action |
-  ActionReveal SpecificCard |
+  ActionVisibility SpecificCard Visibility |
   ActionHide SpecificCard |
   ActionMove SpecificCard Location MoveDestination |
   ApplyResources PlayerId Resources |

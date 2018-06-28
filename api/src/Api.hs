@@ -123,7 +123,10 @@ redact :: PlayerId -> Board -> Board
 redact id = over cards (M.mapWithKey f)
   where
     f (PlayerLocation owner _) cs =
-      let desired = if owner == id then All else Hidden in
+      --let desired = if owner == id then All else Hidden in
+      -- TODO: Allow all players to see everything for ease of testing (can
+      -- play all players)
+      let desired = All in
 
       fmap (transformOwned desired) cs
 

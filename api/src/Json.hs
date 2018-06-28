@@ -127,9 +127,7 @@ instance ToJSON Card where
     [ "type" .= view cardType c
     , "name" .= view cardName c
     , "attack" .= view enemyAttack c
-    , "fight" .= case view fightCode c of
-                   Nothing -> ""
-                   Just x  -> extractLabel x
+    , "fight" .= T.intercalate " " (map extractLabel . toList $ view fightCode c)
     , "vp" .= view enemyVP c
     ]
   toJSON c@BystanderCard = object

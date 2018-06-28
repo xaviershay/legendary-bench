@@ -17,7 +17,7 @@ replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
   revealAndMove (specificCardByIndex HeroDeck 0) HQ (LocationIndex i)
 
 revealAndMove source destination spot =
-     ActionReveal source
+     ActionVisibility source All
   <> ActionMove source destination spot
 
 -- Stuff that is probably in the wrong place

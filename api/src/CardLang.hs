@@ -77,13 +77,17 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)
   , mkBuiltIn "capture-bystander" ("SpecificCard" ~> "Int" ~> "Action") $ uliftA2 ActionCaptureBystander (argAt 0) (argAt 1)
   , mkBuiltIn "draw" ("Int" ~> "Action")             $ uliftA2 ActionDraw B.currentPlayer (argAt 0)
-  , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")  $ uliftA1 ActionReveal (argAt 0)
+  , mkBuiltIn "reveal" ("SpecificCard" ~> "Action")           $ uliftA2 ActionVisibility (argAt 0) (pure All)
+  , mkBuiltIn "reveal-to-owner" ("SpecificCard" ~> "Action")  $ uliftA2 ActionVisibility (argAt 0) (pure Owner)
+  , mkBuiltIn "hide" ("SpecificCard" ~> "Action")             $ uliftA2 ActionVisibility (argAt 0) (pure Hidden)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
   , mkBuiltIn "gain-wound-to" ("Location" ~> "Int" ~> "Action") $ uliftA3 ActionGainWound B.currentPlayer (argAt 0) (argAt 1)
   , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
   , mkBuiltIn "defeat" ("SpecificCard" ~> "Action")  $ uliftA2 ActionDefeat B.currentPlayer (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")
     $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Back)
+  , mkBuiltIn "move-top" ("SpecificCard" ~> "Location" ~> "Action")
+    $ uliftA3 ActionMove (argAt 0) (argAt 1) (pure Front)
   , mkBuiltIn "draw-player" ("PlayerId" ~> "Int" ~> "Action") $ uliftA2 ActionDraw (argAt 0) (argAt 1)
   , mkBuiltIn "concurrently" (WList "Action" ~> "Action") B.concurrently
 

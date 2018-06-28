@@ -31,6 +31,10 @@
   padding-right: 1em;
 }
 
+.hidden {
+  display: none
+}
+
 .lost {
   background-color: red;
   color: white;

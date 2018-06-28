@@ -70,10 +70,10 @@ test_HenchmenIntegration = do
     fakeBoard :: S.Seq Card -> Board
     fakeBoard cards = genBoard (mkStdGen 0) 2 cards
 
-    forCard board card = let (_, code) = fromJust . fromJust $ preview fightCode card in
+    forCard board card = let code = fromJust $ preview fightCode card in
                    testCase (T.unpack $ view templateId card) $
                      let env = mkEnv (Just board) in
                      -- TODO: Evaluate all effects, not just the first one
-                     case evalWith env code of
+                     case evalWith env (snd . head . toList $ code) of
                        (UAction _) ->  True @=? True
                        y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y

@@ -82,7 +82,8 @@ addFightEffect = do
   action <- eval effect
 
   case fromU action of
-    Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
+    --Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
+    Right action' -> return . toUConst $ over fightCode (\as -> mkLabeledExpr label action' <| as) template
     Left x        -> throwError x
 
 atEndStep = do
@@ -314,13 +315,13 @@ makeHenchmen = do
                   { _enemyName = name
                   , _enemyTribe = "Henchmen"
                   , _enemyStartingNumber = 10 -- TODO: No idea what this should be
-                  , _enemyAttack = mkModifiableInt attack Nothing
-                  , _enemyVP = mkModifiableInt vp Nothing
+                  , _enemyAttack = mkModifiableInt attack mempty
+                  , _enemyVP = mkModifiableInt vp mempty
                   , _enemyDescription = mempty
-                  , _fightCode = Nothing
+                  , _fightCode = mempty
                   , _fightGuard = parseUnsafe "@(fn [x] x)"
-                  , _escapeCode = Nothing
-                  , _ambushCode = Nothing
+                  , _escapeCode = mempty
+                  , _ambushCode = mempty
                   }
 
   template' <- eval (UApp callback template)
