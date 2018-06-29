@@ -11,10 +11,10 @@ module Evaluator
 
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
                                        view)
-import           Control.Monad        (foldM)
+import           Control.Monad        (foldM, forM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
-import           Data.Foldable        (find)
+import           Data.Foldable        (find, asum)
 import           Data.Maybe           (catMaybes, fromJust)
 import           Data.Sequence        (Seq ((:<|), Empty), (<|), (|>))
 import qualified Data.Sequence        as S
@@ -160,14 +160,39 @@ apply (ActionRescueBystander pid n) =
             Front
        <> ActionRescueBystander pid (n - 1)
 
--- TODO: Handle not having any wounds left
+-- TODO: Handle not having any wounds left. Verify what happens for replacement
+-- effects.
 apply (ActionGainWound _ _ 0) = apply mempty
-apply (ActionGainWound pid dest n) =
-  apply $ ActionMove
-            (cardByIndex WoundDeck 0)
-            dest
-            Front
-       <> ActionGainWound pid dest (n - 1)
+apply (ActionGainWound pid dest n) = do
+  -- Find any cards from hand or played that might replace this effect
+  board <- currentBoard
+  let ls = concatMap
+             (\loc -> map (cardById loc . view cardId) (toList $ view (cardsAtLocation loc) board))
+             [PlayerLocation pid Hand, PlayerLocation pid Played]
+
+  let effect = ActionMove
+                 (cardByIndex WoundDeck 0)
+                 dest
+                 Front
+
+  board' <- f effect ls
+
+  withBoard board' . apply $ ActionGainWound pid dest (n - 1)
+
+  where
+    f effect [] = apply effect
+    f effect (l:ls) = do
+      c <- requireCard l
+      board <- currentBoard
+
+      let code = view (cardTemplate . gainEffect) c
+
+      case fromU $ evalWith (mkEnv $ Just board) (UApp (UApp (UApp (UApp code (toUConst effect)) (toUConst pid)) (toUConst pid)) (toUConst l)) of
+        Left y -> lose $ "Unexpected state: expected action got " <> y
+        Right replacement -> if replacement /= effect then
+                               apply replacement
+                             else
+                               f effect ls
 
 apply (ActionCaptureBystander _ 0) = apply ActionNone
 apply (ActionCaptureBystander sloc n) =

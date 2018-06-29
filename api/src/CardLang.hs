@@ -150,7 +150,6 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
      ~> "PlayerId"
      ~> "SpecificCard"
      ~> "SpecificCard"
-     ~> "SpecificCard"
      ~> "Action"
      ) ~> "CardTemplate" ~> "CardTemplate")
      B.addGainEffect

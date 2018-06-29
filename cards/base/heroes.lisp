@@ -122,7 +122,7 @@
     ; Think through how to handle two of these cards in hand. Since replacement
     ; effect, should only be able to trigger one of them (right?).
     (add-gain-effect
-      @(fn [continue player self source card]
+      @(fn [continue player self card]
         (let [owning-player (card-owner self)]
           (if (and (== player owning-player) (is-wound card))
             (choose-yesno "Reveal Diving Block instead of gaining wound?"
