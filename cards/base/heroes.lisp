@@ -121,7 +121,7 @@
     (add-wound-effect
       @(fn [continue self]
         (let [owning-player (card-owner self)]
-            (choose-yesno "Reveal Diving Block instead of gaining wound?"
+            (player-choose-yesno owning-player "Reveal Diving Block instead of gaining wound?"
               (combine (reveal self) (draw-player owning-player 1))
               continue)))
     )))
@@ -262,5 +262,5 @@
   "Each player gains a Wound."
   (.
     (add-play-effect @(attack 4))
-    (add-play-effect @(apply combine (map (fn [player] (player-gain-wound player 1)) all-players)))
+    (add-play-effect @(concurrently (map (fn [player] (player-gain-wound player 1)) all-players)))
 ))

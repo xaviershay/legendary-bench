@@ -337,13 +337,12 @@ apply a@(ActionChooseCard pid desc options expr pass) = applyChoicesFor pid f
         f mempty
     f _ = wait a $ playerDesc pid <> ": " <> desc
 
-apply a@(ActionChooseYesNo desc onYes onNo) = applyChoices f
+apply a@(ActionChooseYesNo pid desc onYes onNo) = applyChoicesFor pid f
   where
     f (ChoosePass :<| _) = return onNo
     f (ChooseBool True :<| _) = trace (show onYes) $ return onYes
     f (ChooseBool False :<| _) = return onNo
-    f _ = wait a desc
-
+    f _ = wait a $ playerDesc pid <> ": " <> desc
 
 apply a@(ActionPlayerTurn _) = applyChoicesBoard f
   where

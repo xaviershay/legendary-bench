@@ -346,7 +346,7 @@ data Action =
   ActionTrace T.Text |
   ActionConcurrent [Action] |
   ActionChooseCard PlayerId T.Text [SpecificCard] UExpr (Maybe Action) |
-  ActionChooseYesNo T.Text Action Action |
+  ActionChooseYesNo PlayerId T.Text Action Action |
   ActionEndStep Action |
 
   ActionAttack PlayerId SummableInt |

@@ -135,7 +135,15 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> "Action"
       ~> "Action"
       )
-      B.chooseYesNo
+      $ B.chooseYesNo B.currentPlayer (argAt 0) (argAt 1) (argAt 2)
+  , mkBuiltIn "player-choose-yesno"
+      (  "PlayerId"
+      ~> "String"
+      ~> "Action"
+      ~> "Action"
+      ~> "Action"
+      )
+      $ B.chooseYesNo (argAt 0) (argAt 1) (argAt 2) (argAt 3)
 
   -- Misc
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer

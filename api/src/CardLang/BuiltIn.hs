@@ -215,14 +215,14 @@ mkChooseCard who descM exprM onChooseM onPassM = do
       Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose onPass
       Left y -> throwError y
 
-chooseYesNo = do
-  pid <- currentPlayer
+chooseYesNo mPid mDesc mYes mNo = do
+  pid <- mPid
 
-  desc   <- argAt 0
-  onYes  <- argAt 1
-  onNo   <- argAt 2
+  desc   <- mDesc
+  onYes  <- mYes
+  onNo   <- mNo
 
-  return . toUConst $ ActionChooseYesNo desc onYes onNo
+  return . toUConst $ ActionChooseYesNo pid desc onYes onNo
 
 compose = do
   f1 <- argAt 0
