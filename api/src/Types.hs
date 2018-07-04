@@ -205,7 +205,7 @@ data Card = HeroCard
   , _playCode :: S.Seq UExpr
   , _playGuard :: UExpr
   , _discardEffect :: UExpr
-  , _gainEffect :: UExpr
+  , _woundEffect :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
   } | EnemyCard

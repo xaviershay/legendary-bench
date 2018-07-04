@@ -118,13 +118,12 @@
   "If you would gain a Wound, you may reveal this card and draw a card instead."
   (.
     (add-play-effect @(attack 4))
-    (add-gain-effect
-      @(fn [continue player self card]
+    (add-wound-effect
+      @(fn [continue self]
         (let [owning-player (card-owner self)]
-          (if (and (== player owning-player) (is-wound card))
             (choose-yesno "Reveal Diving Block instead of gaining wound?"
               (combine (reveal self) (draw-player owning-player 1))
-              continue) continue)))
+              continue)))
     )))
 
 (make-hero "A Day Unlike Any Other" "Covert" 7 1

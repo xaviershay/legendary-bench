@@ -164,7 +164,7 @@ genHero = do
     , _playGuard = mempty
     , _playEffect = effect
     , _discardEffect = mempty
-    , _gainEffect = mempty
+    , _woundEffect = mempty
     , _heroStartingNumber = mempty
     , _playCode = mempty
     }

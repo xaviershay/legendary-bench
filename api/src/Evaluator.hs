@@ -186,9 +186,9 @@ apply (ActionGainWound pid dest n) = do
       c <- requireCard l
       board <- currentBoard
 
-      let code = view (cardTemplate . gainEffect) c
+      let code = view (cardTemplate . woundEffect) c
 
-      case fromU $ evalWith (mkEnv $ Just board) (UApp (UApp (UApp (UApp code (toUConst a)) (toUConst pid)) (toUConst l)) (toUConst $ cardByIndex WoundDeck 0)) of
+      case fromU $ evalWith (mkEnv $ Just board) (UApp (UApp code (toUConst a)) (toUConst l)) of
         Left y -> lose $ "Unexpected state: expected action got " <> y
         Right replacement -> return replacement
 

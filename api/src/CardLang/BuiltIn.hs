@@ -62,14 +62,14 @@ addDiscardedEffect = do
     Right expr -> return . toUConst $ set discardEffect expr template
     Left x     -> throwError x
 
-addGainEffect = do
+addWoundEffect = do
   env <- get
 
   f        <- argAt 0
   template <- argAt 1
 
   case fromU f of
-    Right expr -> return . toUConst $ set gainEffect expr template
+    Right expr -> return . toUConst $ set woundEffect expr template
     Left x     -> throwError x
 
 addFightEffect = do
@@ -293,7 +293,7 @@ makeHero = do
                   , _playCode = mempty
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
-                  , _gainEffect = parseUnsafe "@(fn [continue b c d] continue)"
+                  , _woundEffect = parseUnsafe "@(fn [continue b] continue)"
                   }
 
   template' <- eval (UApp callback template)

@@ -146,14 +146,12 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
   , mkBuiltIn "add-play-guard" (WBoardF ("Action" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addPlayGuard
   , mkBuiltIn "add-discarded-effect" (WBoardF ("SpecificCard" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addDiscardedEffect
-  , mkBuiltIn "add-gain-effect" (WBoardF
+  , mkBuiltIn "add-wound-effect" (WBoardF
      (  "Action"
-     ~> "PlayerId"
-     ~> "SpecificCard"
      ~> "SpecificCard"
      ~> "Action"
      ) ~> "CardTemplate" ~> "CardTemplate")
-     B.addGainEffect
+     B.addWoundEffect
   , mkBuiltIn "add-fight-effect" ("String" ~> WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addFightEffect
   , mkBuiltIn "make-hero-full"
      (  "String"
