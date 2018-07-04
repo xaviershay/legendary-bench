@@ -293,7 +293,7 @@ makeHero = do
                   , _playCode = mempty
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
-                  , _gainEffect = parseUnsafe "@(fn [continue b c d e] continue)"
+                  , _gainEffect = parseUnsafe "@(fn [continue b c d] continue)"
                   }
 
   template' <- eval (UApp callback template)

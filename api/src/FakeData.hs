@@ -72,8 +72,8 @@ mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
        S.replicate 8 recruitCard
     <> S.replicate 4 attackCard
-    -- <> S.replicate 5 (findCard "Unending Energy")
-    -- <> S.replicate 2 (findCard "The Amazing Spider-Man")
+    <> S.replicate 5 (findCard "Crazed Rampage")
+    <> S.replicate 5 (findCard "Diving Block")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

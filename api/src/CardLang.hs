@@ -82,6 +82,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "hide" ("SpecificCard" ~> "Action")             $ uliftA2 ActionVisibility (argAt 0) (pure Hidden)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
   , mkBuiltIn "gain-wound-to" ("Location" ~> "Int" ~> "Action") $ uliftA3 ActionGainWound B.currentPlayer (argAt 0) (argAt 1)
+  , mkBuiltIn "player-gain-wound" ("PlayerId" ~> "Int" ~> "Action") $ uliftA3 ActionGainWound (argAt 0) (PlayerLocation <$> argAt 0 <*> pure Discard) (argAt 1)
   , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
   , mkBuiltIn "defeat" ("SpecificCard" ~> "Action")  $ uliftA2 ActionDefeat B.currentPlayer (argAt 0)
   , mkBuiltIn "move" ("SpecificCard" ~> "Location" ~> "Action")

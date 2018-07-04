@@ -118,9 +118,6 @@
   "If you would gain a Wound, you may reveal this card and draw a card instead."
   (.
     (add-play-effect @(attack 4))
-    ; TODO: This is untested and unimplemented. Do so when adding Hulk.
-    ; Think through how to handle two of these cards in hand. Since replacement
-    ; effect, should only be able to trigger one of them (right?).
     (add-gain-effect
       @(fn [continue player self card]
         (let [owning-player (card-owner self)]
@@ -259,3 +256,12 @@
                           (fn [card] (move card (player-location (player-left player) "Hand"))))
                       ) all-players)))
   ))
+
+(hero-set "Hulk" "Avengers")
+
+(make-hero "Crazed Rampage" "Strength" 5 3
+  "Each player gains a Wound."
+  (.
+    (add-play-effect @(attack 4))
+    (add-play-effect @(apply combine (map (fn [player] (player-gain-wound player 1)) all-players)))
+))

@@ -175,24 +175,22 @@ apply (ActionGainWound pid dest n) = do
                  dest
                  Front
 
-  board' <- f effect ls
+  a <- foldM effectReducer effect ls
+
+  board' <- apply a
 
   withBoard board' . apply $ ActionGainWound pid dest (n - 1)
 
   where
-    f effect [] = apply effect
-    f effect (l:ls) = do
+    effectReducer a l = do
       c <- requireCard l
       board <- currentBoard
 
       let code = view (cardTemplate . gainEffect) c
 
-      case fromU $ evalWith (mkEnv $ Just board) (UApp (UApp (UApp (UApp code (toUConst effect)) (toUConst pid)) (toUConst pid)) (toUConst l)) of
+      case fromU $ evalWith (mkEnv $ Just board) (UApp (UApp (UApp (UApp code (toUConst a)) (toUConst pid)) (toUConst l)) (toUConst $ cardByIndex WoundDeck 0)) of
         Left y -> lose $ "Unexpected state: expected action got " <> y
-        Right replacement -> if replacement /= effect then
-                               apply replacement
-                             else
-                               f effect ls
+        Right replacement -> return replacement
 
 apply (ActionCaptureBystander _ 0) = apply ActionNone
 apply (ActionCaptureBystander sloc n) =

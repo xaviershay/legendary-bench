@@ -167,7 +167,7 @@ class Log extends Component {
 
 function statusMessage(board) {
   if (board.state.tag === "lost") {
-    return <p className="status lost">Game Lost: {board.state.status}</p>
+    return <p className="status lost">Game Lost: {formatDescription(board.state.status)}</p>
   } else if (board.state.tag === "waiting") {
     return <p className="status waiting">{board.state.description}</p>
   } else {

@@ -123,6 +123,9 @@ data UValue =
  | UError Name
  deriving (Show)
 
+showUValue (UError e) = e
+showUValue x = showT x
+
 data MType =
     WVar Name
   | WConst Name

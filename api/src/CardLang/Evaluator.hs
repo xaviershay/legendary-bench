@@ -30,7 +30,7 @@ import           Control.Lens         (at, element, over, preview, set,
                                        view, Traversal')
 import           Control.Monad        (forM_)
 import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
-import           Control.Monad.Except (runExceptT, throwError)
+import           Control.Monad.Except (runExceptT, throwError, catchError)
 import           Control.Monad.State  (evalState, execState, get, modify,
                                        gets)
 import qualified Data.HashMap.Strict  as M
@@ -76,7 +76,7 @@ showCode (UConst (UInt (Sum x))) = showT x
 showCode (UConst (UString x)) = x
 showCode (UConst UNone) = "()"
 showCode (UConst (UList xs)) = "[" <> T.intercalate " " (fmap showCode xs) <> "]"
-showCode (UConst x) = "!!! UNKNOWN " <> showT (UConst x)
+showCode (UConst x) = "<" <> showT x <> ">"
 showCode (UVar x) = x
 showCode (UApp e1 e2) = showSExpr [showCode e1, showCode e2]
 showCode (ULet (name,  value) expr) = "(let [" <> name <> " " <> showCode value <> "] " <> showCode expr <> ")"
@@ -103,7 +103,11 @@ eval expr = do
   if level > 10000 then
     throwError "Execution exceeded stack"
   else
-    local (+ 1) $ eval' expr
+    local (+ 1) $ eval' expr `catchError` handler
+
+  where
+    handler :: T.Text -> EvalMonad UValue
+    handler e = throwError ("Error in " <> showCode expr <> ":\n " <> e)
 
 eval' :: UExpr -> EvalMonad UValue
 eval' (USequence []) = pure UNone
@@ -285,7 +289,7 @@ instance ToU Card where
 
 instance FromU Action where
   fromU (UAction x) = return x
-  fromU x        = throwError ("Expected UAction, got " <> showT x)
+  fromU x        = throwError ("Expected UAction, got " <> showUValue x)
 instance ToU Action where
   toU = UAction
 
