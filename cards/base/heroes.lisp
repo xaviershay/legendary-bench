@@ -258,9 +258,32 @@
 
 (hero-set "Hulk" "Avengers")
 
+(make-hero "Growing Anger" "Strength" 3 5
+  "|strength|: You get +1 Attack."
+  (add-play-effect @(combine
+    (attack 2)
+    (guard (played "Strength") (attack 1)))))
+
+(make-hero "Unstoppable Hulk" "Instinct" 4 5
+  "You may KO a Wound from your hand or discard pile. If you do, you get +2 Attack."
+  (add-play-effect @(combine
+    (attack 2)
+    (choose-card
+      "Choose a wound from hand or discard to KO"
+      (filter is-wound (concat-map cards-at-current-player-location ["Hand" "Discard"]))
+      (fn [card] (combine (ko card) (attack 2)))
+      noop)
+    )))
+
 (make-hero "Crazed Rampage" "Strength" 5 3
   "Each player gains a Wound."
   (.
     (add-play-effect @(attack 4))
     (add-play-effect @(concurrently (map (fn [player] (player-gain-wound player 1)) all-players)))
 ))
+
+(make-hero "Hulk Smash" "Strength" 8 1
+  "|strength|: You get +5 Attack."
+  (add-play-effect @(combine
+    (attack 5)
+    (guard (played "Strength") (attack 5)))))

@@ -380,7 +380,7 @@ class Player extends Component {
             <Location cards={cardsAt("played")} title="Played" actions={chooseCardActions(playerLocation(id, "played"), id)} />
             <Location cards={cardsAt("working")} title="Working" actions={chooseCardActions(playerLocation(id, "working"), id)} hideIfEmpty={true} />
           </div>
-          <Location cards={cardsAt("discard")} title="Discard" layout="stacked" />
+          <Location cards={cardsAt("discard")} title="Discard" layout="stacked" actions={chooseCardActions(playerLocation(id, "discard"), id)} />
           <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
         </div>
       </div>
@@ -395,7 +395,12 @@ function lookupCard(cardDb, templateId) {
 }
 
 class Location extends Component {
+  constructor(props) {
+    super(props)
+    this.state = {}
+  }
   render() {
+    var self = this;
     return <CardsContext.Consumer>{cardDb => {
       let {cards, title, layout, actions, hideIfEmpty} = this.props;
 
@@ -409,7 +414,7 @@ class Location extends Component {
 
       let cardRender = null;
 
-      if (layout === "stacked") {
+      if (layout === "stacked" && !self.state.expand) {
         if (cards.length > 0) {
           let cardDetail = cards[0].visible ? lookupCard(cardDb, cards[0].templateId) : null
           if (cardDetail) {
@@ -418,14 +423,14 @@ class Location extends Component {
                 <a className="cardLink" href='#x' onClick={actions(cards[0], 0)}>
                   <Card card={cardDetail} />
                 </a>
-                <span>({cards.length} cards)</span>
+                <span>(<a href='#expand' onClick={() => this.setState({expand: true})}>{cards.length} cards</a>)</span>
               </div>
             )
           } else {
             cardRender = (
               <div>
                 <CardBasic card={cards[0]} />
-                <span>({cards.length} cards)</span>
+                <span>(<a href='#expand' onClick={() => this.setState({expand: true})}>{cards.length} cards</a>)</span>
               </div>
             )
           }
@@ -434,7 +439,9 @@ class Location extends Component {
         }
       } else {
         cardRender = (
-          <div className={"location-" + layout}>
+          <div>
+          {layout === "stacked" ? <a href='#collapse' onClick={() => this.setState({expand: false})}>Collapse</a> : null}
+          <div className={"location-horizontal"}>
             {cards.map((c, i) => {
               let cardDetail = c.visible ? lookupCard(cardDb, c.templateId) : null
 
@@ -442,6 +449,7 @@ class Location extends Component {
                 {cardDetail ? <Card card={cardDetail} /> : <CardBasic card={c} />}
               </a>
             })}
+          </div>
           </div>
         )
       }
