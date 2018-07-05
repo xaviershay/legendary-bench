@@ -394,6 +394,14 @@ function lookupCard(cardDb, templateId) {
   return card;
 }
 
+function pluralize(n, base) {
+  if (n === 1) {
+    return n + " " + base
+  } else {
+    return n + " " + base + "s"
+  }
+}
+
 class Location extends Component {
   constructor(props) {
     super(props)
@@ -423,14 +431,14 @@ class Location extends Component {
                 <a className="cardLink" href='#x' onClick={actions(cards[0], 0)}>
                   <Card card={cardDetail} />
                 </a>
-                <span>(<a href='#expand' onClick={() => this.setState({expand: true})}>{cards.length} cards</a>)</span>
+                <div className="stackSummary">(<a href='#expand' onClick={() => this.setState({expand: true})}>{pluralize(cards.length, "card")}</a>)</div>
               </div>
             )
           } else {
             cardRender = (
               <div>
                 <CardBasic card={cards[0]} />
-                <span>(<a href='#expand' onClick={() => this.setState({expand: true})}>{cards.length} cards</a>)</span>
+                <div className="stackSummary">(<a href='#expand' onClick={() => this.setState({expand: true})}>{pluralize(cards.length, "card")}</a>)</div>
               </div>
             )
           }

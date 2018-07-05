@@ -166,3 +166,15 @@ h4 {
   display: flex;
   justify-content: space-between;
 }
+
+.stackSummary {
+  text-align: center
+}
+
+a {
+  color: black;
+  text-align: center;
+}
+a:visited {
+  color: black
+}
