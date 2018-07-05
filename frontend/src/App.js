@@ -372,7 +372,7 @@ class Player extends Component {
         <div className="playerRow">
           <div>
             <h4>Player {id}</h4>
-            <p>{resources.attack} Attack<br/>{resources.money} Money</p>
+            <p>{resources.attack} Attack<br/>{resources.money} Recruit</p>
           </div>
           <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
           <div className="workingArea">
