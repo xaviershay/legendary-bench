@@ -539,14 +539,14 @@ class CardBasic extends Component {
   render() {
     const card = this.props.card;
 
-    if (card.visible) {
+    if (card.visible !== "Hidden") {
       return (
         <div>
           {card.name}
         </div>
       )
     } else {
-      return <div>Hidden</div>
+      return <div className="card back"></div>
     }
   }
 }
