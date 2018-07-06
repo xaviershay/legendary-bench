@@ -167,6 +167,8 @@ genHero = do
     , _woundEffect = mempty
     , _heroStartingNumber = mempty
     , _playCode = mempty
+    , _recruitPip = mempty
+    , _attackPip = mempty
     }
 
 genEnemy = do
