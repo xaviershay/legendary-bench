@@ -134,6 +134,9 @@ instance Arbitrary Condition where
   shrink = genericShrink
   arbitrary = ConditionCostLTE <$> arbitrary <*> arbitrary
 
+instance Arbitrary Bindings where
+  shrink = const []
+
 instance Arbitrary Action where
   shrink = genericShrink
   arbitrary = sized f

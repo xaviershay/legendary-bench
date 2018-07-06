@@ -38,7 +38,11 @@ data SpecificCard =
   -- where cards are so this helps find it, given we always have the location
   -- when specifying a card anyways (at least for now).
   | CardById (Location, CardId)
-  deriving (Show, Generic, Eq)
+  deriving (Show, Generic)
+
+instance Eq SpecificCard where
+  (CardById (_, x)) == (CardById (_, y)) = x == y
+  x == y = error "Tried to compare CardByIndex. This _may_ be legitimate, but erroring to catch any cases of it coz probably should be CardById"
 
 data MoveDestination = Top | Front | Back | LocationIndex Int deriving (Show, Generic, Eq)
 

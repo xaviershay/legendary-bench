@@ -296,6 +296,7 @@ instance ToU Action where
 instance FromU SpecificCard where
   fromU (USpecificCard x) = return x
   fromU x        = throwError ("Expected USpecificCard, got " <> showT x)
+
 instance ToU SpecificCard where
   toU = USpecificCard
 

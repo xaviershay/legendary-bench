@@ -6,6 +6,7 @@ import Unit.Utils
 
 import qualified Data.Sequence as S
 import qualified Data.Text     as T
+import qualified Data.HashMap.Strict     as M
 import qualified Data.Text.IO  as T
 import Data.Maybe (fromJust)
 
@@ -13,6 +14,7 @@ import System.Random (mkStdGen)
 
 import Types
 import CardLang
+import CardLang.Evaluator (toUConst)
 import FakeData (genBoard)
 
 -- TODO: DRY up with app/Main.hs
@@ -45,7 +47,8 @@ test_CardsIntegration = do
 
     forCard board card = let code = fromJust $ preview playCode card in
                    testCase (T.unpack $ view templateId card) $
-                     let env = mkEnv (Just board) in
+                     -- Some hax here around current-card
+                     let env = extendEnv (M.singleton "current-card" . toUConst $ cardById HeroDeck (CardId 1)) $ mkEnv (Just board) in
                      -- TODO: Evaluate all effects, not just the first one
                      case evalWith env (head . toList $ code) of
                        (UAction _) ->  True @=? True

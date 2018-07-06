@@ -364,10 +364,11 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
             card  <- requireCard address
 
             let cardCodes = fromJust $ preview (cardTemplate . playCode) card
+            addressByIndex <- addressById address
 
             -- Deferring execution here allows play effects to be evaluated
             -- sequentially.
-            let bindings = M.singleton "current-card" (toUConst address)
+            let bindings = M.singleton "current-card" (toUConst addressByIndex)
             let action = mconcat . toList $ fmap (ActionEval bindings) cardCodes
 
             let continue = revealAndMove address (PlayerLocation pid Played) Front
@@ -727,3 +728,7 @@ evalInt (ModifiableInt base modifier) = do
   case fromU ret of
     Right x -> return (base <> x)
     Left y -> lose $ "Unexpected state: expr doesn't evaluate to an int. Got: " <> y
+
+addressById address = do
+  card <- requireCard address
+  return $ cardById (cardLocation address) (view cardId card)

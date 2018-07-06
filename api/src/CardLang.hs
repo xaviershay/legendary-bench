@@ -62,6 +62,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn ">" ("Int" ~> "Int" ~> "Bool") $ B.binOp ((>) :: Int -> Int -> Bool)
   , mkBuiltIn "==" ("a" ~> "a" ~> "Bool") $ B.binOp ((==) :: UValue -> UValue -> Bool)
   , mkBuiltIn "and" ("Bool" ~> "Bool" ~> "Bool") $ B.binOp (&&)
+  , mkBuiltIn "not" ("Bool" ~> "Bool") $ toUConst . not <$> (argAt 0)
   , mkBuiltIn "reduce" (("b" ~> "a" ~> "b") ~> "b" ~> WList "a" ~> "b") B.reduce
   , mkBuiltIn "concat" (WList (WList "x") ~> WList "x") B.concat
   , mkBuiltIn "combine" ("Action" ~> "Action" ~> "Action") $ B.binOp ((<>) :: Action -> Action -> Action)
@@ -147,6 +148,8 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
 
   -- Misc
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
+  , mkBuiltIn "current-card" "SpecificCard" (error "current-card called when not in context")
+  , mkBuiltIn "trace" ("a" ~> "a") B.trace
   , mkBuiltIn "player-left" ("PlayerId" ~> "PlayerId") $ B.playerDirection (-1)
   , mkBuiltIn "player-right" ("PlayerId" ~> "PlayerId") $ B.playerDirection 1
   , mkBuiltIn "all-players" (WList "PlayerId") B.allPlayers

@@ -346,6 +346,18 @@ makeHenchmen = do
 
     Left y -> throwError y
 
+trace = do
+  let name = "_a0"
+
+  vars <- currentVars
+
+  case view (at name) vars of
+    Nothing -> throwError $ "Not in env: " <> showT name
+    Just x -> do
+      result <- eval x
+      traceM . show $ result
+      return . UConst $ result
+
 tail = do
   xs <- argAt 0
 
