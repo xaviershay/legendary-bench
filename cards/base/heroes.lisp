@@ -222,9 +222,6 @@
       @(attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
 )))
 
-; TODO: Currently this discards the card being played also, since it isn't
-; moved out of hand until after this action function evalutes. Consider whether
-; a new location ("the stack") is needed when playing cards.
 (defn discard-hand [player]
   (let [hand (player-location player "Hand")]
     (if (empty (cards-at hand))
@@ -238,7 +235,7 @@
     (add-attack 2)
     (add-play-effect
       @(if
-        ((. empty cards-at-current-player-location) "Played")
+        (== [current-card] (cards-at-current-player-location "Played"))
         (choose-yesno "Discard your hand?"
           (combine
             (discard-hand current-player)
