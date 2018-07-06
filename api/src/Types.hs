@@ -369,7 +369,7 @@ data Action =
   -- TODO: Think through these cases more
   ActionKOHero |
   ActionDiscard PlayerId |
-  ActionEval UExpr
+  ActionEval Bindings UExpr
 
   deriving (Generic, Show)
 

@@ -19,6 +19,7 @@ import           Data.Maybe           (catMaybes, fromJust)
 import           Data.Sequence        (Seq ((:<|), Empty), (<|), (|>))
 import qualified Data.Sequence        as S
 import qualified Data.Text            as T
+import qualified Data.HashMap.Strict  as M
 
 import Debug.Trace
 
@@ -366,7 +367,8 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
             -- Deferring execution here allows play effects to be evaluated
             -- sequentially.
-            let action = mconcat . toList $ fmap ActionEval cardCodes
+            let bindings = M.singleton "current-card" (toUConst address)
+            let action = mconcat . toList $ fmap (ActionEval bindings) cardCodes
 
             let continue = revealAndMove address (PlayerLocation pid Played) Front
                         <> action
@@ -406,7 +408,7 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         -- Deferring execution here allows play effects to be evaluated
         -- sequentially.
-        let action = mconcat . toList $ fmap (ActionEval . snd) fightCodes
+        let action = mconcat . toList $ fmap (ActionEval mempty . snd) fightCodes
 
         apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
                            ActionMove address (PlayerLocation pid Victory) Front
@@ -426,9 +428,9 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
       wait a $ playerDesc pid <> "'s turn"
 
-apply a@(ActionEval expr) = do
+apply a@(ActionEval bindings expr) = do
   board <- currentBoard
-  let ret = evalWith (mkEnv $ Just board) expr
+  let ret = evalWith (extendEnv bindings . mkEnv . Just $ board) expr
 
   action <- case fromU ret of
               Right x -> return x
