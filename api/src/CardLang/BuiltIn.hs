@@ -301,7 +301,6 @@ makeHero = do
                   , _heroCost = cost
                   , _heroStartingNumber = amount
                   , _heroDescription = desc
-                  , _playEffect = ActionNone
                   , _playCode = mempty
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"

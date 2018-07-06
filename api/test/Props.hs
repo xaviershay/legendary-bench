@@ -152,7 +152,6 @@ genCards _ = S.fromList <$> listOf genHero
 genHero = do
   name   <- T.pack . getPrintableString <$> arbitrary
   (Positive cost)   <- arbitrary
-  effect <- arbitrary
 
   return $ HeroCard
     { _heroName = name
@@ -162,7 +161,6 @@ genHero = do
     , _heroType = mempty
     , _heroTeam = mempty
     , _playGuard = mempty
-    , _playEffect = effect
     , _discardEffect = mempty
     , _woundEffect = mempty
     , _heroStartingNumber = mempty

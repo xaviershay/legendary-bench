@@ -201,7 +201,6 @@ data Card = HeroCard
   , _heroType :: HeroType
   , _heroTeam :: HeroTeam
   , _heroDescription :: T.Text
-  , _playEffect :: Action
   , _playCode :: S.Seq UExpr
   , _playGuard :: UExpr
   , _discardEffect :: UExpr
