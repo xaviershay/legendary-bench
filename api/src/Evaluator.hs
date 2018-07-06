@@ -294,6 +294,10 @@ apply ActionStartTurn = do
 
     case view cardTemplate <$> nextCard of
       Nothing -> lose "Draw! No more villians."
+      Just TwistCard -> do
+        apply $ revealAndMove topCard KO Front <> ActionPlayerTurn pid
+      Just MasterStrikeCard -> do
+        apply $ revealAndMove topCard KO Front <> ActionPlayerTurn pid
       Just BystanderCard -> do
         board <- currentBoard
         let nearestVillain = find

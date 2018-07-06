@@ -224,7 +224,26 @@ data Card = HeroCard
   , _fightGuard :: UExpr
   , _escapeCode :: Maybe LabeledExpr
   , _ambushCode :: Maybe LabeledExpr
-  } | BystanderCard
+  }
+  | MastermindCard
+  { _mmName :: T.Text
+  , _mmStrikeCode :: LabeledExpr
+  , _mmAlwaysLeads :: T.Text
+  , _mmAttack :: ModifiableInt
+  , _mmVP :: ModifiableInt
+  }
+  | MastermindTacticCard
+  { _mmtFightCode :: S.Seq LabeledExpr
+  , _mmtName :: T.Text
+  , _mmtAbilityName :: T.Text
+  -- Will just be copied from MM, but denormalized to avoid having to reference
+  -- another card to calculate these.
+  , _mmtAttack :: ModifiableInt
+  , _mmtVP :: ModifiableInt
+  }
+  | TwistCard
+  | MasterStrikeCard
+  | BystanderCard
   | WoundCard
 
   deriving (Show, Generic)
@@ -452,6 +471,8 @@ cardName = lens getter setter
     getter c@EnemyCard{} = view enemyName c
     getter c@BystanderCard = view (to (const "Bystander")) c
     getter c@WoundCard = view (to (const "Wound")) c
+    getter c@MasterStrikeCard = view (to (const "Master Strike")) c
+    getter c@TwistCard = view (to (const "Twist")) c
 
     setter c@HeroCard{} x = set heroName x c
     setter c@EnemyCard{} x = set enemyName x c
@@ -463,6 +484,8 @@ cardType = lens getter setter
     getter c@EnemyCard{} = "enemy"
     getter c@BystanderCard = "bystander"
     getter c@WoundCard = "wound"
+    getter c@MasterStrikeCard = "masterstrike"
+    getter c@TwistCard = "twist"
 
     setter = const
 

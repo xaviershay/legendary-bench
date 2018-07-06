@@ -62,11 +62,14 @@ mkWoundDeck =
   traverse (mkCardInPlay All) $
     S.replicate 30 WoundCard
 
-mkVillainDeck =
-  traverse (mkCardInPlay Hidden)
-    . mconcat
-    . fmap (\c -> S.replicate (toInt $ view enemyStartingNumber c) c)
-    . toList
+mkVillainDeck cards =
+  traverse (mkCardInPlay Hidden) $
+       S.replicate 5 MasterStrikeCard
+    <> S.replicate 12 TwistCard -- This will come from scheme eventually
+    <> ( mconcat
+       . fmap (\c -> S.replicate (toInt $ view enemyStartingNumber c) c)
+       . toList
+       $ cards)
 
 mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $

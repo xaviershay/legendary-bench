@@ -547,6 +547,28 @@ class Card extends Component {
           </div>
         </div>
       )
+    } else if (card.type === "twist") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">Scheme Twist</span>
+            <span className="cardDescription"></span>
+            <div className="footer">
+            </div>
+          </div>
+        </div>
+      )
+    } else if (card.type === "masterstrike") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">Master Strike</span>
+            <span className="cardDescription"></span>
+            <div className="footer">
+            </div>
+          </div>
+        </div>
+      )
     } else {
       throw new Error("Unknown card type: " + card.type)
     }

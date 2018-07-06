@@ -130,12 +130,7 @@ instance ToJSON Card where
     , "fight" .= T.intercalate " " (map extractLabel . toList $ view fightCode c)
     , "vp" .= view enemyVP c
     ]
-  toJSON c@BystanderCard = object
-    [ "type" .= view cardType c
-    ]
-  toJSON c@WoundCard = object
-    [ "type" .= view cardType c
-    ]
+  toJSON c = object [ "type" .= view cardType c ]
 
 instance ToJSON ModifiableInt where
   toJSON (ModifiableInt (Sum base) modifier) = toJSON $ show base <> modifierStr modifier
