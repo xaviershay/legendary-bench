@@ -108,8 +108,7 @@
 
 (hero-set "Captain America" "Avengers")
 
-; TODO: Need to make this exclude wounds
-(defn uniq-card-types [player] ((. length uniq (map card-type) cards-player-has) player))
+(defn uniq-card-types [player] ((. length uniq (map card-type) (filter (. not is-wound)) cards-player-has) player))
 
 (make-hero "Avengers Assemble!" "Instinct" 3 5
   "You get +1 Recruit for each color of Hero you have."

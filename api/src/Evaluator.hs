@@ -168,7 +168,7 @@ apply (ActionGainWound pid dest n) = do
   -- Find any cards from hand or played that might replace this effect
   board <- currentBoard
   let ls = concatMap
-             (\loc -> map (cardById loc . view cardId) (toList $ view (cardsAtLocation loc) board))
+             (\loc -> map (cardById loc . view cardId) (filter isHero . toList . view (cardsAtLocation loc) $ board))
              [PlayerLocation pid Hand, PlayerLocation pid Played]
 
   let effect = ActionMove
@@ -183,6 +183,9 @@ apply (ActionGainWound pid dest n) = do
   withBoard board' . apply $ ActionGainWound pid dest (n - 1)
 
   where
+    isHero x = case view cardTemplate x of
+                 HeroCard{} -> True
+                 _          -> False
     effectReducer a l = do
       c <- requireCard l
       board <- currentBoard
