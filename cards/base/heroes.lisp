@@ -2,32 +2,34 @@
 
 (make-hero "S.H.E.I.L.D Agent" "Shield" 0 0
     ""
-    (add-play-effect @(recruit 1)))
+    (add-recruit 1))
 
 (make-hero "S.H.E.I.L.D Trooper" "Shield" 0 0
     ""
-    (add-play-effect @(attack 1)))
+    (add-attack 1))
 
 (hero-set "Spider-Man" "Spider Friends")
 
 (defn spiderman-action [custom]
-  (let [location (card-location (player-location current-player "Deck") 0)]
-    (combine
+    (.
       custom
-      (reveal location)
-      (guard (<= (card-cost location) 2) (draw 1)))))
+      (add-play-effect @(
+        (let [location (card-location (player-location current-player "Deck") 0)]
+          (combine
+            (reveal location)
+            (guard (<= (card-cost location) 2) (draw 1))))))))
 
 (make-hero "Astonishing Strength" "Strength" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(spiderman-action (attack 1))))
+    (spiderman-action (add-attack 1)))
 
 (make-hero "Great Resonsibility" "Instinct" 2 5
     "Reveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(spiderman-action (recruit 1))))
+    (spiderman-action (add-recruit 1)))
 
 (make-hero "Web Shooters" "Tech" 2 3
     "Rescue a Bystander.\nReveal top card of deck, if cost ≤ 2 then draw it."
-    (add-play-effect @(spiderman-action (rescue-bystander 1))))
+    (spiderman-action (add-play-effect @(rescue-bystander 1))))
 
 (make-hero "The Amazing Spider-Man" "Covert" 2 1
     "Reveal the top three cards of your deck. Put any that cost 2 or less into your hand. Put the rest back in any order."
@@ -65,16 +67,16 @@
 
 (make-hero
   "Dangerous Rescue" "Covert" 3 5
- "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
-  (add-play-effect
-    @(combine
-       (attack 2)
-       (choose-card
-         "Choose a card from hand or discard to KO"
-         (concat-map cards-at-current-player-location ["Hand" "Discard"])
-         (fn [card] (combine (ko card) (rescue-bystander 1)))
-         noop)
-       )))
+  "You may KO a card from your hand or discard pile. If you do, rescue a Bystander."
+  (.
+    (add-attack 2)
+     (add-play-effect
+       @(choose-card
+            "Choose a card from hand or discard to KO"
+            (concat-map cards-at-current-player-location ["Hand" "Discard"])
+            (fn [card] (combine (ko card) (rescue-bystander 1)))
+            noop)
+          )))
 
 (make-hero
   "Mission Accomplished" "Tech" 2 5
@@ -86,20 +88,23 @@
 (make-hero
   "Covert Operation" "Covert" 4 3
   "You get +1 Attack for each Bystander in your Victory pile."
-  (add-play-effect @(attack
-    ((. length (filter is-bystander) cards-at (player-location current-player)) "Victory"))))
+  (.
+    (add-attack-plus 0)
+    (add-play-effect @(attack
+      ((. length (filter is-bystander) cards-at (player-location current-player)) "Victory")))))
 
 (make-hero
   "Silent Sniper" "Covert" 7 1
   "Defeat a Villain or Mastermind that has a Bystander."
-  (add-play-effect @(combine
-    (attack 4)
-    (choose-card
-      "Choose a Villian or Mastermind that has a Bystander"
-      ((. (concat-map villians-at) (filter (. (any is-bystander) cards-at))) city-locations)
-      defeat
-      noop)
-  )))
+  (.
+    (add-attack 4)
+    (add-play-effect
+      @(choose-card
+        "Choose a Villian or Mastermind that has a Bystander"
+        ((. (concat-map villians-at) (filter (. (any is-bystander) cards-at))) city-locations)
+        defeat
+        noop)
+    )))
 
 (hero-set "Captain America" "Avengers")
 
@@ -108,16 +113,20 @@
 
 (make-hero "Avengers Assemble!" "Instinct" 3 5
   "You get +1 Recruit for each color of Hero you have."
-  (add-play-effect @(recruit (uniq-card-types current-player))))
+  (.
+    (add-recruit-plus 0)
+    (add-play-effect @(recruit (uniq-card-types current-player)))))
 
 (make-hero "Perfect Teamwork" "Strength" 4 5
   "You get +1 Attack for each color of Hero you have."
-  (add-play-effect @(attack (uniq-card-types current-player))))
+  (.
+    (add-attack-plus 0)
+    (add-play-effect @(attack (uniq-card-types current-player)))))
 
 (make-hero "Diving Block" "Tech" 6 3
   "If you would gain a Wound, you may reveal this card and draw a card instead."
   (.
-    (add-play-effect @(attack 4))
+    (add-attack 4)
     (add-wound-effect
       @(fn [continue self]
         (let [owning-player (card-owner self)]
@@ -128,10 +137,11 @@
 
 (make-hero "A Day Unlike Any Other" "Covert" 7 1
     "You get +3 Attack for each other Avengers Hero you played this turn"
-    (add-play-effect @(combine
-      (attack 1)
-      (attack ((. (* 3) length (filter (is-team "Avengers")) cards-at-current-player-location) "Played"))
-    )))
+    (.
+      (add-attack-plus 1)
+      (add-play-effect
+        @(attack ((. (* 3) length (filter (is-team "Avengers")) cards-at-current-player-location) "Played"))
+      )))
 
 (hero-set "Cyclops" "X-Men")
 
@@ -144,21 +154,21 @@
 (make-hero "Determination" "Strength" 2 5
   "To play this card, you must discard a card from your hand."
   (.
-    (add-play-effect @(recruit 3))
+    (add-recruit 3)
     (add-play-guard must-discard)
   ))
 
 (make-hero "Optic Blast" "Ranged" 3 5
   "To play this card, you must discard a card from your hand."
   (.
-    (add-play-effect @(attack 3))
+    (add-attack 3)
     (add-play-guard must-discard)
   ))
 
 (make-hero "Unending Energy" "Ranged" 6 3
   "If a card effect makes you discard this card, you may return this card to your hand."
   (.
-    (add-play-effect @(attack 4))
+    (add-attack 4)
     (add-discarded-effect
       @(fn [self]
         (choose-yesno "Return Unending Energy to your hand?"
@@ -186,27 +196,31 @@
 
 (make-hero "X-Men United" "Ranged" 8 1
   "|x-men|: You get +2 Attack for each other X-Men Hero you played this turn."
-  (add-play-effect @(attack ((. (* 2) length (filter (is-team "X-Men")) cards-at-current-player-location) "Played"))))
+  (.
+    (add-attack-plus 2)
+    (add-play-effect @(guard (played "X-Men") (attack (- ((. (* 2) length (filter (is-team "X-Men")) cards-at-current-player-location) "Played") 2))))))
 
 (hero-set "Deadpool" "")
 
 (make-hero "Here, Hold This for a Second" "Tech" 3 5
   "A Villain of your choice captures a Bystander."
-  (add-play-effect @(combine
-    (recruit 2)
-    (let [villians (concat-map villians-at city-locations)]
-      (must-choose-card
-        "Choose a Villian"
-        (concat-map villians-at city-locations)
-        (fn [card] (capture-bystander card 1)))
-    ))))
+  (.
+    (add-recruit 2)
+    (add-play-effect
+      @(let [villians (concat-map villians-at city-locations)]
+        (must-choose-card
+          "Choose a Villian"
+          (concat-map villians-at city-locations)
+          (fn [card] (capture-bystander card 1)))
+      ))))
 
 (make-hero "Oddball" "Covert" 5 5
   "You get +1 Attack for each other Hero with an odd-numbered Cost you played this turn."
-  (add-play-effect @(combine
-    (attack 2)
-    (attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
-    )))
+  (.
+    (add-attack-plus 2)
+    (add-play-effect
+      @(attack ((. length (filter is-odd) (map card-cost)) (cards-at-current-player-location "Played")))
+)))
 
 ; TODO: Currently this discards the card being played also, since it isn't
 ; moved out of hand until after this action function evalutes. Consider whether
@@ -216,28 +230,29 @@
     (if (empty (cards-at hand))
       noop
       ((. (apply combine) (map discard) cards-at) hand)
-                                )))
+)))
 
 (make-hero "Hey, Can I Get a Do-Over?" "Instinct" 3 3
   "If this is the first Hero you played this turn, you may discard the rest of your hand and draw four cards."
-  (add-play-effect @(combine
-    (attack 2)
-    (if
-      ((. empty cards-at-current-player-location) "Played")
-      (choose-yesno "Discard your hand?"
-        (combine
-          (discard-hand current-player)
-          (draw 4))
+  (.
+    (add-attack 2)
+    (add-play-effect
+      @(if
+        ((. empty cards-at-current-player-location) "Played")
+        (choose-yesno "Discard your hand?"
+          (combine
+            (discard-hand current-player)
+            (draw 4))
+          noop
+          )
         noop
         )
-      noop
-      )
-    )))
+      )))
 
 (make-hero "Random Acts of Unkindness" "Instinct" 7 1
   "You may gain a Wound to your hand. Then each player passes a card from their hand to the player on their left."
   (.
-    (add-play-effect @(attack 6))
+    (add-attack 6)
     (add-play-effect @(choose-yesno "Gain wound to hand?"
                         (gain-wound-to (player-location current-player "Hand") 1)
                         noop))
@@ -260,30 +275,32 @@
 
 (make-hero "Growing Anger" "Strength" 3 5
   "|strength|: You get +1 Attack."
-  (add-play-effect @(combine
-    (attack 2)
-    (guard (played "Strength") (attack 1)))))
+  (.
+    (add-attack-plus 2)
+    (add-play-effect
+      @(guard (played "Strength") (attack 1)))))
 
 (make-hero "Unstoppable Hulk" "Instinct" 4 5
   "You may KO a Wound from your hand or discard pile. If you do, you get +2 Attack."
-  (add-play-effect @(combine
-    (attack 2)
-    (choose-card
-      "Choose a wound from hand or discard to KO"
-      (filter is-wound (concat-map cards-at-current-player-location ["Hand" "Discard"]))
-      (fn [card] (combine (ko card) (attack 2)))
-      noop)
-    )))
+  (.
+    (add-attack-plus 2)
+    (add-play-effect
+      @(choose-card
+        "Choose a wound from hand or discard to KO"
+        (filter is-wound (concat-map cards-at-current-player-location ["Hand" "Discard"]))
+        (fn [card] (combine (ko card) (attack 2)))
+        noop)
+      )))
 
 (make-hero "Crazed Rampage" "Strength" 5 3
   "Each player gains a Wound."
   (.
-    (add-play-effect @(attack 4))
+    (add-attack 4)
     (add-play-effect @(concurrently (map (fn [player] (player-gain-wound player 1)) all-players)))
 ))
 
 (make-hero "Hulk Smash" "Strength" 8 1
   "|strength|: You get +5 Attack."
-  (add-play-effect @(combine
-    (attack 5)
-    (guard (played "Strength") (attack 5)))))
+  (.
+    (add-attack-plus 5)
+    (add-play-effect @(guard (played "Strength") (attack 5)))))

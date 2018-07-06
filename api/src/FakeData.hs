@@ -49,7 +49,7 @@ genBoard g playerCount cards = evalState a 1
         board
 
 mkHeroDeck =
-  traverse (mkCardInPlay Hidden)
+  traverse (mkCardInPlay All)
     . mconcat
     . fmap (\c -> S.replicate (toInt $ view heroStartingNumber c) c)
     . toList
@@ -72,7 +72,7 @@ mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
        S.replicate 8 recruitCard
     <> S.replicate 4 attackCard
-    -- <> S.replicate 5 (findCard "Crazed Rampage")
+    -- <> S.replicate 5 (findCard "Hulk Smash")
 
   where
     recruitCard = findCard "S.H.E.I.L.D Agent"

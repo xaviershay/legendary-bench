@@ -20,7 +20,7 @@ import qualified Data.Sequence        as S
 import qualified Data.Set             as Set
 import           Data.String          (IsString, fromString)
 import qualified Data.Text            as T
-import           GHC.Generics         hiding (to)
+import           GHC.Generics         hiding (to, UInt)
 import           System.Random        (StdGen, mkStdGen)
 
 import Utils
@@ -208,6 +208,8 @@ data Card = HeroCard
   , _woundEffect :: UExpr
   , _heroCost   :: SummableInt
   , _heroStartingNumber :: SummableInt
+  , _recruitPip :: Maybe T.Text
+  , _attackPip :: Maybe T.Text
   } | EnemyCard
   { _enemyName :: T.Text
   , _enemyTribe :: T.Text
@@ -484,23 +486,12 @@ isPlaying board = case view boardState board of
                     (WaitingForChoice _) -> True
                     _                    -> False
 
-extractMoney (ActionRecruit _ n) = n
-extractMoney _ = mempty
-
-extractAttack (ActionAttack _ n) = n
-extractAttack _ = mempty
-
 extractDescription (ActionTagged d _) = d
 extractDescription _ = ""
 
 addChoice :: PlayerId -> PlayerChoice -> Board -> Board
 addChoice playerId choice =
   over (playerChoices . at playerId . non mempty) (choice S.<|)
-
-baseResource f = walk . view playEffect
-  where
-    walk (ActionCombine a b) = walk a <> walk b
-    walk x = f x
 
 isLost :: Board -> Bool
 isLost board = f $ view boardState board

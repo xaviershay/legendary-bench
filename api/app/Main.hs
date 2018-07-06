@@ -29,7 +29,9 @@ main = do
   cards <- readCards (prelude <> "\n" <> contents <> contents2)
 
   forM cards $ \x -> do
+    putStrLn ""
     putStrLn . T.unpack $ view templateId x
+    --putStrLn . ppShow $ view playCode x
 
   let port = 8080
   state <- mkState cards

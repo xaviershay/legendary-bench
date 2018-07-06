@@ -119,8 +119,8 @@ instance ToJSON Card where
     , "team"    .= view heroTeam c
     , "heroAbilityType"    .= view heroType c
     , "cost" .= view heroCost c
-    , "baseMoney"  .= baseResource extractMoney c
-    , "baseAttack" .= baseResource extractAttack c
+    , "baseMoney"  .= view recruitPip c
+    , "baseAttack" .= view attackPip c
     , "description" .= view heroDescription c
     ]
   toJSON c@EnemyCard{} = object

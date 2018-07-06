@@ -30,6 +30,18 @@ argAt index = do
                            Right x -> return x
                            Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y
 
+addPip attr fn suffix = do
+  amount :: Int  <- argAt 0
+  template <- argAt 1
+
+  let action = UApp (UVar fn) (toUConst amount)
+
+  return
+    . toUConst
+    . set attr (Just $ showT amount <> suffix)
+    . over playCode (action <|)
+    $ template
+
 addPlayEffect = do
   env <- get
 
@@ -294,6 +306,8 @@ makeHero = do
                   , _playGuard = parseUnsafe "@(fn [x] x)"
                   , _discardEffect = parseUnsafe "@(fn [x] noop)"
                   , _woundEffect = parseUnsafe "@(fn [continue b] continue)"
+                  , _recruitPip = mempty
+                  , _attackPip = mempty
                   }
 
   template' <- eval (UApp callback template)

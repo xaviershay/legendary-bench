@@ -151,6 +151,10 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "player-right" ("PlayerId" ~> "PlayerId") $ B.playerDirection 1
   , mkBuiltIn "all-players" (WList "PlayerId") B.allPlayers
   , mkBuiltIn "at-end-step" ("Action" ~> "Action") B.atEndStep
+  , mkBuiltIn "add-recruit" ("Int" ~> "CardTemplate" ~> "CardTemplate") $ B.addPip recruitPip "recruit" mempty
+  , mkBuiltIn "add-recruit-plus" ("Int" ~> "CardTemplate" ~> "CardTemplate")$ B.addPip recruitPip "recruit" "+"
+  , mkBuiltIn "add-attack" ("Int" ~> "CardTemplate" ~> "CardTemplate") $ B.addPip attackPip "attack" mempty
+  , mkBuiltIn "add-attack-plus" ("Int" ~> "CardTemplate" ~> "CardTemplate") $ B.addPip attackPip "attack" "+"
   , mkBuiltIn "add-play-effect" (WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addPlayEffect
   , mkBuiltIn "add-play-guard" (WBoardF ("Action" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addPlayGuard
   , mkBuiltIn "add-discarded-effect" (WBoardF ("SpecificCard" ~> "Action") ~> "CardTemplate" ~> "CardTemplate") B.addDiscardedEffect

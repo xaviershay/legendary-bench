@@ -481,6 +481,16 @@ function formatDescription(x) {
   })
 }
 
+function cardPip(card) {
+  if (card.baseMoney !== null) {
+    return <span className="cardMoney">★{card.baseMoney}</span>
+  } else if (card.baseAttack !== null) {
+    return <span className="cardAttack">⚔{card.baseAttack}</span>
+  } else {
+    return <span></span>
+  }
+
+}
 class Card extends Component {
   render() {
     const card = this.props.card;
@@ -493,7 +503,7 @@ class Card extends Component {
           {card.ability !== "" && <span className="heroName">{card.name}</span>}
           <span className="cardDescription">{formatDescription(card.description)}</span>
           <div className="footer">
-            <span className={card.baseMoney > 0 ? "cardMoney" : "cardAttack"}>{card.baseMoney > 0 ? ("★" + card.baseMoney) : ("⚔" + card.baseAttack)}</span>
+            {cardPip(card)}
             <span className="cardCost">{card.cost > 0 ? "$" + card.cost : ""}</span>
           </div>
 
