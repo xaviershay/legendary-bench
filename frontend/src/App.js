@@ -218,74 +218,87 @@ class Board extends Component {
       return null;
 
     return (
-      <div className='board'>
+      <div className='game'>
         <div className='boardHeader'>
+          <div className='boardHeaderMain'>
           <div>
-          <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
-          <br />
-          <a href='#end' onClick={pass(currentPlayer)}>Pass</a>
-          <br />
-          <a href='#end' onClick={chooseBool(currentPlayer, false)}>No</a> | <a href='#end' onClick={chooseBool(currentPlayer, true)}>Yes</a>
-          <form>
-            {board.players.map((p) => <div key={p.id}>
+            <a href='#end' onClick={endTurn(currentPlayer)}>End Turn</a>
+            <br />
+            <a href='#end' onClick={pass(currentPlayer)}>Pass</a>
+            <br />
+            <a href='#end' onClick={chooseBool(currentPlayer, false)}>No</a> | <a href='#end' onClick={chooseBool(currentPlayer, true)}>Yes</a>
+            <form>
+              {board.players.map((p) => <div key={p.id}>
+                <label>
+                <input
+                  name='acting'
+                  type='radio'
+                  checked={this.state.actingAs === p.id}
+                  onChange={this.handleActingChange}
+                  value={p.id}
+                  disabled={this.state.tracking}
+                /> Player {p.id}
+                </label>
+              </div>)}
               <label>
-              <input
-                name='acting'
-                type='radio'
-                checked={this.state.actingAs === p.id}
-                onChange={this.handleActingChange}
-                value={p.id}
-                disabled={this.state.tracking}
-              /> Player {p.id}
+                <input
+                  name='tracking'
+                  type='checkbox'
+                  checked={this.state.tracking}
+                  onChange={this.handleTrackingChange}
+                /> Track current player
               </label>
-            </div>)}
-            <label>
-              <input
-                name='tracking'
-                type='checkbox'
-                checked={this.state.tracking}
-                onChange={this.handleTrackingChange}
-              /> Track current player
-            </label>
-          </form>
+            </form>
           </div>
           {statusMessage(board)}
+      </div>
+          <div className='fade'></div>
         </div>
-        <div className='boardRow'>
-          <Location cards={board.cards["villian-deck"]} title="Villian Deck"
-            layout="stacked" />
-          <div className='city'>
-            <Location cards={board.cards["city-0"]} title="Sewers"
-              layout="stacked"
-              actions={attackActions(currentPlayer, 0)} />
-            <Location cards={board.cards["city-1"]} title="Bank"
-              layout="stacked"
-              actions={attackActions(currentPlayer, 1)}  />
-            <Location cards={board.cards["city-2"]} title="Rooftops"
-              layout="stacked"
-              actions={attackActions(currentPlayer, 2)}
-            />
-            <Location cards={board.cards["city-3"]} title="Streets"
-              layout="stacked"
-              actions={attackActions(currentPlayer, 3)}  />
-            <Location cards={board.cards["city-4"]} title="Bridge"
-              layout="stacked"
-              actions={attackActions(currentPlayer, 4)} />
+        <div className='board'>
+          <div className='boardRow'>
+            <Location cards={board.cards["escaped"]} title="Mastermind"
+              layout="stacked" />
+            <div className='city'>
+              <Location cards={board.cards["city-4"]} title="Bridge"
+                layout="stacked"
+                actions={attackActions(currentPlayer, 4)} />
+              <Location cards={board.cards["city-3"]} title="Streets"
+                layout="stacked"
+                actions={attackActions(currentPlayer, 3)}  />
+              <Location cards={board.cards["city-2"]} title="Rooftops"
+                layout="stacked"
+                actions={attackActions(currentPlayer, 2)}
+              />
+              <Location cards={board.cards["city-1"]} title="Bank"
+                layout="stacked"
+                actions={attackActions(currentPlayer, 1)}  />
+              <Location cards={board.cards["city-0"]} title="Sewers"
+                layout="stacked"
+                actions={attackActions(currentPlayer, 0)} />
+            </div>
+            <Location cards={board.cards["villian-deck"]} title="Villian Deck"
+              layout="stacked" />
+            <div className="spacer"></div>
+            <Location cards={board.cards["escaped"]} title="Escaped"
+              layout="stacked" />
+            <Location cards={board.cards["ko"]} title="KO"
+              layout="stacked" />
+            <Location cards={board.cards["scheme"]} title="Scheme"
+              layout="stacked" />
           </div>
-          <Location cards={board.cards["escaped"]} title="Escaped"
-            layout="stacked" />
-          <Location cards={board.cards["ko"]} title="KO"
-            layout="stacked" />
-          <Location cards={board.cards["bystander"]} title="Bystander"
-            layout="stacked" />
-          <Location cards={board.cards["wound"]} title="Wound"
-            layout="stacked" />
-        </div>
-        <div className='boardRow'>
-          <Location cards={board.cards["hero-deck"]} title="Hero Deck"
-            layout="stacked" />
-          <Location cards={board.cards["hq"]} title="HQ"
-            actions={purchaseCardActions(currentPlayer)} />
+          <div className='boardRow'>
+            <Location cards={board.cards["shield"]} title="S.H.E.I.L.D."
+              layout="stacked" />
+            <Location cards={board.cards["hq"]} title="HQ"
+              actions={purchaseCardActions(currentPlayer)} />
+            <Location cards={board.cards["hero-deck"]} title="Hero Deck"
+              layout="stacked" />
+            <div className="spacer"></div>
+            <Location cards={board.cards["bystander"]} title="Bystander"
+              layout="stacked" />
+            <Location cards={board.cards["wound"]} title="Wound"
+              layout="stacked" />
+          </div>
         </div>
         {board.players.map((p) => <Player board={board} id={p.id} key={p.id} />)}
       </div>
@@ -368,21 +381,19 @@ class Player extends Component {
     const cardsAt = (key) => board.cards[playerLocation(id, key)]
 
     return (
-      <div>
-        <div className="playerRow">
-          <div>
-            <h4>Player {id}</h4>
-            <p>{resources.attack} Attack<br/>{resources.money} Recruit</p>
-          </div>
-          <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
-          <div className="workingArea">
-            <Location cards={cardsAt("hand")} title="Hand" actions={chooseCardActions(playerLocation(id, "hand"), id)} />
-            <Location cards={cardsAt("played")} title="Played" actions={chooseCardActions(playerLocation(id, "played"), id)} />
-            <Location cards={cardsAt("working")} title="Working" actions={chooseCardActions(playerLocation(id, "working"), id)} hideIfEmpty={true} />
-          </div>
-          <Location cards={cardsAt("discard")} title="Discard" layout="stacked" actions={chooseCardActions(playerLocation(id, "discard"), id)} />
-          <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
+      <div className="playerRow">
+        <div className='cardLocation'>
+          <h4>Player {id}</h4>
+          <p>{resources.attack} Attack<br/>{resources.money} Recruit</p>
         </div>
+        <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
+        <div className="workingArea">
+          <Location cards={cardsAt("hand")} title="Hand" actions={chooseCardActions(playerLocation(id, "hand"), id)} />
+          <Location cards={cardsAt("played")} title="Played" actions={chooseCardActions(playerLocation(id, "played"), id)} />
+          <Location cards={cardsAt("working")} title="Working" actions={chooseCardActions(playerLocation(id, "working"), id)} hideIfEmpty={true} />
+        </div>
+        <Location cards={cardsAt("discard")} title="Discard" layout="stacked" actions={chooseCardActions(playerLocation(id, "discard"), id)} />
+        <Location cards={cardsAt("victory")} title="Victory" layout="stacked" />
       </div>
     )
   }
@@ -443,7 +454,7 @@ class Location extends Component {
             )
           }
         } else {
-          cardRender = <div>Empty</div>
+          cardRender = <div className="emptyStack"></div>
         }
       } else {
         cardRender = (
