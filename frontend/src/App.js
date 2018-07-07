@@ -384,7 +384,10 @@ class Player extends Component {
       <div className="playerRow">
         <div className='cardLocation'>
           <h4>Player {id}</h4>
-          <p>{resources.attack} Attack<br/>{resources.money} Recruit</p>
+          <div className='player-card card'>
+            <p className='player-resource cardMoney'>★{resources.money}</p>
+            <p className='player-resource cardAttack'>⚔{resources.attack}</p>
+          </div>
         </div>
         <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
         <div className="workingArea">
@@ -494,9 +497,9 @@ function formatDescription(x) {
 
 function cardPip(card) {
   if (card.baseMoney !== null) {
-    return <span className="cardMoney">★{card.baseMoney}</span>
+    return <span className="pip cardMoney">★{card.baseMoney}</span>
   } else if (card.baseAttack !== null) {
-    return <span className="cardAttack">⚔{card.baseAttack}</span>
+    return <span className="pip cardAttack">⚔{card.baseAttack}</span>
   } else {
     return <span></span>
   }
@@ -515,7 +518,7 @@ class Card extends Component {
           <span className="cardDescription">{formatDescription(card.description)}</span>
           <div className="footer">
             {cardPip(card)}
-            <span className="cardCost">{card.cost > 0 ? "$" + card.cost : ""}</span>
+            <span className="pip cardCost">{card.cost > 0 ? "$" + card.cost : ""}</span>
           </div>
 
         </div>
@@ -529,8 +532,8 @@ class Card extends Component {
             {card.fight && <span><strong>Fight:</strong> {card.fight}</span>}
             </span>
             <div className="footer">
-              <span className="card-vp">{"♕" + card.vp}</span>
-              <span className="cardAttack">{"⚔" + card.attack}</span>
+              <span className="pip card-vp">{"♕" + card.vp}</span>
+              <span className="pip cardAttack">{"⚔" + card.attack}</span>
             </div>
 
           </div>

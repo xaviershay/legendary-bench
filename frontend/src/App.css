@@ -174,6 +174,10 @@ h4 {
   background-color: #eeeeee;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23ffffff' fill-opacity='0.4' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
 }
+.player-card {
+  justify-content: center;
+  background-color: white;
+}
 
 .back {
   /* http://www.heropatterns.com/ */
@@ -206,6 +210,14 @@ background-image: url("data:image/svg+xml,%3Csvg width='48' height='64' viewBox=
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23ffffff' fill-opacity='0.4' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
 }
 
+.pip {
+  font-size: 120%;
+}
+.player-resource {
+  text-align: center;
+  font-size: 60px;
+  margin: 0px;
+}
 .footer {
   font-size: 10pt;
 }
