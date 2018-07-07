@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { findDOMNode } from "react-dom";
 import './App.css';
 
 const CardsContext = React.createContext({});
@@ -374,6 +375,33 @@ function attackActions(playerId, city) {
   return (c, i) => chooseCard(playerId, ["city-" + city, i])
 }
 
+class AnimatedPip extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      flash: false
+    };
+  }
+
+  componentWillReceiveProps({ n }) {
+    if (n === this.props.n) return;
+
+    this.setState({ flash: false, n }, () => {
+      // triggers a browser reflow ensureing the animation happens
+      // even if it's on the same tick
+      findDOMNode(this).offsetHeight
+
+      this.setState({ flash: true });
+    });
+  }
+
+  render() {
+    const {icon, style, n} = this.props;
+    const { flash } = this.state;
+    const flashClass = flash ? 'flash-pip' : "";
+    return <p className={flashClass + ' player-resource ' + style}>{icon}{n}</p>
+  }
+}
 class Player extends Component {
   render() {
     const {id, board} = this.props;
@@ -385,8 +413,12 @@ class Player extends Component {
         <div className='cardLocation'>
           <h4>Player {id}</h4>
           <div className='player-card card'>
-            <p className='player-resource cardMoney'>★{resources.money}</p>
-            <p className='player-resource cardAttack'>⚔{resources.attack}</p>
+            <div>
+            <AnimatedPip style="cardMoney" icon="★" n={resources.money} />
+            </div>
+            <div>
+            <AnimatedPip style="cardAttack" icon="⚔" n={resources.attack} />
+            </div>
           </div>
         </div>
         <Location cards={cardsAt("playerdeck")} title="Deck" layout="stacked" />
