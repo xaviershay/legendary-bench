@@ -22,6 +22,10 @@ module CardLang.Evaluator
   , uliftA1
   , uliftA2
   , uliftA3
+  , extractReturnValue
+  , mkEvalResult
+  , pureResult
+  , EvalResult
   )
   where
 
@@ -43,6 +47,12 @@ import qualified Data.Set                as Set
 import Types
 import Utils
 
+type EvalResult = (UValue, Maybe UExpr)
+
+extractReturnValue = fst
+mkEvalResult x = (x, Nothing)
+pureResult = pure . mkEvalResult
+
 setNon lens value = set lens (Just value)
 
 printValue (UConst x) = case x of
@@ -54,10 +64,10 @@ evalCards :: UEnv -> UExpr -> Seq Card
 evalCards env exp =
     view envCards $ execState (runReaderT (runExceptT (eval exp)) 0) env
 
-evalWith :: UEnv -> UExpr -> UValue
+evalWith :: UEnv -> UExpr -> EvalResult
 evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) env of
                      Right x -> x
-                     Left y -> UError y
+                     Left y -> mkEvalResult $ UError y
 
 showCode (UConst (UFunc fn)) = "(fn {"
                                    <> T.intercalate ", " (fmap f . M.toList $ view fnBindings fn)
@@ -87,7 +97,7 @@ showCode (UBuiltIn x) = "<" <> x <> ">"
 
 showSExpr atoms = "(" <> T.intercalate " " atoms <>  ")"
 
-withVars :: Bindings -> EvalMonad UValue -> EvalMonad UValue
+withVars :: Bindings -> EvalMonad EvalResult -> EvalMonad EvalResult
 withVars newEnv m = do
   oldVars <- currentVars
   modify (extendEnv newEnv)
@@ -95,7 +105,7 @@ withVars newEnv m = do
   modify (set envVariables oldVars)
   pure result
 
-eval :: UExpr -> EvalMonad UValue
+eval :: UExpr -> EvalMonad (UValue, Maybe UExpr)
 eval expr = do
   level <- ask
   vars <- currentVars
@@ -106,11 +116,11 @@ eval expr = do
     local (+ 1) $ eval' expr `catchError` handler
 
   where
-    handler :: T.Text -> EvalMonad UValue
+    handler :: T.Text -> EvalMonad EvalResult
     handler e = throwError ("Error in " <> showCode expr <> ":\n " <> e)
 
-eval' :: UExpr -> EvalMonad UValue
-eval' (USequence []) = pure UNone
+eval' :: UExpr -> EvalMonad (UValue, Maybe UExpr)
+eval' (USequence []) = pureResult $ UNone
 eval' (USequence [x]) = eval x
 eval' (USequence (x:xs)) = do
   eval x
@@ -118,15 +128,15 @@ eval' (USequence (x:xs)) = do
 
 eval' (UDef name expr) = do
   body <- eval expr
-  modify (setNon (envVariables . at name) (UConst body))
-  pure UNone
+  modify (setNon (envVariables . at name) (UConst $ extractReturnValue body))
+  pureResult $ UNone
 
 eval' e@(UConst fn@(UBoardFunc bindings expr)) = do
   env <- get
   board <- gets $ view envBoard
 
   case board of
-    Nothing -> pure (UBoardFunc (bindVars env bindings) expr)
+    Nothing -> pureResult $ UBoardFunc (bindVars env bindings) expr
     Just b  -> withVars bindings $ eval expr
 
   where
@@ -137,7 +147,7 @@ eval' e@(UConst fn@(UBoardFunc bindings expr)) = do
 
 eval' e@(UConst (UFunc d)) = do
   env <- get
-  pure $ UFunc (bindVars env d)
+  pureResult $ UFunc (bindVars env d)
 
   where
     bindVars env d =
@@ -148,12 +158,12 @@ eval' e@(UConst (UFunc d)) = do
 eval' (UConst (UList xs)) = do
   xs' <- traverse eval xs
 
-  pure . UList . map UConst $ xs'
+  pureResult . UList . map (UConst . extractReturnValue) $ xs'
 
-eval' (UConst v) = pure v
+eval' (UConst v) = pureResult v
 eval' (UVar label) = do
   env <- get
-  let err = UError $ "Unknown variable: " <> label
+  let err = mkEvalResult . UError $ "Unknown variable: " <> label
   case catMaybes [view (envVariables . at label) env, view (envBuiltIn . at label) env] of
     (x:_) -> eval x
     [] -> return err
@@ -161,28 +171,28 @@ eval' (UVar label) = do
 eval' (ULet (key, value) expr) = do
   oldVars <- currentVars
 
-  value' <- UConst <$> eval value
+  value' <- UConst . extractReturnValue <$> eval value
 
   withVars (M.singleton key value) (eval expr)
 
 
 eval' (UApp fexp arg) = do
   fn <- eval fexp
-  arg' <- UConst <$> eval arg
+  arg' <- UConst . extractReturnValue <$> eval arg
 
-  case fn of
+  case extractReturnValue fn of
     UFunc fn ->
       withVars (view fnBindings fn) $ eval (ULet (view fnArgName fn, arg') (view fnBody fn))
 
-    x -> pure . UError $ showT x <> " is not a function"
+    x -> pureResult . UError $ showT x <> " is not a function"
 
 eval' (UIf cond lhs rhs) = do
-  UBool result <- eval cond
+  result <- eval cond
 
-  if result then
-    eval lhs
-  else
-    eval rhs
+  case extractReturnValue result of
+    UBool True -> eval lhs
+    UBool False -> eval rhs
+    _ -> pureResult . UError $ "if condition was not a bool, should have been caught by type-checker"
 
 eval' (UBuiltIn x) = do
   env <- get
@@ -360,7 +370,7 @@ argAt index = do
                        Nothing -> throwError $ "Not in env: " <> showT name
                        Just x -> do
                          result <- eval x
-                         case fromU result of
+                         case fromU (extractReturnValue result) of
                            Right x -> return x
                            Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y
 

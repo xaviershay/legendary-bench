@@ -10,11 +10,15 @@ import           Control.Monad.State  (get, gets, modify)
 import           Data.List            (nub)
 import           Data.Sequence ((<|))
 import qualified Data.Sequence        as S
+import qualified Data.Text            as T
 
 import CardLang.Parser (parseUnsafe)
 import CardLang.Evaluator hiding (argAt)
 import Utils
 import Types
+
+fromResult :: (FromU a) => EvalResult -> Either T.Text a
+fromResult = fromU . extractReturnValue
 
 argAt :: FromU a => Int -> EvalMonad a
 argAt index = do
@@ -26,7 +30,7 @@ argAt index = do
                        Nothing -> throwError $ "Not in env: " <> showT name
                        Just x -> do
                          result <- eval x
-                         case fromU result of
+                         case fromResult result of
                            Right x -> return x
                            Left y -> throwError $ "Arg " <> name <> " was not of the right type: " <> showT y
 
@@ -50,7 +54,7 @@ addPlayEffect = do
 
   action <- eval effect
 
-  case fromU action of
+  case fromResult action of
     Right action' -> return . toUConst $ over playCode (action' <|) template
     Left x        -> throwError x
 
@@ -60,7 +64,7 @@ addPlayGuard = do
   guardF   <- argAt 0
   template <- argAt 1
 
-  case fromU guardF of
+  case fromResult guardF of
     Right expr -> return . toUConst $ set playGuard expr template
     Left x     -> throwError x
 
@@ -70,7 +74,7 @@ addDiscardedEffect = do
   guardF   <- argAt 0
   template <- argAt 1
 
-  case fromU guardF of
+  case fromResult guardF of
     Right expr -> return . toUConst $ set discardEffect expr template
     Left x     -> throwError x
 
@@ -80,7 +84,7 @@ addWoundEffect = do
   f        <- argAt 0
   template <- argAt 1
 
-  case fromU f of
+  case fromResult f of
     Right expr -> return . toUConst $ set woundEffect expr template
     Left x     -> throwError x
 
@@ -93,7 +97,7 @@ addFightEffect = do
 
   action <- eval effect
 
-  case fromU action of
+  case fromResult action of
     --Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
     Right action' -> return . toUConst $ over fightCode (\as -> mkLabeledExpr label action' <| as) template
     Left x        -> throwError x
@@ -126,7 +130,7 @@ addMasterStrike = do
 
   action <- eval effect
 
-  case fromU action of
+  case fromResult action of
     Right action' -> return . toUConst $ set mmStrikeCode (mkLabeledExpr label action') template
     Left x        -> throwError x
 
@@ -135,7 +139,7 @@ atEndStep = do
 
   action <- eval effect
 
-  case fromU action of
+  case fromResult action of
     Right action' -> return . toUConst $ ActionEndStep action'
     Left x        -> throwError x
 
@@ -143,7 +147,7 @@ concat = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es
 
-  case mapM fromU vs of
+  case mapM fromResult vs of
     Right vs' -> return . UConst . UList $ mconcat vs'
     Left y    -> throwError $ "Unexpected error in concat: " <> showT y
 
@@ -151,7 +155,7 @@ concurrently = do
   es :: [UExpr] <- argAt 0
   vs :: [UValue] <- traverse eval es
 
-  case traverse fromU vs of
+  case traverse fromResult vs of
     Right as -> return . toUConst $ ActionConcurrent as
     Left err -> throwError $ "concurrently didn't get an action: " <> showT err
 
@@ -255,7 +259,7 @@ mkChooseCard who descM exprM onChooseM onPassM = do
   else do
     from <- traverse eval exprs
 
-    case traverse fromU from of
+    case traverse fromResult from of
       Right from' -> return . toUConst $ ActionChooseCard pid desc from' onChoose onPass
       Left y -> throwError y
 
@@ -343,7 +347,7 @@ makeHero = do
 
   template' <- eval (UApp callback template)
 
-  case fromU template' of
+  case fromResult template' of
     Right x -> do
       modify (over envCards (x <|))
       upure ()
@@ -371,7 +375,7 @@ makeHenchmen = do
 
   template' <- eval (UApp callback template)
 
-  case fromU template' of
+  case fromResult template' of
     Right x -> do
       modify (over envCards (x <|))
       upure ()
@@ -396,7 +400,7 @@ makeMastermind = do
 
   template' <- eval (UApp callback template)
 
-  case fromU template' of
+  case fromResult template' of
     Right x -> do
       modify (over envCards (x <|))
       upure ()
@@ -413,7 +417,7 @@ trace = do
     Just x -> do
       result <- eval x
       traceM . show $ result
-      return . UConst $ result
+      pureResult . UConst $ extractReturnValue result
 
 tail = do
   xs <- argAt 0
