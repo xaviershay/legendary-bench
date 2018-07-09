@@ -257,7 +257,7 @@ class Board extends Component {
         </div>
         <div className='board'>
           <div className='boardRow'>
-            <Location cards={board.cards["escaped"]} title="Mastermind"
+            <Location cards={board.cards["mastermind"]} title="Mastermind"
               layout="stacked" />
             <div className='city'>
               <Location cards={board.cards["city-4"]} title="Bridge"
@@ -561,6 +561,40 @@ class Card extends Component {
         <div>
           <div className="card">
             <span className="cardName">{card.name}</span>
+            <span className="cardDescription">
+            {card.fight && <span><strong>Fight:</strong> {card.fight}</span>}
+            </span>
+            <div className="footer">
+              <span className="pip card-vp">{"♕" + card.vp}</span>
+              <span className="pip cardAttack">{"⚔" + card.attack}</span>
+            </div>
+
+          </div>
+        </div>
+      )
+    } else if (card.type === "mastermind") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">{card.name}</span>
+            <span className="cardDescription">
+            {card.alwaysLeads && <span style={{display: "block"}}><strong>Always Leads:</strong> {card.alwaysLeads}</span>}
+            {card.strike && <span><strong>Master Strike:</strong> {card.strike}</span>}
+            </span>
+            <div className="footer">
+              <span className="pip card-vp">{"♕" + card.vp}</span>
+              <span className="pip cardAttack">{"⚔" + card.attack}</span>
+            </div>
+
+          </div>
+        </div>
+      )
+    } else if (card.type === "mastermind-tactic") {
+      return (
+        <div>
+          <div className="card">
+            <span className="cardName">{card.ability !== "" ? card.ability : card.name}</span>
+            {card.ability !== "" && <span className="heroName">{card.name}</span>}
             <span className="cardDescription">
             {card.fight && <span><strong>Fight:</strong> {card.fight}</span>}
             </span>

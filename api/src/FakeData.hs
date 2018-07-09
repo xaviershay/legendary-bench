@@ -30,12 +30,14 @@ genBoard g playerCount cards = evalState a 1
       heroDeck      <- mkHeroDeck cards
       bystanderDeck <- mkBystanderDeck
       woundDeck     <- mkWoundDeck
+      mmDeck        <- mkMastermindDeck
 
       id
         . set (cardsAtLocation VillainDeck) villainDeck
         . set (cardsAtLocation HeroDeck) heroDeck
         . set (cardsAtLocation BystanderDeck) bystanderDeck
         . set (cardsAtLocation WoundDeck) woundDeck
+        . set (cardsAtLocation MastermindDeck) mmDeck
         . set players (fmap mkPlayer ps)
         . set rng g
         <$> foldM setPlayerDeck mkBoard ps
@@ -47,6 +49,24 @@ genBoard g playerCount cards = evalState a 1
         (cardsAtLocation (PlayerLocation pid PlayerDeck))
         playerDeck
         board
+
+mkMastermindDeck =
+  traverse (mkCardInPlay All) . S.fromList $
+    [ MastermindCard
+        { _mmName = "Dr. Doom"
+        , _mmStrikeCode = mkLabeledExpr "Each player with exactly 6 cards in hand reveals a |tech| Hero or puts 2 cards from their hand on top of their deck." mempty
+        , _mmAlwaysLeads = "Doombot Legion"
+        , _mmAttack = mkModifiableInt 9 Nothing
+        , _mmVP = mkModifiableInt 5 Nothing
+        }
+    , MastermindTacticCard
+        { _mmtFightCode = S.fromList [mkLabeledExpr "You may recruit a |tech| or |ranged| Hero from the HQ for free." mempty]
+        , _mmtName = "Dr. Doom"
+        , _mmtAbilityName = "Dark Technology"
+        , _mmtAttack = mkModifiableInt 9 Nothing
+        , _mmtVP = mkModifiableInt 5 Nothing
+        }
+    ]
 
 mkHeroDeck =
   traverse (mkCardInPlay All)

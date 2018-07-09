@@ -29,6 +29,7 @@ showLocation = \case
       WoundDeck -> "wound"
       HeroDeck -> "hero-deck"
       VillainDeck -> "villian-deck"
+      MastermindDeck -> "mastermind"
       City i -> "city-" <> showT i
       Escaped -> "escaped"
       PlayerLocation (PlayerId id) location -> "player-"
@@ -129,6 +130,22 @@ instance ToJSON Card where
     , "attack" .= view enemyAttack c
     , "fight" .= T.intercalate " " (map extractLabel . toList $ view fightCode c)
     , "vp" .= view enemyVP c
+    ]
+  toJSON c@MastermindCard{} = object
+    [ "type" .= view cardType c
+    , "name" .= view cardName c
+    , "strike" .= extractLabel (view mmStrikeCode c)
+    , "alwaysLeads" .= view mmAlwaysLeads c
+    , "attack" .= view mmAttack c
+    , "vp" .= view mmVP c
+    ]
+  toJSON c@MastermindTacticCard{} = object
+    [ "type" .= view cardType c
+    , "name" .= view cardName c
+    , "ability" .= view mmtAbilityName c
+    , "attack" .= view mmtAttack c
+    , "fight" .= T.intercalate " " (map extractLabel . toList $ view mmtFightCode c)
+    , "vp" .= view mmtVP c
     ]
   toJSON c = object [ "type" .= view cardType c ]
 

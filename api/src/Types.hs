@@ -60,6 +60,7 @@ newtype HeroTeam = HeroTeam T.Text
 data Location = PlayerLocation PlayerId ScopedLocation
   | HQ
   | KO
+  | MastermindDeck
   | HeroDeck
   | VillainDeck
   | City Int
@@ -456,7 +457,7 @@ cardDictionary board =
     allLocations board =
       let playerIds = [0 .. (S.length . view players $ board) - 1] in
 
-         [HQ, HeroDeck, VillainDeck, Escaped, Boss, BystanderDeck, WoundDeck]
+         [HQ, HeroDeck, VillainDeck, Escaped, Boss, BystanderDeck, WoundDeck, MastermindDeck]
       <> allCityLocations
       <> concatMap allPlayerLocations playerIds
 
@@ -473,6 +474,8 @@ cardName = lens getter setter
     getter c@WoundCard = view (to (const "Wound")) c
     getter c@MasterStrikeCard = view (to (const "Master Strike")) c
     getter c@TwistCard = view (to (const "Twist")) c
+    getter c@MastermindTacticCard{} = view mmtName c
+    getter c@MastermindCard{} = view mmName c
 
     setter c@HeroCard{} x = set heroName x c
     setter c@EnemyCard{} x = set enemyName x c
@@ -484,6 +487,8 @@ cardType = lens getter setter
     getter c@EnemyCard{} = "enemy"
     getter c@BystanderCard = "bystander"
     getter c@WoundCard = "wound"
+    getter c@MastermindTacticCard{} = "mastermind-tactic"
+    getter c@MastermindCard{} = "mastermind"
     getter c@MasterStrikeCard = "masterstrike"
     getter c@TwistCard = "twist"
 
@@ -494,6 +499,8 @@ templateId = lens getter setter
   where
     getter c@HeroCard{} = "Hero" <> "/" <> view cardName c <> "/" <> view heroAbilityName c
     getter c@EnemyCard{} = "Enemy" <> "/" <> view enemyTribe c <> "/" <> view cardName c
+    getter c@MastermindCard{} = "Mastermind" <> "/" <> view cardName c
+    getter c@MastermindTacticCard{} = "MastermindTactic" <> "/" <> view cardName c <> "/" <> view mmtAbilityName c
     getter c = "Other" <> "/" <> view cardName c
 
     -- TODO: In theory should be able to define a Getter but I couldn't figure
