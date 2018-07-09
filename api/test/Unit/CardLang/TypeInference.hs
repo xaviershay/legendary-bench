@@ -22,18 +22,6 @@ testInfer expected input =
                        Right x -> x
                        Left y -> error $ show y
 
-testInferFail expected input =
-  testCase (T.unpack $ input <> " :: FAILS") $ expected @=? inferType input
-
-  where
-    inferType :: T.Text -> InferError
-    inferType text = let result = showType <$> case parse text of
-                                          Right x -> typecheck (mkEnv Nothing) x
-                                          Left y  -> error $ "parse error: " <> show y in
-                     case result of
-                       Right x -> error $ show x
-                       Left y -> y
-
 testInferWithPrelude :: T.Text -> T.Text -> IO TestTree
 testInferWithPrelude expected input = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
@@ -74,7 +62,6 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "a -> a" "(defn y [z] z) (def x (y 2)) y"
   , testInfer "Int" "(defn foo [x] x) (if (foo false) (foo 1) (foo 2))" -- Requires polymorphic defn
   , testInfer "Int" "(if false 1 2)"
-  , testInferFail (CannotUnify "Bool" "Int") "(if false false 2)"
   , testInfer "[Int]" "(if true [1] [])"
   , testInfer "[Int]" "(if true [] [1])"
   , testInfer "Int -> Int" "(fn [x] (if (<= x 0) x x))"
