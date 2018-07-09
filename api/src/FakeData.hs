@@ -30,7 +30,7 @@ genBoard g playerCount cards = evalState a 1
       heroDeck      <- mkHeroDeck cards
       bystanderDeck <- mkBystanderDeck
       woundDeck     <- mkWoundDeck
-      mmDeck        <- mkMastermindDeck
+      mmDeck        <- mkMastermindDeck cards
 
       id
         . set (cardsAtLocation VillainDeck) villainDeck
@@ -50,23 +50,14 @@ genBoard g playerCount cards = evalState a 1
         playerDeck
         board
 
-mkMastermindDeck =
-  traverse (mkCardInPlay All) . S.fromList $
-    [ MastermindCard
-        { _mmName = "Dr. Doom"
-        , _mmStrikeCode = mkLabeledExpr "Each player with exactly 6 cards in hand reveals a |tech| Hero or puts 2 cards from their hand on top of their deck." mempty
-        , _mmAlwaysLeads = "Doombot Legion"
-        , _mmAttack = mkModifiableInt 9 Nothing
-        , _mmVP = mkModifiableInt 5 Nothing
-        }
-    , MastermindTacticCard
-        { _mmtFightCode = S.fromList [mkLabeledExpr "You may recruit a |tech| or |ranged| Hero from the HQ for free." mempty]
-        , _mmtName = "Dr. Doom"
-        , _mmtAbilityName = "Dark Technology"
-        , _mmtAttack = mkModifiableInt 9 Nothing
-        , _mmtVP = mkModifiableInt 5 Nothing
-        }
-    ]
+mkMastermindDeck cards =
+  traverse (mkCardInPlay All) $
+       S.singleton (findMastermind "Dr. Doom")
+    <> S.filter (isTacticFor "Dr. Doom") cards
+
+  where
+    findMastermind name = fromJust $ find ((==) name . view mmName) cards
+    isTacticFor name = (==) name . view mmtName
 
 mkHeroDeck =
   traverse (mkCardInPlay All)
