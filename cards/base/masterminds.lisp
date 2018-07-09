@@ -9,8 +9,7 @@
         (player-choose-card player
           "Choose |tech| Hero to reveal."
           (filter (is-type "Tech") (cards-at (player-location player "Hand")))
-          reveal
-
+          (fn [card] (reveal card))
           (let [
             hand (cards-at (player-location player "Hand"))
             put-on-deck (fn [card] (combine

@@ -73,7 +73,7 @@ showCode (UConst (UBoardFunc bindings expr)) = "@{"
   where
     f (k, v) = k <> ": " <> showCode v
 showCode (UConst (UInt (Sum x))) = showT x
-showCode (UConst (UString x)) = x
+showCode (UConst (UString x)) = "\"" <> x <> "\""
 showCode (UConst UNone) = "()"
 showCode (UConst (UList xs)) = "[" <> T.intercalate " " (fmap showCode xs) <> "]"
 showCode (UConst x) = "<" <> showT x <> ">"

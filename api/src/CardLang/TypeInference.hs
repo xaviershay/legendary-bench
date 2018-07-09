@@ -8,7 +8,7 @@ module CardLang.TypeInference
   ) where
 
 import Control.Lens (view)
-import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.Except (ExceptT, runExceptT, throwError, catchError)
 import           Control.Monad.State  (State, evalState, get, lift, put)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
@@ -16,6 +16,7 @@ import           Data.Maybe           (fromJust)
 import qualified Data.Set             as Set
 import qualified Data.Text            as T
 
+import CardLang.Evaluator (showCode)
 import Types hiding (extendEnv)
 import Utils
 
@@ -72,8 +73,7 @@ freeEnv (WEnv e) = Set.unions (freePType <$> M.elems e)
 instance Substitutable WEnv where
   applySubst s (WEnv env) = WEnv (M.map (applySubst s) env)
 
-newtype Infer a = Infer (ExceptT InferError (State [Name]) a)
-  deriving (Functor, Applicative, Monad)
+type Infer a = (ExceptT InferError (State [Name])) a
 
 typecheck :: UEnv -> UExpr -> Either InferError MType
 typecheck env expr = recode . snd <$> runInfer (infer (toTypeEnv env) expr)
@@ -87,7 +87,7 @@ boardFuncTypeEnv :: WEnv
 boardFuncTypeEnv = WEnv $ M.map (Forall mempty) boardFuncs
 
 runInfer :: Infer a -> Either InferError a
-runInfer (Infer inf) = evalState (runExceptT inf) typeNames
+runInfer inf = evalState (runExceptT inf) typeNames
 
 alphabet = map T.singleton ['a'..'z']
 typeNames = infiniteSupply alphabet
@@ -98,7 +98,7 @@ infiniteSupply supply = supply <> addSuffixes supply (1 :: Integer)
     addSuffixes xs n = map (`addSuffix` n) xs <> addSuffixes xs (n+1)
 
 throw :: InferError -> Infer a
-throw = Infer . throwError
+throw = throwError
 
 bindVariableTo :: Name -> MType -> Infer Subst
 bindVariableTo name (WVar v) | name == v = return mempty
@@ -151,7 +151,7 @@ fresh = drawFromSupply >>= \case
           Right name -> pure (WVar name)
           Left err   -> throw err
   where
-    drawFromSupply = Infer (do
+    drawFromSupply = (do
       s:upply <- lift get
       lift (put upply)
       pure (Right s))
@@ -159,16 +159,24 @@ fresh = drawFromSupply >>= \case
 extendEnv (WEnv env) (name, pType) = WEnv (M.insert name pType env)
 
 infer :: WEnv -> UExpr -> Infer (Subst, MType)
-infer env (UConst (UInt _)) = wconst "Int"
-infer env (UConst (UString _)) = wconst "String"
-infer env (UConst (UBool _)) = wconst "Bool"
-infer env (UConst (ULocation _)) = wconst "Location"
-infer env (UConst (UList [])) = do
+infer env expr = infer' env expr `catchError` handler
+  where
+    handler :: InferError -> Infer (Subst, MType)
+    handler e = case expr of
+                  USequence {} -> throwError e
+                  _            -> throwError (NestedInferError $ "Type error in " <> showCode expr <> ":\n\n" <> showT e)
+
+infer' :: WEnv -> UExpr -> Infer (Subst, MType)
+infer' env (UConst (UInt _)) = wconst "Int"
+infer' env (UConst (UString _)) = wconst "String"
+infer' env (UConst (UBool _)) = wconst "Bool"
+infer' env (UConst (ULocation _)) = wconst "Location"
+infer' env (UConst (UList [])) = do
   tau <- fresh
 
   pure (mempty, WList tau)
 
-infer env (UConst (UList (a:as))) = do
+infer' env (UConst (UList (a:as))) = do
   (s, thisMType) <- infer env a
   (s2, restMType) <- infer env (UConst (UList as))
 
@@ -176,13 +184,13 @@ infer env (UConst (UList (a:as))) = do
 
   pure (s3 <> s2 <> s, WList $ applySubst s3 thisMType)
 
-infer env (UConst (UBoardFunc _ exp)) = do
+infer' env (UConst (UBoardFunc _ exp)) = do
   -- TODO: Require exp type to be Action?
   (s, tau) <- infer (env <> boardFuncTypeEnv) exp
 
   pure (s, WBoardF tau)
 
-infer env (UConst (UFunc fn)) = do
+infer' env (UConst (UFunc fn)) = do
   tau <- fresh
   let name = view fnArgName fn
   let sigma = Forall mempty tau
@@ -195,11 +203,11 @@ infer env (UConst (UFunc fn)) = do
   pure (s, WFun (applySubst s tau) tau')
 
 -- A sequence can contain heterogenous types. Only the final one is used.
-infer env (USequence []) = do
+infer' env (USequence []) = do
   tau <- fresh
   pure (mempty, tau)
-infer env (USequence [x]) = infer env x
-infer env (USequence (x:xs)) = do
+infer' env (USequence [x]) = infer env x
+infer' env (USequence (x:xs)) = do
   -- Since Sequences "pass forward" their environment, we need access to the
   -- modified environment in infer.
   (s1, t1, env') <- inferWithNewEnv env x
@@ -207,9 +215,9 @@ infer env (USequence (x:xs)) = do
 
   pure (s2, t2)
 
-infer env (UDef _ _) = pure (mempty, "Void")
+infer' env (UDef _ _) = pure (mempty, "Void")
 
-infer env (UApp f x) = do
+infer' env (UApp f x) = do
   (s1, fTau) <- infer env f
   (s2, xTau) <- infer (applySubst s1 env) x
   fxTau <- fresh
@@ -219,13 +227,13 @@ infer env (UApp f x) = do
   let s = s3 <> s2 <> s1
   pure (s, applySubst s3 fxTau)
 
-infer env (UVar name) = do
+infer' env (UVar name) = do
   sigma <- lookupEnv env name
   tau <- instantiate sigma
   --traceM . T.unpack $ "Instantiated " <> showT name <> ": " <> showType tau
 
   return (mempty, tau)
-infer env (ULet (name, e0) e1) = do
+infer' env (ULet (name, e0) e1) = do
   (s1, tau) <- infer env e0
   let env' = applySubst s1 env
   let sigma = generalize env' tau
@@ -234,7 +242,7 @@ infer env (ULet (name, e0) e1) = do
 
   pure (s2 <> s1, tau')
 
-infer env (UIf cond lhs rhs) = do
+infer' env (UIf cond lhs rhs) = do
   (scond, tau) <- infer env cond
   (slhs, lhsTau) <- infer (applySubst scond env) lhs
   (srhs, rhsTau) <- infer (applySubst slhs env) rhs
@@ -250,7 +258,7 @@ infer env (UIf cond lhs rhs) = do
 
   pure (allSubs, applySubst s5 lhsTau)
 
-infer env x = error . show $ "Unknown form in infer: " <> show x
+infer' env x = error . show $ "Unknown form in infer: " <> show x
 
 inferWithNewEnv :: WEnv -> UExpr -> Infer (Subst, MType, WEnv)
 inferWithNewEnv env (UDef name e) = do

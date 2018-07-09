@@ -121,6 +121,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> WList "SpecificCard"
       ~> ("SpecificCard" ~> "Action")
       ~> "Action"
+      ~> "Action"
       )
       $ B.mkChooseCard (argAt 0) (argAt 1) (argAt 2) (argAt 3) (Just <$> argAt 4)
   , mkBuiltIn "must-choose-card"
