@@ -98,6 +98,19 @@ addFightEffect = do
     Right action' -> return . toUConst $ over fightCode (\as -> mkLabeledExpr label action' <| as) template
     Left x        -> throwError x
 
+addMasterStrike = do
+  env <- get
+
+  label    <- argAt 0
+  effect   <- argAt 1
+  template <- argAt 2
+
+  action <- eval effect
+
+  case fromU action of
+    Right action' -> return . toUConst $ set mmStrikeCode (mkLabeledExpr label action') template
+    Left x        -> throwError x
+
 atEndStep = do
   effect <- argAt 0
 
@@ -336,6 +349,30 @@ makeHenchmen = do
                   , _escapeCode = mempty
                   , _ambushCode = mempty
                   }
+
+  template' <- eval (UApp callback template)
+
+  case fromU template' of
+    Right x -> do
+      modify (over envCards (x <|))
+      upure ()
+
+    Left y -> throwError y
+
+makeMastermind = do
+  name        <- argAt 0
+  alwaysLeads <- argAt 1
+  attack      <- argAt 2
+  vp          <- argAt 3
+  callback    <- argAt 4
+
+
+  let template = UConst . UCardTemplate $ MastermindCard
+                   { _mmName = name
+                   , _mmAlwaysLeads = alwaysLeads
+                   , _mmAttack = mkModifiableInt attack Nothing
+                   , _mmVP = mkModifiableInt vp Nothing
+                   }
 
   template' <- eval (UApp callback template)
 

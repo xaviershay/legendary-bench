@@ -22,11 +22,13 @@ main = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
   let henchmen = "/home/xavier/Code/legendary-bench/cards/base/henchmen.lisp"
+  let masterminds = "/home/xavier/Code/legendary-bench/cards/base/masterminds.lisp"
 
   prelude <- T.readFile prelude
   contents <- T.readFile path
   contents2 <- T.readFile henchmen
-  cards <- readCards (prelude <> "\n" <> contents <> contents2)
+  contents3 <- T.readFile masterminds
+  cards <- readCards (prelude <> "\n" <> contents <> contents2 <> contents3)
 
   forM cards $ \x -> do
     --putStrLn ""

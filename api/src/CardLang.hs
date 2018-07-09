@@ -115,6 +115,14 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> "Action"
       )
       $ B.mkChooseCard B.currentPlayer (argAt 0) (argAt 1) (argAt 2) (Just <$> argAt 3)
+  , mkBuiltIn "player-choose-card"
+      (  "PlayerId"
+      ~> "String"
+      ~> WList "SpecificCard"
+      ~> ("SpecificCard" ~> "Action")
+      ~> "Action"
+      )
+      $ B.mkChooseCard (argAt 0) (argAt 1) (argAt 2) (argAt 3) (Just <$> argAt 4)
   , mkBuiltIn "must-choose-card"
       (  "String"
       ~> WList "SpecificCard"
@@ -180,6 +188,16 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
      ~> "Void"
      )
      B.makeHero
+  , mkBuiltIn "make-mastermind"
+    (  "String"
+    ~> "String"
+    ~> "Int"
+    ~> "Int"
+    ~> ("CardTemplate" ~> "CardTemplate")
+    ~> "Void"
+    )
+    B.makeMastermind
+  , mkBuiltIn "add-master-strike" ("String" ~> WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addMasterStrike
   , mkBuiltIn "make-henchmen"
      (  "String"
      ~> "Int"
