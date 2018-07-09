@@ -389,6 +389,7 @@ class AnimatedPip extends Component {
     this.setState({ flash: false, n }, () => {
       // triggers a browser reflow ensureing the animation happens
       // even if it's on the same tick
+      // eslint-disable-next-line
       findDOMNode(this).offsetHeight
 
       this.setState({ flash: true });
@@ -396,10 +397,10 @@ class AnimatedPip extends Component {
   }
 
   render() {
-    const {icon, style, n} = this.props;
+    const {icon, type, n} = this.props;
     const { flash } = this.state;
     const flashClass = flash ? 'flash-pip' : "";
-    return <p className={flashClass + ' player-resource ' + style}>{icon}{n}</p>
+    return <p className={flashClass + ' player-resource ' + type}>{icon}{n}</p>
   }
 }
 class Player extends Component {
@@ -414,10 +415,10 @@ class Player extends Component {
           <h4>Player {id}</h4>
           <div className='player-card card'>
             <div>
-            <AnimatedPip style="cardMoney" icon="★" n={resources.money} />
+            <AnimatedPip type="cardMoney" icon="★" n={resources.money} />
             </div>
             <div>
-            <AnimatedPip style="cardAttack" icon="⚔" n={resources.attack} />
+            <AnimatedPip type="cardAttack" icon="⚔" n={resources.attack} />
             </div>
           </div>
         </div>
