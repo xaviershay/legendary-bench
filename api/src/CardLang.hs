@@ -199,6 +199,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
     )
     B.makeMastermind
   , mkBuiltIn "add-master-strike" ("String" ~> WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addMasterStrike
+  , mkBuiltIn "add-tactic" ("String" ~> "String" ~> WBoardF "Action" ~> "CardTemplate" ~> "CardTemplate") B.addTactic
   , mkBuiltIn "make-henchmen"
      (  "String"
      ~> "Int"

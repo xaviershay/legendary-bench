@@ -98,6 +98,25 @@ addFightEffect = do
     Right action' -> return . toUConst $ over fightCode (\as -> mkLabeledExpr label action' <| as) template
     Left x        -> throwError x
 
+addTactic = do
+  env <- get
+
+  ability    <- argAt 0
+  label      <- argAt 1
+  effect     <- argAt 2
+  mmTemplate <- argAt 3
+
+  let template = MastermindTacticCard
+                   { _mmtName = view mmName mmTemplate
+                   , _mmtAbilityName = ability
+                   , _mmtAttack = view mmAttack mmTemplate
+                   , _mmtVP = view mmVP mmTemplate
+                   , _mmtFightCode = S.singleton (mkLabeledExpr label effect)
+                   }
+
+  modify (over envCards (template <|))
+  return . toUConst $ mmTemplate
+
 addMasterStrike = do
   env <- get
 
@@ -372,6 +391,7 @@ makeMastermind = do
                    , _mmAlwaysLeads = alwaysLeads
                    , _mmAttack = mkModifiableInt attack Nothing
                    , _mmVP = mkModifiableInt vp Nothing
+                   , _mmStrikeCode = mempty
                    }
 
   template' <- eval (UApp callback template)
