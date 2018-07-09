@@ -100,7 +100,7 @@
              (player-choose-card player
                "Choose |x-men| Hero to reveal."
                (filter (is-team "X-Men") (cards-at (player-location player "Hand")))
-               (fn [card] (reveal card))
+               reveal
                (player-gain-wound player 2)))
            ]
 
@@ -116,7 +116,15 @@
   (.
     (add-master-strike
       "Each player KOs a Hero from their hand."
-      @(noop))
+      @(let [
+         ps all-players
+         action (fn [player]
+           (player-must-choose-card player
+             "Choose Hero to KO."
+             (heroes-at (player-location player "Hand"))
+             ko))
+         ]
+         (concurrently (map action ps))))
 
     (add-tactic "Endless Resources" "You get +4 Recruit"
       @(recruit 4))
