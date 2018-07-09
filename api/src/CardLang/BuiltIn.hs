@@ -177,17 +177,17 @@ cardsAt = do
   return . UConst . UList . fmap (UConst . USpecificCard) .
     map (uncurry cardById) $ zip (repeat loc) (fmap (view cardId) cards)
 
-villiansAt = do
+villainsAt = do
   loc <- argAt 0
 
   cards <- view (cardsAtLocation loc) <$> currentBoard
 
-  let villians = filter isVillian $ zip (toList cards) [0..length cards - 1]
+  let villains = filter isVillain $ zip (toList cards) [0..length cards - 1]
 
-  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villians
+  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villains
 
   where
-    isVillian (card, _) = case view cardTemplate card of
+    isVillain (card, _) = case view cardTemplate card of
                            EnemyCard{} -> True
                            _           -> False
 
@@ -196,9 +196,9 @@ heroesAt = do
 
   cards <- view (cardsAtLocation loc) <$> currentBoard
 
-  let villians = filter isHero $ zip (toList cards) [0..length cards - 1]
+  let villains = filter isHero $ zip (toList cards) [0..length cards - 1]
 
-  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villians
+  return . UConst . UList . fmap (UConst . USpecificCard . (\(_, y) -> specificCard loc y)) $ villains
 
   where
     isHero (card, _) = case view cardTemplate card of

@@ -101,7 +101,7 @@
     (add-play-effect
       @(choose-card
         "Choose a Villian or Mastermind that has a Bystander"
-        ((. (concat-map villians-at) (filter (. (any is-bystander) cards-at))) city-locations)
+        ((. (concat-map villains-at) (filter (. (any is-bystander) cards-at))) city-locations)
         defeat
         noop)
     )))
@@ -206,10 +206,10 @@
   (.
     (add-recruit 2)
     (add-play-effect
-      @(let [villians (concat-map villians-at city-locations)]
+      @(let [villains (concat-map villains-at city-locations)]
         (must-choose-card
           "Choose a Villian"
-          (concat-map villians-at city-locations)
+          (concat-map villains-at city-locations)
           (fn [card] (capture-bystander card 1)))
       ))))
 
@@ -258,7 +258,7 @@
     ; hand at the beginning of the effect! So it's a weird UI experience, but
     ; results in correct gameplay behaviour. To fix, consider making
     ; ActionConcurrent apply all-or-nothing rather than partial. This probably
-    ; makes the most sense for villian escape discarding also.
+    ; makes the most sense for villain escape discarding also.
     (add-play-effect @(concurrently (map (fn [player]
                         (player-must-choose-card player
                           "Choose card to pass to left"

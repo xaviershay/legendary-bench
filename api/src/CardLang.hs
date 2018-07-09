@@ -103,7 +103,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
   , mkBuiltIn "city-locations" (WList "Location") (pure . UConst . UList $ fmap toUConst allCityLocations)
-  , mkBuiltIn "villians-at" ("Location" ~> WList "SpecificCard") B.villiansAt
+  , mkBuiltIn "villains-at" ("Location" ~> WList "SpecificCard") B.villainsAt
   , mkBuiltIn "heroes-at" ("Location" ~> WList "SpecificCard") B.heroesAt
   , mkBuiltIn "player-location" ("PlayerId" ~> "String" ~> "Location")
     $ uliftA2 PlayerLocation (argAt 0) (argAt 1)

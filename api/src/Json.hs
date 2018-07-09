@@ -28,7 +28,7 @@ showLocation = \case
       BystanderDeck -> "bystander"
       WoundDeck -> "wound"
       HeroDeck -> "hero-deck"
-      VillainDeck -> "villian-deck"
+      VillainDeck -> "villain-deck"
       MastermindDeck -> "mastermind"
       City i -> "city-" <> showT i
       Escaped -> "escaped"

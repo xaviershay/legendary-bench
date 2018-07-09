@@ -293,7 +293,7 @@ apply ActionStartTurn = do
     nextCard <- lookupCard topCard
 
     case view cardTemplate <$> nextCard of
-      Nothing -> lose "Draw! No more villians."
+      Nothing -> lose "Draw! No more villains."
       Just TwistCard -> do
         apply $ revealAndMove topCard KO Front <> ActionPlayerTurn pid
       Just MasterStrikeCard -> do
