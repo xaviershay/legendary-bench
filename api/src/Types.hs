@@ -183,7 +183,15 @@ data BuiltInDef = BuiltInDef
 
 data PlayerId = CurrentPlayer | PlayerId Int deriving (Show, Generic, Eq)
 
+newtype JoinableText = JoinableText T.Text
+  deriving (Show, Generic)
+
+instance Monoid JoinableText where
+  mempty = JoinableText mempty
+  mappend (JoinableText a) (JoinableText b) = JoinableText (a <> " " <> b)
+
 type LabeledExpr = (T.Text, UExpr)
+type LabeledAction = (JoinableText, Action)
 
 extractLabel = fst
 extractCode = snd
@@ -224,7 +232,7 @@ data Card = HeroCard
   , _enemyAttack :: ModifiableInt
   , _enemyVP :: ModifiableInt
   , _enemyDescription :: T.Text
-  , _fightCode :: S.Seq LabeledExpr
+  , _fightCode :: LabeledAction
   , _fightGuard :: UExpr
   , _escapeCode :: Maybe LabeledExpr
   , _ambushCode :: Maybe LabeledExpr

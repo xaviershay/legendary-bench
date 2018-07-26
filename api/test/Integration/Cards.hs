@@ -82,7 +82,10 @@ test_HenchmenIntegration = do
     forCard board card = let code = fromJust $ preview fightCode card in
                    testCase (T.unpack $ view templateId card) $
                      let env = mkEnv (Just board) in
-                     -- TODO: Evaluate all effects, not just the first one
-                     case evalWith env (snd . head . toList $ code) of
-                       (UAction _) ->  True @=? True
-                       y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y
+                     let board' = runGameMonad
+                                    (mkGameMonadState board Nothing)
+                                    (apply $ extractCode code) in
+
+                     case view boardState board' of
+                       Lost x -> assertFailure (show x)
+                       _ -> True @=? True

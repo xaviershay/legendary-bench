@@ -84,15 +84,10 @@ addFightEffect = do
   env <- get
 
   label    <- argAt 0
-  effect   <- argAt 1
+  effect   <- ActionEval mempty <$> argAt 1
   template <- argAt 2
 
-  action <- eval effect
-
-  case fromU action of
-    --Right action' -> return . toUConst $ set fightCode (Just $ mkLabeledExpr label action') template
-    Right action' -> return . toUConst $ over fightCode (\as -> mkLabeledExpr label action' <| as) template
-    Left x        -> throwError x
+  return . toUConst $ over fightCode ((label, effect) <>) template
 
 addTactic = do
   env <- get

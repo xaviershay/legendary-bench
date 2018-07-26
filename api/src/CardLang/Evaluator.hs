@@ -282,6 +282,12 @@ instance FromU T.Text where
 instance ToU T.Text where
   toU = UString
 
+instance FromU JoinableText where
+  fromU (UString x) = return $ JoinableText x
+  fromU x        = throwError ("Expected UString, got " <> showT x)
+instance ToU JoinableText where
+  toU (JoinableText x) = UString x
+
 instance FromU Card where
   fromU (UCardTemplate x) = return x
   fromU x        = throwError ("Expected UCardTemplate, got " <> showT x)

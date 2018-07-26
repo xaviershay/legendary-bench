@@ -410,11 +410,7 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         requiredAttack <- evalInt $ view enemyAttack template
 
-        let fightCodes = fromJust $ preview fightCode template
-
-        -- Deferring execution here allows play effects to be evaluated
-        -- sequentially.
-        let action = mconcat . toList $ fmap (ActionEval mempty . snd) fightCodes
+        let action = extractCode . fromJust $ preview fightCode template
 
         apply $ ActionTagged (playerDesc pid <> " attacks " <> view cardName template) $
                            ActionMove address (PlayerLocation pid Victory) Front

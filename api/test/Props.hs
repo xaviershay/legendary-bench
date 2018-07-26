@@ -111,6 +111,10 @@ instance Arbitrary SummableInt where
   shrink = genericShrink
   arbitrary = Sum <$> arbitrary
 
+instance Arbitrary JoinableText where
+  shrink = genericShrink
+  arbitrary = JoinableText <$> arbitrary
+
 instance Arbitrary ModifiableInt where
   shrink = genericShrink
   arbitrary = ModifiableInt <$> arbitrary <*> pure Nothing
