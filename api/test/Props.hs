@@ -202,7 +202,7 @@ genLocation ps = oneof
 
 prop_totalCardsStaysConstant :: Board -> Action -> Bool
 prop_totalCardsStaysConstant board action =
-  let board' = runGameMonad board (apply action) in
+  let board' = runGameMonad (mkGameMonadState board Nothing) (apply action) in
 
   check board == check board'
 

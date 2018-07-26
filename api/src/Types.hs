@@ -25,9 +25,10 @@ import           System.Random        (StdGen, mkStdGen)
 
 import Utils
 
-newtype GameMonadState = GameMonadState
+data GameMonadState = GameMonadState
   { _board        :: Board
-  }
+  , _currentCard  :: Maybe SpecificCard
+  } deriving (Show, Generic)
 
 type GameHalt = (Board, Action)
 type GameMonad a = (ExceptT GameHalt (ReaderT GameMonadState (WriterT (S.Seq Action) Identity))) a
@@ -208,7 +209,7 @@ data Card = HeroCard
   , _heroType :: HeroType
   , _heroTeam :: HeroTeam
   , _heroDescription :: T.Text
-  , _playCode :: S.Seq UExpr
+  , _playCode :: Action
   , _playGuard :: UExpr
   , _discardEffect :: UExpr
   , _woundEffect :: UExpr

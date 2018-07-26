@@ -116,7 +116,7 @@ handleChoice gameId playerId choice = do
     applyChoice playerId choice board =
       let board' = addChoice playerId choice board in
 
-      incrementVersion . runGameMonad board' $
+      incrementVersion . runGameMonad (mkGameMonadState board' Nothing) $
         apply (view currentAction board')
 
 redact :: PlayerId -> Board -> Board

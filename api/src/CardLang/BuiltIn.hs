@@ -34,25 +34,21 @@ addPip attr fn suffix = do
   amount :: Int  <- argAt 0
   template <- argAt 1
 
-  let action = UApp (UVar fn) (toUConst amount)
+  let action = ActionEval mempty $ UApp (UVar fn) (toUConst amount)
 
   return
     . toUConst
     . set attr (Just $ showT amount <> suffix)
-    . over playCode (action <|)
+    . over playCode (action <>)
     $ template
 
 addPlayEffect = do
   env <- get
 
-  effect   <- argAt 0
+  effect <- ActionEval mempty <$> argAt 0
   template <- argAt 1
 
-  action <- eval effect
-
-  case fromU action of
-    Right action' -> return . toUConst $ over playCode (action' <|) template
-    Left x        -> throwError x
+  return . toUConst $ over playCode (effect <>) template
 
 addPlayGuard = do
   env <- get

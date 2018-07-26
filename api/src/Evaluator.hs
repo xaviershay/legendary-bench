@@ -370,25 +370,23 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
             board <- currentBoard
             card  <- requireCard address
 
-            let cardCodes = fromJust $ preview (cardTemplate . playCode) card
+            let playAction = fromJust $ preview (cardTemplate . playCode) card
+
             addressByIndex <- addressById address
 
-            -- Deferring execution here allows play effects to be evaluated
-            -- sequentially.
-            let bindings = M.singleton "current-card" (toUConst addressByIndex)
-            let action = mconcat . toList $ fmap (ActionEval bindings) cardCodes
-
             let continue = revealAndMove address (PlayerLocation pid Played) Front
-                        <> action
+                        <> playAction
             let guardCode = fromJust $ preview (cardTemplate . playGuard) card
 
-            let ret = evalWith (mkEnv $ Just board) (UApp guardCode (UConst . toU $ continue))
+            let ret = evalWith
+                        (mkEnv $ Just board)
+                        (UApp guardCode (UConst . toU $ continue))
 
             case fromU ret of
               Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
-              Right x -> apply $ ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
+              Right x -> withCurrentCard addressByIndex $ apply (ActionTagged (playerDesc pid <> " plays " <> view (cardTemplate . cardName) card) $
                            x
-                        <> a
+                        <> a)
         else
           f mempty
 
@@ -438,6 +436,8 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
 apply a@(ActionEval bindings expr) = do
   board <- currentBoard
+  card <- currentCard
+  let bindings = maybe mempty (M.singleton "current-card" . toUConst) card
   let ret = evalWith (extendEnv bindings . mkEnv . Just $ board) expr
 
   action <- case fromU ret of
@@ -709,8 +709,8 @@ checkCondition (ConditionCostLTE location amount) = do
 
 tag :: T.Text -> GameMonad Board -> GameMonad Board
 tag message m = do
-  board <- currentBoard
-  let (board', actions) = runGameMonad' board m
+  state <- currentState
+  let (board', actions) = runGameMonad' state m
 
   case mconcat . toList $ actions of
     ActionNone   -> return ()

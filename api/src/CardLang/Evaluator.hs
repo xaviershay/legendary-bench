@@ -31,7 +31,7 @@ import           Control.Lens         (at, element, over, preview, set,
 import           Control.Monad        (forM_)
 import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
 import           Control.Monad.Except (runExceptT, throwError, catchError)
-import           Control.Monad.State  (evalState, execState, get, modify,
+import           Control.Monad.State  (evalState, runState, get, modify,
                                        gets)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (sortOn)
@@ -50,9 +50,11 @@ printValue (UConst x) = case x of
                           x -> showT x
 printValue x = showT x
 
-evalCards :: UEnv -> UExpr -> Seq Card
+evalCards :: UEnv -> UExpr -> Either T.Text (Seq Card)
 evalCards env exp =
-    view envCards $ execState (runReaderT (runExceptT (eval exp)) 0) env
+    case runState (runReaderT (runExceptT (eval exp)) 0) env of
+      (Right _, s) -> Right $ view envCards s
+      (Left x, _)  -> Left x
 
 evalWith :: UEnv -> UExpr -> UValue
 evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) env of
