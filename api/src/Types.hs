@@ -234,8 +234,8 @@ data Card = HeroCard
   , _enemyDescription :: T.Text
   , _fightCode :: LabeledAction
   , _fightGuard :: UExpr
-  , _escapeCode :: Maybe LabeledExpr
-  , _ambushCode :: Maybe LabeledExpr
+  , _escapeCode :: Maybe LabeledAction
+  , _ambushCode :: Maybe LabeledAction
   }
   | MastermindCard
   { _mmName :: T.Text
