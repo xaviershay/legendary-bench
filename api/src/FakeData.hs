@@ -104,7 +104,7 @@ mkCardInPlay visibility template = do
     , _cardTemplate = template
     }
 
-prepareBoard board = runGameMonad board (apply ActionPrepareGame)
+prepareBoard board = runGameMonad (mkGameMonadState board Nothing) (apply ActionPrepareGame)
 
 getThen :: (a -> a) -> State a a
 getThen f = do

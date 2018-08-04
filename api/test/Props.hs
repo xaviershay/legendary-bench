@@ -111,6 +111,10 @@ instance Arbitrary SummableInt where
   shrink = genericShrink
   arbitrary = Sum <$> arbitrary
 
+instance Arbitrary JoinableText where
+  shrink = genericShrink
+  arbitrary = JoinableText <$> arbitrary
+
 instance Arbitrary ModifiableInt where
   shrink = genericShrink
   arbitrary = ModifiableInt <$> arbitrary <*> pure Nothing
@@ -202,7 +206,7 @@ genLocation ps = oneof
 
 prop_totalCardsStaysConstant :: Board -> Action -> Bool
 prop_totalCardsStaysConstant board action =
-  let board' = runGameMonad board (apply action) in
+  let board' = runGameMonad (mkGameMonadState board Nothing) (apply action) in
 
   check board == check board'
 

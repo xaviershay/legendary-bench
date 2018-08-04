@@ -34,7 +34,7 @@ test_ConcurrentAction =
       where
         appliedAction = toList $ view actionLog result
         action = ActionConcurrent [tracer "a", tracer "b"]
-        result = runGameMonad mkBoard $ apply action
+        result = runGameMonad (mkGameMonadState mkBoard Nothing) $ apply action
 
     concurrentTest2 = testCase "Halts if any actions halt, but applies other actions" $
       ( ActionConcurrent [tracer "a", tracer "c"]
@@ -45,7 +45,7 @@ test_ConcurrentAction =
         state = view boardState result
         resume = view currentAction result
         appliedAction = toList $ view actionLog result
-        result = runGameMonad mkBoard $ apply action
+        result = runGameMonad (mkGameMonadState mkBoard Nothing) $ apply action
         action = ActionConcurrent [halt "a", tracer "b", halt "c"]
 
 --test_DrawFromEmpty =

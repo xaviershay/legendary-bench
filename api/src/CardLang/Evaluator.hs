@@ -31,7 +31,7 @@ import           Control.Lens         (at, element, over, preview, set,
 import           Control.Monad        (forM_)
 import           Control.Monad.Reader (runReaderT, ask, local, Reader, runReader)
 import           Control.Monad.Except (runExceptT, throwError, catchError)
-import           Control.Monad.State  (evalState, execState, get, modify,
+import           Control.Monad.State  (evalState, runState, get, modify,
                                        gets)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (sortOn)
@@ -50,9 +50,11 @@ printValue (UConst x) = case x of
                           x -> showT x
 printValue x = showT x
 
-evalCards :: UEnv -> UExpr -> Seq Card
+evalCards :: UEnv -> UExpr -> Either T.Text (Seq Card)
 evalCards env exp =
-    view envCards $ execState (runReaderT (runExceptT (eval exp)) 0) env
+    case runState (runReaderT (runExceptT (eval exp)) 0) env of
+      (Right _, s) -> Right $ view envCards s
+      (Left x, _)  -> Left x
 
 evalWith :: UEnv -> UExpr -> UValue
 evalWith env exp = case evalState (runReaderT (runExceptT (eval exp)) 0) env of
@@ -99,7 +101,6 @@ eval :: UExpr -> EvalMonad UValue
 eval expr = do
   level <- ask
   vars <- currentVars
-  --traceM . T.unpack $ showT level <> ": " <> (T.replicate level " ") <> showCode expr <> "  | " <> showEnvOneLine vars
   if level > 10000 then
     throwError "Execution exceeded stack"
   else
@@ -280,6 +281,12 @@ instance FromU T.Text where
 instance ToU T.Text where
   toU = UString
 
+instance FromU JoinableText where
+  fromU (UString x) = return $ JoinableText x
+  fromU x        = throwError ("Expected UString, got " <> showT x)
+instance ToU JoinableText where
+  toU (JoinableText x) = UString x
+
 instance FromU Card where
   fromU (UCardTemplate x) = return x
   fromU x        = throwError ("Expected UCardTemplate, got " <> showT x)
@@ -370,7 +377,11 @@ freeVars env expr = runReader (freeVars' expr) env
 freeVars' :: UExpr -> Reader UEnv (Set.Set Name)
 freeVars' (UConst (UList xs)) = mconcat <$> traverse freeVars' xs
 freeVars' (UConst (UBoardFunc _ fn)) = freeVars' fn
-freeVars' (ULet (name, _) expr) = Set.delete name <$> freeVars' expr
+freeVars' (ULet (name, e1) e2) = do
+  v1 <- freeVars' e1
+  v2 <- Set.delete name <$> freeVars' e2
+
+  return (v1 <> v2)
 freeVars' (UDef name expr)      = Set.delete name <$> freeVars' expr
 freeVars' (UConst (UFunc fn))   = Set.delete name <$> freeVars' expr
   where

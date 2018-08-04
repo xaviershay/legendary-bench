@@ -108,6 +108,7 @@ instance ToJSON GameState where
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
 instance ToJSON SummableInt
+instance ToJSON JoinableText
 
 instance ToJSON HeroType
 instance ToJSON HeroTeam
@@ -128,7 +129,7 @@ instance ToJSON Card where
     [ "type" .= view cardType c
     , "name" .= view cardName c
     , "attack" .= view enemyAttack c
-    , "fight" .= T.intercalate " " (map extractLabel . toList $ view fightCode c)
+    , "fight" .= (extractLabel $ view fightCode c)
     , "vp" .= view enemyVP c
     ]
   toJSON c@MastermindCard{} = object

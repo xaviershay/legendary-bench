@@ -15,6 +15,8 @@ import System.Random (mkStdGen)
 import Types
 import CardLang
 import CardLang.Evaluator (toUConst)
+import GameMonad
+import Evaluator (apply)
 import FakeData (genBoard)
 
 -- TODO: DRY up with app/Main.hs
@@ -24,7 +26,9 @@ readCards contents =
     Left error -> return $ Left ("Parse error: " <> error)
     Right ast -> case typecheck (mkEnv Nothing) ast of
       Left error -> return $ Left (show error)
-      Right _ -> return . Right $ evalCards ast
+      Right _ -> return $ case evalCards ast of
+        Left x ->  Left $ T.unpack x
+        Right y -> Right y
 
 test_CardsIntegration = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
@@ -48,11 +52,13 @@ test_CardsIntegration = do
     forCard board card = let code = fromJust $ preview playCode card in
                    testCase (T.unpack $ view templateId card) $
                      -- Some hax here around current-card
-                     let env = extendEnv (M.singleton "current-card" . toUConst $ cardById HeroDeck (CardId 1)) $ mkEnv (Just board) in
-                     -- TODO: Evaluate all effects, not just the first one
-                     case evalWith env (head . toList $ code) of
-                       (UAction _) ->  True @=? True
-                       y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y
+                     let card = cardById HeroDeck (CardId 1) in
+
+                     let board' = runGameMonad (mkGameMonadState board (Just card)) (apply code) in
+
+                     case view boardState board' of
+                       Lost x -> assertFailure (show x)
+                       _ -> True @=? True
 
 test_HenchmenIntegration = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
@@ -76,7 +82,10 @@ test_HenchmenIntegration = do
     forCard board card = let code = fromJust $ preview fightCode card in
                    testCase (T.unpack $ view templateId card) $
                      let env = mkEnv (Just board) in
-                     -- TODO: Evaluate all effects, not just the first one
-                     case evalWith env (snd . head . toList $ code) of
-                       (UAction _) ->  True @=? True
-                       y -> error . T.unpack $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> showT y
+                     let board' = runGameMonad
+                                    (mkGameMonadState board Nothing)
+                                    (apply $ extractCode code) in
+
+                     case view boardState board' of
+                       Lost x -> assertFailure (show x)
+                       _ -> True @=? True

@@ -86,4 +86,9 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "Int -> Bool" "(def x (. (>= 1) (add 2))) x"
   , testInfer "Int -> Int" "(defn recur [n] (if (<= n 0) 8 (recur (add n 1) 9))) recur"
   , testInfer "a" "(defn recur [n] recur) (recur 1)"
+  , testInfer "@:Int" "@(1)"
+  , testInfer "@:Int" "@(@(1))"
+  , testInfer "@:Bool" "(def x @(1)) @(== 2 x)"
+  , testInfer "@:Int" "(def x @(1)) @(x)"
   ]
+

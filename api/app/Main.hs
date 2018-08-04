@@ -46,6 +46,8 @@ readCards contents =
     Left error -> (putStrLn $ "Parse error: " <> error) >> return mempty
     Right ast -> case typecheck env ast of
       Left e -> error $ show e
-      Right _ -> return $ evalCards ast
+      Right _ -> case evalCards ast of
+        Left e -> (T.putStrLn $ "Eval error: " <> e) >> return mempty
+        Right x -> return x
 
 focus = main

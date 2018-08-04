@@ -12,24 +12,31 @@ import Types
 import CardLang
 
 testEval = testEvalWith mempty
-testEvalWith env expected input =
-  let env' = extendEnv (M.fromList env) (mkEnv Nothing) in
-  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' input
-  where
-    query :: UEnv -> Name -> UValue
-    query env text = case parse text of
-                        Right x -> case typecheck env x of
-                                     Right _ -> evalWith env x
-                                     Left y -> error $ "Typecheck fail: " <> show y
-                        Left y -> error $ show y
-
-
+testEvalWith bindings = testEvalFull Nothing bindings mempty
+testBoardEval = testEvalFull (Just mkBoard) mempty mempty
 testEvalWithPrelude expected input = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   prelude <- T.readFile prelude
 
-  let env' = extendEnv mempty (mkEnv Nothing)
-  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> "\n" <> input)
+  testEvalFull Nothing mempty (prelude <> "\n") expected input
+
+testDeferredEval expected input =
+  let prelude = "" in
+  let bindings = mempty in
+  let env' = extendEnv (M.fromList bindings) (mkEnv Nothing) in
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> input)
+  where
+    query :: UEnv -> Name -> UValue
+    query env text = case parse text of
+                        Right x -> case typecheck env x of
+                                     Right _ ->
+                                       let f = evalWith env x in
+                                       evalWith (mkEnv $ Just mkBoard) (UConst f)
+                                     Left y -> error $ "Typecheck fail: " <> show y
+                        Left y -> error $ show y
+testEvalFull board bindings prelude expected input =
+  let env' = extendEnv (M.fromList bindings) (mkEnv board) in
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> input)
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
@@ -78,6 +85,9 @@ test_Eval =
   , testEval (UList [UConst $ UInt 1, UConst $ UInt 2]) "(concat [[1] [2]])"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "(board-fn 1)"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
+  , testBoardEval (UInt . Sum $ 1) "@(1)"
+  , testBoardEval (UInt . Sum $ 1) "@(@(1))"
+  , testBoardEval (UBool False) "(def x @(1)) @(== 2 x)"
   , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
@@ -92,4 +102,5 @@ test_Eval =
   , testEvalWithPrelude (UList [UConst (UInt (Sum 1)), UConst (UInt (Sum 2))]) "(uniq [1 1 2])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool True)]) "(uniq [false false true])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool False)]) "(replicate 2 false)"
+  , testDeferredEval (UList []) "(def x []) (def z @(let [y x] y)) z"
   ]
