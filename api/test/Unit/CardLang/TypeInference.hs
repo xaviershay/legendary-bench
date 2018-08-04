@@ -88,6 +88,5 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "a" "(defn recur [n] recur) (recur 1)"
   , testInfer "@:Int" "@(1)"
   , testInfer "@:Int" "@(@(1))"
+  , testInfer "@:Bool" "(def x @(1)) @(== 2 x)"
   ]
-
-focus = defaultMain $ testInfer "@:Int" "@(@(1))"

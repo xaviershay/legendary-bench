@@ -10,6 +10,7 @@ module CardLang.TypeInference
 import Control.Lens (view)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError, catchError)
 import           Control.Monad.State  (State, evalState, get, lift, put)
+import           Control.Monad.Reader (ReaderT, runReaderT, local, ask)
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (nub)
 import           Data.Maybe           (fromJust)
@@ -73,8 +74,19 @@ freeEnv (WEnv e) = Set.unions (freePType <$> M.elems e)
 instance Substitutable WEnv where
   applySubst s (WEnv env) = WEnv (M.map (applySubst s) env)
 
--- TODOX: Add Reader InferContext to be able to scope nested WBoardF.
-type Infer a = (ExceptT InferError (State [Name])) a
+type InferContext = Bool
+type Infer a = (ExceptT InferError (ReaderT InferContext (State [Name]))) a
+
+mkContext = False
+contextInsideBoardFunc = const True
+contextInsideBoardF = ask
+ifInBoardF t f = do
+  x <- contextInsideBoardF
+
+  if x then
+    t
+  else
+    f
 
 typecheck :: UEnv -> UExpr -> Either InferError MType
 typecheck env expr = recode . snd <$> runInfer (infer (toTypeEnv env) expr)
@@ -88,7 +100,7 @@ boardFuncTypeEnv :: WEnv
 boardFuncTypeEnv = WEnv $ M.map (Forall mempty) boardFuncs
 
 runInfer :: Infer a -> Either InferError a
-runInfer inf = evalState (runExceptT inf) typeNames
+runInfer inf = evalState (runReaderT (runExceptT inf) mkContext) typeNames
 
 alphabet = map T.singleton ['a'..'z']
 typeNames = infiniteSupply alphabet
@@ -108,16 +120,34 @@ bindVariableTo name mType | name `occursIn` mType = throw (OccursCheckFailed nam
     n `occursIn` ty = n `Set.member` freeMType ty
 bindVariableTo name mType = return (Subst (M.singleton name mType))
 
+-- Recursion wrapper to enable adding tracing or statistics when debugging.
 unify :: (MType, MType) -> Infer Subst
-unify (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
--- TODOX: Read from state to see if nested in a WBoardF. If yes, unify on the
--- inner type instead and don't require both sides to be WBoardF.
-unify (WBoardF a, WBoardF b) = unify (a, b)
-unify (WVar v, x) = v `bindVariableTo` x
-unify (x, WVar v) = v `bindVariableTo` x
-unify (WConst a, WConst b) | a == b = return mempty
-unify (WList a, WList b) = unify (a, b)
-unify (a, b) = throw (CannotUnify a b)
+unify = unify'
+
+unify' :: (MType, MType) -> Infer Subst
+unify' (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
+unify' (WBoardF a, WBoardF b) = unify (a, b)
+unify' (WBoardF a, b) = unifyImbalancedBoardF (a, b)
+unify' (a, WBoardF b) = unifyImbalancedBoardF (a, b)
+unify' (WVar v, x) = v `bindVariableTo` x
+unify' (x, WVar v) = v `bindVariableTo` x
+unify' (WConst a, WConst b) | a == b = return mempty
+unify' (WList a, WList b) = unify (a, b)
+unify' (a, b) = throw (CannotUnify a b)
+
+-- Since board functions are transparent (e.g. they simply pass through to
+-- their argument) on evaluation, if inside a parent board function then we can
+-- unify any board function with the nested type directly.
+--
+-- e.g. @:Int unifies with Int, but _only_ if the unification occurs within a
+-- board function.
+--
+-- Top level board functions must still unify to help fix an anticipated common
+-- problem of "forgetting" to specify one and as a result getting unknown
+-- variable errors. In theory, I don't think this is actually necessary for
+-- correctness, so may consider removing it.
+unifyImbalancedBoardF (a, b) =
+  ifInBoardF (unify (a, b)) (throw (CannotUnify a b))
 
 -- Unification of binary type constructors, such as functions and Either.
 -- Unification is first done for the first operand, and assuming the
@@ -188,11 +218,10 @@ infer' env (UConst (UList (a:as))) = do
   pure (s3 <> s2 <> s, WList $ applySubst s3 thisMType)
 
 infer' env (UConst (UBoardFunc _ exp)) = do
-  -- TODOX: When recursing, set a flag so that nested unification of WBoardF
-  -- will "ignore" it and use the wrapped type instead.
-  (s, tau) <- infer (env <> boardFuncTypeEnv) exp
+  (s, tau) <- local contextInsideBoardFunc $ infer (env <> boardFuncTypeEnv) exp
 
-  pure (s, WBoardF tau)
+  -- See comments on unifyImbalancedBoardF for an explanation of this.
+  ifInBoardF (pure (s, tau)) (pure (s, WBoardF tau))
 
 infer' env (UConst (UFunc fn)) = do
   tau <- fresh
@@ -202,7 +231,6 @@ infer' env (UConst (UFunc fn)) = do
   (s, tau') <- infer env' (view fnBody fn)
 
   let fnTau = WFun (applySubst s tau) tau'
-  --traceM . show $ (s, tau')
 
   pure (s, WFun (applySubst s tau) tau')
 
@@ -232,7 +260,6 @@ infer' env (UApp f x) = do
 infer' env (UVar name) = do
   sigma <- lookupEnv env name
   tau <- instantiate sigma
-  --traceM . T.unpack $ "Instantiated " <> showT name <> ": " <> showType tau
 
   return (mempty, tau)
 infer' env (ULet (name, e0) e1) = do

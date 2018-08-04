@@ -12,37 +12,17 @@ import Types
 import CardLang
 
 testEval = testEvalWith mempty
-testEvalWith env expected input =
-  let env' = extendEnv (M.fromList env) (mkEnv Nothing) in
-  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' input
-  where
-    query :: UEnv -> Name -> UValue
-    query env text = case parse text of
-                        Right x -> case typecheck env x of
-                                     Right _ -> evalWith env x
-                                     Left y -> error $ "Typecheck fail: " <> show y
-                        Left y -> error $ show y
-
--- TODOX: DRY this up with testEval
-testBoardEval = testBoardEvalWith mempty
-testBoardEvalWith env expected input =
-  let env' = extendEnv (M.fromList env) (mkEnv $ Just mkBoard) in
-  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' input
-  where
-    query :: UEnv -> Name -> UValue
-    query env text = case parse text of
-                        Right x -> case typecheck env x of
-                                     Right _ -> evalWith env x
-                                     Left y -> error $ "Typecheck fail: " <> show y
-                        Left y -> error $ show y
-
-
+testEvalWith bindings = testEvalFull Nothing bindings mempty
+testBoardEval = testEvalFull (Just mkBoard) mempty mempty
 testEvalWithPrelude expected input = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
   prelude <- T.readFile prelude
 
-  let env' = extendEnv mempty (mkEnv Nothing)
-  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> "\n" <> input)
+  testEvalFull Nothing mempty (prelude <> "\n") expected input
+
+testEvalFull board bindings prelude expected input =
+  let env' = extendEnv (M.fromList bindings) (mkEnv board) in
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> input)
   where
     query :: UEnv -> Name -> UValue
     query env text = case parse text of
@@ -93,6 +73,7 @@ test_Eval =
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
   , testBoardEval (UInt . Sum $ 1) "@(1)"
   , testBoardEval (UInt . Sum $ 1) "@(@(1))"
+  , testBoardEval (UBool False) "(def x @(1)) @(== 2 x)"
   , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
