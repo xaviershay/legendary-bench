@@ -20,6 +20,20 @@ testEvalWithPrelude expected input = do
 
   testEvalFull Nothing mempty (prelude <> "\n") expected input
 
+testDeferredEval expected input =
+  let prelude = "" in
+  let bindings = mempty in
+  let env' = extendEnv (M.fromList bindings) (mkEnv Nothing) in
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> input)
+  where
+    query :: UEnv -> Name -> UValue
+    query env text = case parse text of
+                        Right x -> case typecheck env x of
+                                     Right _ ->
+                                       let f = evalWith env x in
+                                       evalWith (mkEnv $ Just mkBoard) (UConst f)
+                                     Left y -> error $ "Typecheck fail: " <> show y
+                        Left y -> error $ show y
 testEvalFull board bindings prelude expected input =
   let env' = extendEnv (M.fromList bindings) (mkEnv board) in
   return $ testCase (T.unpack . escape $ input) $ expected @=? query env' (prelude <> input)
@@ -88,4 +102,5 @@ test_Eval =
   , testEvalWithPrelude (UList [UConst (UInt (Sum 1)), UConst (UInt (Sum 2))]) "(uniq [1 1 2])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool True)]) "(uniq [false false true])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool False)]) "(replicate 2 false)"
+  , testDeferredEval (UList []) "(def x []) (def z @(let [y x] y)) z"
   ]

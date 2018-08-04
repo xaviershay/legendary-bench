@@ -378,7 +378,11 @@ freeVars env expr = runReader (freeVars' expr) env
 freeVars' :: UExpr -> Reader UEnv (Set.Set Name)
 freeVars' (UConst (UList xs)) = mconcat <$> traverse freeVars' xs
 freeVars' (UConst (UBoardFunc _ fn)) = freeVars' fn
-freeVars' (ULet (name, _) expr) = Set.delete name <$> freeVars' expr
+freeVars' (ULet (name, e1) e2) = do
+  v1 <- freeVars' e1
+  v2 <- Set.delete name <$> freeVars' e2
+
+  return (v1 <> v2)
 freeVars' (UDef name expr)      = Set.delete name <$> freeVars' expr
 freeVars' (UConst (UFunc fn))   = Set.delete name <$> freeVars' expr
   where
