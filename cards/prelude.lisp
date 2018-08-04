@@ -1,8 +1,11 @@
 (defn id [x] x)
 (defn is-odd [x] (== 1 (mod x 2)))
 
-(defn drop [n xs] (if (<= n 0) xs (drop (- n 1) (tail xs))))
-(defn take [n xs] (if (<= n 0) [] (concat [[(head xs)] (take (- n 1) (tail xs))])))
+(defn drop [n xs]
+  (if (<= n 0) xs (drop (- n 1) (tail xs))))
+(defn take [n xs]
+  (if (<= n 0) [] (concat [[(head xs)] (take (- n 1) (tail xs))])))
+
 (defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
 (defn filter [f xs] (reduce
                       (fn [a x] (concat [a (if (f x) [x] [])]))
@@ -21,6 +24,12 @@
   (cards-at (player-location current-player scope)))
 (defn is-type [t c] (== t (card-type c)))
 (defn is-team [t c] (== t (card-team c)))
-(defn played [type] ((. (any (is-type type)) (filter (. not (== current-card))) cards-at) (player-location current-player "Played")))
-(defn cards-player-has [p] (concat-map (. cards-at (player-location p)) ["Played" "Hand"]))
-(defn heroes-player-has [p] (concat-map (. heroes-at (player-location p)) ["Played" "Hand"]))
+(defn played [type] ((.
+                       (any (is-type type))
+                       (filter (. not (== current-card)))
+                       cards-at
+                     ) (player-location current-player "Played")))
+(defn cards-player-has [p]
+  (concat-map (. cards-at (player-location p)) ["Played" "Hand"]))
+(defn heroes-player-has [p]
+  (concat-map (. heroes-at (player-location p)) ["Played" "Hand"]))

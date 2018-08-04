@@ -101,7 +101,6 @@ eval :: UExpr -> EvalMonad UValue
 eval expr = do
   level <- ask
   vars <- currentVars
-  --traceM . T.unpack $ showT level <> ": " <> (T.replicate level " ") <> showCode expr <> "  | " <> showEnvOneLine vars
   if level > 10000 then
     throwError "Execution exceeded stack"
   else
