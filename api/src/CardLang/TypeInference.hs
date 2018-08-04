@@ -218,10 +218,20 @@ infer' env (UConst (UList (a:as))) = do
   pure (s3 <> s2 <> s, WList $ applySubst s3 thisMType)
 
 infer' env (UConst (UBoardFunc _ exp)) = do
+  -- See comments on unifyImbalancedBoardF for detail as to why we care about
+  -- whether or not we are inside a board function.
   (s, tau) <- local contextInsideBoardFunc $ infer (env <> boardFuncTypeEnv) exp
 
-  -- See comments on unifyImbalancedBoardF for an explanation of this.
-  ifInBoardF (pure (s, tau)) (pure (s, WBoardF tau))
+  -- If the function returns a variable from the environment, that variable
+  -- might have been stored with a type of WBoardF. In that case, we look
+  -- through to the inner type.
+  let tau' = stripBoardF tau
+
+  ifInBoardF (pure (s, tau')) (pure (s, WBoardF tau'))
+
+  where
+    stripBoardF (WBoardF x) = x
+    stripBoardF x = x
 
 infer' env (UConst (UFunc fn)) = do
   tau <- fresh
