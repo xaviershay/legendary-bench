@@ -73,6 +73,7 @@ freeEnv (WEnv e) = Set.unions (freePType <$> M.elems e)
 instance Substitutable WEnv where
   applySubst s (WEnv env) = WEnv (M.map (applySubst s) env)
 
+-- TODOX: Add Reader InferContext to be able to scope nested WBoardF.
 type Infer a = (ExceptT InferError (State [Name])) a
 
 typecheck :: UEnv -> UExpr -> Either InferError MType
@@ -109,6 +110,8 @@ bindVariableTo name mType = return (Subst (M.singleton name mType))
 
 unify :: (MType, MType) -> Infer Subst
 unify (WFun a b, WFun c d) = unifyBinary (a, b) (c, d)
+-- TODOX: Read from state to see if nested in a WBoardF. If yes, unify on the
+-- inner type instead and don't require both sides to be WBoardF.
 unify (WBoardF a, WBoardF b) = unify (a, b)
 unify (WVar v, x) = v `bindVariableTo` x
 unify (x, WVar v) = v `bindVariableTo` x
@@ -185,7 +188,8 @@ infer' env (UConst (UList (a:as))) = do
   pure (s3 <> s2 <> s, WList $ applySubst s3 thisMType)
 
 infer' env (UConst (UBoardFunc _ exp)) = do
-  -- TODO: Require exp type to be Action?
+  -- TODOX: When recursing, set a flag so that nested unification of WBoardF
+  -- will "ignore" it and use the wrapped type instead.
   (s, tau) <- infer (env <> boardFuncTypeEnv) exp
 
   pure (s, WBoardF tau)
@@ -222,8 +226,6 @@ infer' env (UApp f x) = do
   (s2, xTau) <- infer (applySubst s1 env) x
   fxTau <- fresh
   s3 <- unify (applySubst s2 fTau, WFun xTau fxTau)
-  --traceM . T.unpack $ "Unified\n  " <> showType (applySubst s2 fTau) <> "\n  " <> showType (WFun xTau fxTau) <> "\n  " <> 
-  --   showType (applySubst s3 (WFun xTau fxTau))
   let s = s3 <> s2 <> s1
   pure (s, applySubst s3 fxTau)
 

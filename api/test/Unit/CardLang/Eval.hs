@@ -23,6 +23,19 @@ testEvalWith env expected input =
                                      Left y -> error $ "Typecheck fail: " <> show y
                         Left y -> error $ show y
 
+-- TODOX: DRY this up with testEval
+testBoardEval = testBoardEvalWith mempty
+testBoardEvalWith env expected input =
+  let env' = extendEnv (M.fromList env) (mkEnv $ Just mkBoard) in
+  return $ testCase (T.unpack . escape $ input) $ expected @=? query env' input
+  where
+    query :: UEnv -> Name -> UValue
+    query env text = case parse text of
+                        Right x -> case typecheck env x of
+                                     Right _ -> evalWith env x
+                                     Left y -> error $ "Typecheck fail: " <> show y
+                        Left y -> error $ show y
+
 
 testEvalWithPrelude expected input = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
@@ -78,6 +91,8 @@ test_Eval =
   , testEval (UList [UConst $ UInt 1, UConst $ UInt 2]) "(concat [[1] [2]])"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "(board-fn 1)"
   , testEval (UBoardFunc mempty (UConst . UInt . Sum $ 1)) "@(1)"
+  , testBoardEval (UInt . Sum $ 1) "@(1)"
+  , testBoardEval (UInt . Sum $ 1) "@(@(1))"
   , testEval (UBoardFunc mempty (UVar "current-player")) "@(current-player)"
   , testEval (UList [UConst . UInt . Sum $ 2, UConst . UInt . Sum $ 3])
       "(defn map [f] (reduce (fn [a x] (concat [a [(f x)]])) [])) (map (add 1) [1 2])"
