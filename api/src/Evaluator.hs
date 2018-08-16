@@ -354,6 +354,9 @@ apply a@(ActionChooseYesNo pid desc onYes onNo) = applyChoicesFor pid f
 
 apply a@(ActionPlayerTurn _) = applyChoicesBoard f
   where
+    isTactic MastermindTacticCard{} = True
+    isTactic _ = False
+
     clearAndApply action = do
       pid <- currentPlayer
       board' <- clearChoices <$> currentBoard
@@ -417,6 +420,29 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
                         <> ActionAttack pid (negate requiredAttack)
                         <> action
                         <> a
+      MastermindDeck -> do
+        mmCards <- view (cardsAtLocation MastermindDeck) <$> currentBoard
+
+        let mmtCards = S.filter (isTactic . view cardTemplate) mmCards
+
+        case toList mmtCards of
+          (x:xs) -> do
+            let address = cardById MastermindDeck (view cardId x)
+            tactic <- requireCard address
+            pid <- currentPlayer
+
+            let template = view cardTemplate tactic
+            requiredAttack <- evalInt $ view mmtAttack template
+            let action = extractCode . fromJust $ preview mmtFightCode template
+            let next = case xs of
+                        [] -> ActionWin "You defeated the mastermind!"
+                        _  -> a
+
+            apply $ ActionTagged (playerDesc pid <> " attacks Mastermind") $
+                           ActionMove address (PlayerLocation pid Victory) Front
+                        <> ActionAttack pid (negate requiredAttack)
+                        <> action
+                        <> next
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
@@ -443,6 +469,7 @@ apply a@(ActionEval bindings expr) = do
   apply action
 
 apply a@(ActionLose reason) = lose reason
+apply a@(ActionWin reason) = win reason
 apply (ActionHalt a reason) = wait a reason
 
 apply (ActionConcurrent as) = do

@@ -60,6 +60,7 @@ instance FromJSON Location where
     let tokens = T.splitOn "-" v in
 
     case tokens of
+      ["mastermind"] -> return MastermindDeck
       ["hq"] -> return HQ
       ["city", i] -> City <$> readError i
 
@@ -104,7 +105,7 @@ instance ToJSON GameState where
     ]
 
   toJSON Preparing = object ["tag" .= ("preparing" :: String)]
-  toJSON Won = object ["tag" .= ("won" :: String)]
+  toJSON (Won reason) = object ["tag" .= ("won" :: String), "status" .= reason]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
 instance ToJSON SummableInt
@@ -145,7 +146,7 @@ instance ToJSON Card where
     , "name" .= view cardName c
     , "ability" .= view mmtAbilityName c
     , "attack" .= view mmtAttack c
-    , "fight" .= T.intercalate " " (map extractLabel . toList $ view mmtFightCode c)
+    , "fight" .= (extractLabel $ view mmtFightCode c)
     , "vp" .= view mmtVP c
     ]
   toJSON c = object [ "type" .= view cardType c ]

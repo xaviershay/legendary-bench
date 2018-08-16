@@ -169,6 +169,8 @@ class Log extends Component {
 function statusMessage(board) {
   if (board.state.tag === "lost") {
     return <p className="status lost">Game Lost: {formatDescription(board.state.status)}</p>
+  } else if (board.state.tag === "won") {
+    return <p className="status won">Game Won: {formatDescription(board.state.status)}</p>
   } else if (board.state.tag === "waiting") {
     return <p className="status waiting">{board.state.description}</p>
   } else {
@@ -258,7 +260,9 @@ class Board extends Component {
         <div className='board'>
           <div className='boardRow'>
             <Location cards={board.cards["mastermind"]} title="Mastermind"
-              layout="stacked" />
+              layout="stacked"
+              actions={chooseCardActions("mastermind", currentPlayer)} />
+             />
             <div className='city'>
               <Location cards={board.cards["city-4"]} title="Bridge"
                 layout="stacked"

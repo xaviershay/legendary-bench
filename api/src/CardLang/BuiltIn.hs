@@ -94,7 +94,7 @@ addTactic = do
 
   ability    <- argAt 0
   label      <- argAt 1
-  effect     <- argAt 2
+  effect     <- ActionEval mempty <$> argAt 2
   mmTemplate <- argAt 3
 
   let template = MastermindTacticCard
@@ -102,7 +102,7 @@ addTactic = do
                    , _mmtAbilityName = ability
                    , _mmtAttack = view mmAttack mmTemplate
                    , _mmtVP = view mmVP mmTemplate
-                   , _mmtFightCode = S.singleton (mkLabeledExpr label effect)
+                   , _mmtFightCode = mkLabeledExpr label effect
                    }
 
   modify (over envCards (template <|))

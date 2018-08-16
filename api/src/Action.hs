@@ -35,3 +35,9 @@ lose reason = do
   b <- currentBoard
 
   throwError (set boardState (Lost reason) b, ActionLose reason)
+
+win :: T.Text -> GameMonad a
+win reason = do
+  b <- currentBoard
+
+  throwError (set boardState (Won reason) b, ActionWin reason)

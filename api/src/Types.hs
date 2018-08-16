@@ -245,7 +245,7 @@ data Card = HeroCard
   , _mmVP :: ModifiableInt
   }
   | MastermindTacticCard
-  { _mmtFightCode :: S.Seq LabeledExpr
+  { _mmtFightCode :: LabeledAction
   , _mmtName :: T.Text
   , _mmtAbilityName :: T.Text
   -- Will just be copied from MM, but denormalized to avoid having to reference
@@ -293,12 +293,12 @@ instance Hashable Location
 
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
-data GameState = WaitingForChoice T.Text | Preparing | Won | Lost T.Text deriving (Show, Generic, Eq)
+data GameState = WaitingForChoice T.Text | Preparing | Won T.Text | Lost T.Text deriving (Show, Generic, Eq)
 
 instance Monoid GameState where
   mempty = Preparing
-  mappend _ Won = Won
-  mappend Won _ = Won
+  mappend _ (Won x) = Won x
+  mappend (Won x) _ = Won x
   mappend (Lost x) _ = Lost x
   mappend _ (Lost x) = Lost x
   mappend a Preparing = a
@@ -396,6 +396,7 @@ data Action =
   ActionGainWound PlayerId Location SummableInt |
 
   ActionLose T.Text |
+  ActionWin T.Text |
   ActionPlayerTurn PlayerId |
   ActionStartTurn |
   ActionPrepareGame |
