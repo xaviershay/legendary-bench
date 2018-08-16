@@ -421,28 +421,39 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
                         <> action
                         <> a
       MastermindDeck -> do
-        mmCards <- view (cardsAtLocation MastermindDeck) <$> currentBoard
+        board <- currentBoard
 
-        let mmtCards = S.filter (isTactic . view cardTemplate) mmCards
+        let cs = S.filter (isTactic . view cardTemplate)
+                   . view (cardsAtLocation MastermindDeck)
+                   $ board
 
-        case toList mmtCards of
-          (x:xs) -> do
+        let g = view rng board
+        let (shuffled, g') = shuffleSeq g cs
+        let board' = set rng g' board
+
+        case shuffled of
+          (x :<| xs) -> do
             let address = cardById MastermindDeck (view cardId x)
+
             tactic <- requireCard address
-            pid <- currentPlayer
+            pid    <- currentPlayer
 
             let template = view cardTemplate tactic
-            requiredAttack <- evalInt $ view mmtAttack template
             let action = extractCode . fromJust $ preview mmtFightCode template
-            let next = case xs of
-                        [] -> ActionWin "You defeated the mastermind!"
-                        _  -> a
+            let next = if null xs then
+                         ActionWin "You defeated the mastermind!"
+                       else
+                         a
 
-            apply $ ActionTagged (playerDesc pid <> " attacks Mastermind") $
-                           ActionMove address (PlayerLocation pid Victory) Front
-                        <> ActionAttack pid (negate requiredAttack)
-                        <> action
-                        <> next
+            requiredAttack <- evalInt $ view mmtAttack template
+
+            withBoard board' .  apply $
+              ActionTagged (playerDesc pid <> " attacks Mastermind")
+                $  ActionMove address (PlayerLocation pid Victory) Front
+                <> ActionAttack pid (negate requiredAttack)
+                <> action
+                <> next
+          _ -> lose "No tactic cards left, shouldn't be possible."
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
