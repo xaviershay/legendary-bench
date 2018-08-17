@@ -401,7 +401,7 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
         let template = view cardTemplate card
 
-        apply $ ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
+        apply $ ActionTagged (playerDesc pid <> " recruits " <> view cardName template) $
              ActionRecruit pid (-(view heroCost template))
           <> ActionGain pid address
 
