@@ -309,6 +309,10 @@ instance ToU SpecificCard where
 
 instance FromU Location where
   fromU (ULocation x) = return x
+  fromU (UString x) =
+    case x of
+      "HQ" -> return HQ
+      _    -> throwError $ "Unknown location: " <> x
   fromU x        = throwError ("Expected ULocation, got " <> showT x)
 instance ToU Location where
   toU = ULocation

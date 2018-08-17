@@ -304,8 +304,6 @@ playerDirection dir = do
 
       return . toUConst . view playerId . S.index ps $ ni
 
-
-
 makeHero = do
   name     <- argAt 0
   team     <- argAt 1

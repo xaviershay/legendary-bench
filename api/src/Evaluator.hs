@@ -161,6 +161,8 @@ apply (ActionRescueBystander pid n) =
             Front
        <> ActionRescueBystander pid (n - 1)
 
+apply (ActionGain pid address) = gainAction pid address >>= apply
+
 -- TODO: Handle not having any wounds left. Verify what happens for replacement
 -- effects.
 apply (ActionGainWound _ _ 0) = apply mempty
@@ -396,14 +398,12 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
       HQ -> do
         card <- requireCard address
         pid <- currentPlayer
-        index <- cardLocationIndex address
 
         let template = view cardTemplate card
 
         apply $ ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-             ActionMove address (PlayerLocation pid Discard) Front
-          <> ActionRecruit pid (-(view heroCost template))
-          <> replaceHeroInHQ index
+             ActionRecruit pid (-(view heroCost template))
+          <> ActionGain pid address
 
       City n -> do
         card <- requireCard address
@@ -440,6 +440,7 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
             let template = view cardTemplate tactic
             let action = extractCode . fromJust $ preview mmtFightCode template
+
             let next = if null xs then
                          ActionWin "You defeated the mastermind!"
                        else
@@ -751,16 +752,6 @@ tag message m = do
     foldedAction -> logAction (ActionTagged message foldedAction)
 
   return board'
-
-cardLocationIndex :: SpecificCard -> GameMonad Int
-cardLocationIndex (CardByIndex (_, i)) = return i
--- TODO: To fix this, this function needs to be moved into board monad
-cardLocationIndex address@(CardById (location, cid)) = do
-  board <- currentBoard
-
-  case S.findIndexL (\c -> cid == view cardId c) (view (cardsAtLocation location) board) of
-    Nothing -> lose $ "No such card: " <> showT address
-    Just i -> return i
 
 evalInt (ModifiableInt base modifier) = do
   board <- currentBoard

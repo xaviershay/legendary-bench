@@ -2,6 +2,7 @@
 
 module Action where
 
+import qualified Data.Sequence        as S
 import qualified Data.Text as T
 import Control.Monad.Except (throwError)
 
@@ -19,6 +20,13 @@ replaceHeroInHQ i = ActionTagged ("Replace hero in spot " <> showT i) $
 revealAndMove source destination spot =
      ActionVisibility source All
   <> ActionMove source destination spot
+
+gainAction :: PlayerId -> SpecificCard -> GameMonad Action
+gainAction pid address = do
+  index <- cardLocationIndex address
+
+  return $    ActionMove address (PlayerLocation pid Discard) Front
+           <> replaceHeroInHQ index
 
 -- Stuff that is probably in the wrong place
 -- =========================================
@@ -41,3 +49,12 @@ win reason = do
   b <- currentBoard
 
   throwError (set boardState (Won reason) b, ActionWin reason)
+
+cardLocationIndex :: SpecificCard -> GameMonad Int
+cardLocationIndex (CardByIndex (_, i)) = return i
+cardLocationIndex address@(CardById (location, cid)) = do
+  board <- currentBoard
+
+  case S.findIndexL (\c -> cid == view cardId c) (view (cardsAtLocation location) board) of
+    Nothing -> lose $ "No such card: " <> showT address
+    Just i -> return i

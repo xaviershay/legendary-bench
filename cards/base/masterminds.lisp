@@ -36,8 +36,18 @@
         ]
         (concurrently (map action ps))))
 
-    ; TODO
-    (add-tactic "Dark Technology" "You may recruit a |tech| or |ranged| Hero from the HQ for free." @(noop))
+    (add-tactic "Dark Technology" "You may recruit a |tech| or |ranged| Hero from the HQ for free."
+      @(choose-card
+         "Choose a |tech| or |ranged| Hero from HQ to recruit."
+         (let
+           [hq (cards-at (location "HQ"))]
+           (concat [
+             (filter (is-type "Ranged") hq)
+             (filter (is-type "Tech") hq)
+           ]))
+         gain
+         noop
+        ))
     ; TODO
     (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card." @(noop))
     ; TODO
