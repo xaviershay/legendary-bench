@@ -485,6 +485,10 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
 
       wait a $ playerDesc pid <> "'s turn"
 
+-- TODO: This probably doesn't stack right for multiple bonus turns, but would
+-- want a combination of cards to test with before nailing it down.
+apply (ActionAddTurn pid) = over turnStack (pid <|) <$> currentBoard
+
 apply a@(ActionEval bindings expr) = do
   board <- currentBoard
   card <- currentCard

@@ -73,6 +73,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
 
   --- Action generators
   , mkBuiltIn "noop" "Action" $ upure ActionNone
+  , mkBuiltIn "add-turn" ("PlayerId" ~> "Action")    $ uliftA1 ActionAddTurn (argAt 0)
   , mkBuiltIn "attack" ("Int" ~> "Action")           $ uliftA2 ActionAttack B.currentPlayer (argAt 0)
   , mkBuiltIn "recruit" ("Int" ~> "Action")          $ uliftA2 ActionRecruit B.currentPlayer (argAt 0)
   , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)

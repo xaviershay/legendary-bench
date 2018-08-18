@@ -396,6 +396,7 @@ data Action =
   ActionDefeat PlayerId SpecificCard |
   ActionGainWound PlayerId Location SummableInt |
   ActionGain PlayerId SpecificCard |
+  ActionAddTurn PlayerId |
 
   ActionLose T.Text |
   ActionWin T.Text |

@@ -50,8 +50,8 @@
         ))
     ; TODO
     (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card." @(noop))
-    ; TODO
-    (add-tactic "Secrets of Time Travel" "Take another turn after this one." @(noop))
+    (add-tactic "Secrets of Time Travel" "Take another turn after this one."
+      @(add-turn current-player))
     (add-tactic "Treasures of Latveria" "When you draw a new hand of cards at the end of this turn, draw three extra cards."
       @(at-end-step (draw 3)))
   )
