@@ -207,6 +207,7 @@ instance ToJSON Board where
   toJSON b = object
     [ "cards"   .= view cards b
     , "players" .= view players b
+    , "turnStack" .= view turnStack b
     , "state"   .= view boardState b
     , "version" .= view version b
     , "log"     .= view actionLog b

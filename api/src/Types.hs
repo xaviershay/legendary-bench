@@ -339,6 +339,7 @@ data Board = Board
   , _postDrawActions :: M.HashMap PlayerId Action
   , _actionLog     :: S.Seq Action
   , _playerChoices :: M.HashMap PlayerId (S.Seq PlayerChoice)
+  , _turnStack     :: S.Seq PlayerId
   }
   deriving (Show, Generic)
 
@@ -448,6 +449,7 @@ mkBoard = Board
   , _actionLog = mempty
   , _playerChoices = mempty
   , _postDrawActions = mempty
+  , _turnStack = mempty
   }
 
 mkPlayer :: PlayerId -> Player

@@ -42,6 +42,8 @@ class App extends Component {
 
     if (board) {
       log = board.log
+      const ts = board.turnStack;
+      board.currentPlayer = ts[ts.length-1];
     }
     return (
       <CardsContext.Provider value={this.state.cards}>
@@ -199,11 +201,10 @@ class Board extends Component {
 
   handleTrackingChange(e) {
     const board = this.props.board;
-    const currentPlayer = board.players[0].id
 
     this.setState({
       tracking: !this.state.tracking,
-      actingAs: currentPlayer
+      actingAs: board.currentPlayer
     })
   }
 
@@ -212,7 +213,7 @@ class Board extends Component {
     let currentPlayer;
 
     if (board && this.state.tracking) {
-      currentPlayer = board.players[0].id
+      currentPlayer = board.currentPlayer
     } else {
       currentPlayer = this.state.actingAs
     }

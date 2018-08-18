@@ -4,17 +4,16 @@ module Integration.Cards where
 
 import Unit.Utils
 
-import qualified Data.Sequence as S
-import qualified Data.Text     as T
-import qualified Data.HashMap.Strict     as M
-import qualified Data.Text.IO  as T
-import Data.Maybe (fromJust)
+import           Control.Lens        (element)
+import           Data.Maybe          (fromJust)
+import qualified Data.Sequence       as S
+import qualified Data.Text           as T
+import qualified Data.Text.IO        as T
 
 import System.Random (mkStdGen)
 
 import Types
 import CardLang
-import CardLang.Evaluator (toUConst)
 import GameMonad
 import Evaluator (apply)
 import FakeData (genBoard)
@@ -29,6 +28,14 @@ readCards contents =
       Right _ -> return $ case evalCards ast of
         Left x ->  Left $ T.unpack x
         Right y -> Right y
+
+fakeBoard :: S.Seq Card -> Board
+fakeBoard cards = let b = genBoard (mkStdGen 0) 2 cards in
+                    -- Assume the first player starts first
+                    case preview (players . element 0 . playerId) b of
+                      Just pid -> set turnStack (S.singleton pid) b
+                      _   -> error "genBoard should have added a player"
+
 
 test_CardsIntegration = do
   let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
@@ -46,9 +53,6 @@ test_CardsIntegration = do
       return $ testGroup "Hero smoke tests" cases
 
   where
-    fakeBoard :: S.Seq Card -> Board
-    fakeBoard cards = genBoard (mkStdGen 0) 2 cards
-
     forCard board card = let code = fromJust $ preview playCode card in
                    testCase (T.unpack $ view templateId card) $
                      -- Some hax here around current-card
@@ -76,9 +80,6 @@ test_HenchmenIntegration = do
       return $ testGroup "Henchmen smoke tests" cases
 
   where
-    fakeBoard :: S.Seq Card -> Board
-    fakeBoard cards = genBoard (mkStdGen 0) 2 cards
-
     forCard board card = let code = fromJust $ preview fightCode card in
                    testCase (T.unpack $ view templateId card) $
                      let env = mkEnv (Just board) in

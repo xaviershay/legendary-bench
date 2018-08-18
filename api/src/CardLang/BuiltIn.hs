@@ -8,7 +8,7 @@ import           Control.Lens         (element, Traversal')
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State  (get, gets, modify)
 import           Data.List            (nub)
-import           Data.Sequence ((<|))
+import           Data.Sequence ((<|), Seq(..))
 import qualified Data.Sequence        as S
 
 import CardLang.Parser (parseUnsafe)
@@ -280,9 +280,9 @@ currentPlayer = do
   case board of
     Nothing -> throwError "Board function called outside of context"
     Just b ->
-      case preview (players . element 0 . playerId) b of
-        Nothing -> throwError "No current player"
-        Just p -> return p
+      case view turnStack b of
+        _ :|> x -> return x
+        _ -> throwError "No current player"
 
 allPlayers = do
   board <- currentBoard

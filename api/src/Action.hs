@@ -32,11 +32,11 @@ gainAction pid address = do
 -- =========================================
 currentPlayer :: GameMonad PlayerId
 currentPlayer = do
-  pid <- preview (players . element 0 . playerId) <$> currentBoard
+  ts <- view turnStack <$> currentBoard
 
-  case pid of
-    Just x -> return x
-    _ -> lose "No active player"
+  case ts of
+    _ S.:|> x -> return x
+    _ -> lose "No current player"
 
 lose :: T.Text -> GameMonad a
 lose reason = do

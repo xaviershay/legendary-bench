@@ -10,7 +10,7 @@ module Evaluator
   where
 
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
-                                       view)
+                                       view, element)
 import           Control.Monad        (foldM, forM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
@@ -250,16 +250,23 @@ apply a@(ActionShuffle location) = do
 
 apply ActionPrepareGame =
   tag "Prepare game" $ do
-    preparePlayers <-   mconcat . toList
-                      . fmap (preparePlayer . view playerId)
-                      . view players
-                      <$> currentBoard
+    board <- currentBoard
+    let ps = view players board
+    let preparePlayers = mconcat . toList
+                           . fmap (preparePlayer . view playerId)
+                           $ ps
 
-    apply $
-               preparePlayers
-            <> mconcat (fmap ActionShuffle [HeroDeck, VillainDeck])
-            <> mconcat (fmap replaceHeroInHQ [0..4])
-            <> ActionStartTurn
+
+    -- TODO: Randomize first player
+    case preview (element 0 . playerId) ps of
+      Nothing -> lose "Can't start game with no players"
+      Just firstPlayer ->
+        withBoard (over turnStack (|> firstPlayer) board) $
+          (apply $
+                     preparePlayers
+                  <> mconcat (fmap ActionShuffle [HeroDeck, VillainDeck])
+                  <> mconcat (fmap replaceHeroInHQ [0..4])
+                  <> ActionStartTurn)
 
   where
     preparePlayer pid =    ActionShuffle (PlayerLocation pid PlayerDeck)
@@ -284,8 +291,18 @@ apply ActionEndTurn = do
                   (cardsAtLocation $ PlayerLocation player Discard)
               <$> currentBoard
 
+    let ids = view playerId <$> view players board
+    let currentIndex = fromJust $ S.elemIndexL player ids
+    let nextPlayer = PlayerId $ (currentIndex + 1) `mod` length ids
     withBoard board $
-      over players moveHeadToTail <$> apply (ActionDraw player 6 <> postAction)
+      over turnStack (f nextPlayer) <$> apply (ActionDraw player 6 <> postAction)
+
+
+  where
+    -- If turn stack would be empty, replace with next player
+    f nextPlayer (S.Empty S.:|> x) = S.singleton nextPlayer
+    -- ... otherwise pop the stack
+    f _ (xs S.:|> _) = xs
 
 apply ActionStartTurn = do
   pid <- currentPlayer
