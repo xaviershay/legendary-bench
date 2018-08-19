@@ -135,6 +135,7 @@ unify' (WVar v, x) = v `bindVariableTo` x
 unify' (x, WVar v) = v `bindVariableTo` x
 unify' (WConst a, WConst b) | a == b = return mempty
 unify' (WList a, WList b) = unify (a, b)
+unify' (WTuple a b, WTuple c d) = unifyBinary (a, b) (c, d)
 unify' (a, b) = throw (CannotUnify a b)
 
 -- Since board functions are transparent (e.g. they simply pass through to
