@@ -193,13 +193,10 @@ instance Monoid JoinableText where
   mempty = JoinableText mempty
   mappend (JoinableText a) (JoinableText b) = JoinableText (a <> " " <> b)
 
-type LabeledExpr = (T.Text, UExpr)
 type LabeledAction = (JoinableText, Action)
 
 extractLabel = fst
 extractCode = snd
-
-mkLabeledExpr = (,)
 
 -- A SummableInt that has a base value, and potentially an expression that can
 -- be dynamically evaluated to modify that value. The expression is stored as a

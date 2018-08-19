@@ -102,7 +102,7 @@ addTactic = do
                    , _mmtAbilityName = ability
                    , _mmtAttack = view mmAttack mmTemplate
                    , _mmtVP = view mmVP mmTemplate
-                   , _mmtFightCode = mkLabeledExpr label effect
+                   , _mmtFightCode = (label, effect)
                    }
 
   modify (over envCards (template <|))
