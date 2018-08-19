@@ -90,3 +90,36 @@ test_HenchmenIntegration = do
                      case view boardState board' of
                        Lost x -> assertFailure (show x)
                        _ -> True @=? True
+
+test_MastermindIntegration = do
+  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
+  let path = "/home/xavier/Code/legendary-bench/cards/base/masterminds.lisp"
+
+  prelude <- T.readFile prelude
+  contents <- T.readFile path
+  cards <- readCards (prelude <> "\n" <> contents)
+
+  case cards of
+    Left x -> return $ testCase "Mastermind smoke tests" (assertFailure x)
+    Right cards -> do
+      let cases = toList $ fmap (forCard $ fakeBoard cards) cards
+
+      return $ testGroup "Mastermind smoke tests" cases
+
+  where
+    forCard board (card@MastermindTacticCard{}) =
+      let code = fromJust $ preview mmtFightCode card in
+
+      testCase (T.unpack $ view templateId card) $
+        let env = mkEnv (Just board) in
+        let board' = runGameMonad
+                       (mkGameMonadState board Nothing)
+                       (apply $ extractCode code) in
+
+        case view boardState board' of
+          Lost x -> assertFailure (show x)
+          _ -> True @=? True
+    forCard board (card@MastermindCard{}) =
+      testCase (T.unpack $ view templateId card) $ True @=? True
+
+focus = test_MastermindIntegration >>= defaultMain
