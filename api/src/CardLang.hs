@@ -159,6 +159,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       $ B.chooseYesNo (argAt 0) (argAt 1) (argAt 2) (argAt 3)
 
   -- Misc
+  , mkBuiltIn "tuple" ("a" ~> "b" ~> WTuple "a" "b") $ uliftA2 (,) (argAt 0 :: EvalMonad UExpr) (argAt 1 :: EvalMonad UExpr)
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
   , mkBuiltIn "current-card" "SpecificCard" (error "current-card called when not in context")
   , mkBuiltIn "trace" ("a" ~> "a") B.trace

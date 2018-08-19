@@ -275,6 +275,9 @@ instance FromU Int where
 instance ToU Int where
   toU = UInt . Sum
 
+instance ToU (UExpr, UExpr) where
+  toU (x, y) = UTuple x y
+
 instance FromU T.Text where
   fromU (UString x) = return x
   fromU x        = throwError ("Expected UString, got " <> showT x)

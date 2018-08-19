@@ -103,4 +103,5 @@ test_Eval =
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool True)]) "(uniq [false false true])"
   , testEvalWithPrelude (UList [UConst (UBool False), UConst (UBool False)]) "(replicate 2 false)"
   , testDeferredEval (UList []) "(def x []) (def z @(let [y x] y)) z"
+  , testEval (UTuple (UConst . UInt $ 1) (UConst . UBool $ False)) "(tuple 1 false)"
   ]

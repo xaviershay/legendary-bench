@@ -119,6 +119,7 @@ data UValue =
  | UInt SummableInt
  | UString T.Text
  | UBool Bool
+ | UTuple UExpr UExpr
  | UFunc UFuncData
  | UBoardFunc Bindings UExpr
  | UAction Action
@@ -138,6 +139,7 @@ data MType =
   | WFun MType MType
   | WBoardF MType
   | WList MType
+  | WTuple MType MType
 
   deriving (Eq, Show)
 
@@ -172,6 +174,7 @@ showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType 
     isFun _ = False
     maybeBracket cond x = if cond then "(" <> x <> ")" else x
 showType (WList x) = "[" <> showType x <> "]"
+showType (WTuple x y) = "(" <> showType x <> ", " <> showType y <> ")"
 showType (WBoardF x) = "@:" <> showType x
 
 
