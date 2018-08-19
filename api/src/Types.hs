@@ -311,24 +311,6 @@ data Player = Player
   }
   deriving (Show, Generic, Eq)
 
-data Effect =
-  EffectNone |
-  EffectMoney SummableInt |
-  EffectAttack SummableInt |
-  EffectCustom T.Text Action |
-  EffectCombine Effect Effect
-  deriving (Generic)
-
-instance Show Effect where
-  show EffectNone = ""
-  show (EffectMoney n) = "Money +" <> show n
-  show (EffectAttack n) = "Attack +" <> show n
-  show (EffectCombine EffectNone EffectNone) = show ""
-  show (EffectCombine EffectNone b) = show b
-  show (EffectCombine a EffectNone) = show a
-  show (EffectCombine a b) = show a <> ", " <> show b
-  show (EffectCustom a _) = T.unpack a
-
 data Board = Board
   { _players       :: S.Seq Player
   , _cards         :: CardMap
@@ -347,10 +329,6 @@ newtype Game = Game
   { _gameState :: Board
   }
   deriving (Show, Generic)
-
-instance Monoid Effect where
-  mempty = EffectNone
-  mappend = EffectCombine
 
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"

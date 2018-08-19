@@ -181,9 +181,6 @@ instance ToJSON PlayerId where
 instance ToJSON CardId where
   toJSON (CardId id) = toJSON id
 
-instance ToJSON Effect where
-  toJSON = toJSON . show
-
 instance ToJSON CardInPlay where
   toJSON card =
     let template = view cardTemplate card in
