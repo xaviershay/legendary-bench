@@ -242,7 +242,7 @@ data Card = HeroCard
   }
   | MastermindCard
   { _mmName :: T.Text
-  , _mmStrikeCode :: LabeledExpr
+  , _mmStrikeCode :: LabeledAction
   , _mmAlwaysLeads :: T.Text
   , _mmAttack :: ModifiableInt
   , _mmVP :: ModifiableInt

@@ -120,6 +120,14 @@ test_MastermindIntegration = do
           Lost x -> assertFailure (show x)
           _ -> True @=? True
     forCard board (card@MastermindCard{}) =
-      testCase (T.unpack $ view templateId card) $ True @=? True
+      let code = fromJust $ preview mmStrikeCode card in
 
-focus = test_MastermindIntegration >>= defaultMain
+      testCase (T.unpack $ view templateId card) $
+        let env = mkEnv (Just board) in
+        let board' = runGameMonad
+                       (mkGameMonadState board Nothing)
+                       (apply $ extractCode code) in
+
+        case view boardState board' of
+          Lost x -> assertFailure (show x)
+          _ -> True @=? True

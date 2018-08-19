@@ -112,14 +112,10 @@ addMasterStrike = do
   env <- get
 
   label    <- argAt 0
-  effect   <- argAt 1
+  effect   <- ActionEval mempty <$> argAt 1
   template <- argAt 2
 
-  action <- eval effect
-
-  case fromU action of
-    Right action' -> return . toUConst $ set mmStrikeCode (mkLabeledExpr label action') template
-    Left x        -> throwError x
+  return . toUConst $ over mmStrikeCode ((label, effect) <>) template
 
 atEndStep = do
   effect <- argAt 0
