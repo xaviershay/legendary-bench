@@ -116,8 +116,13 @@
       "Each player reveals an X-Men Hero or discards down to four cards."
       @(noop))
 
-    ; TODO
-    (add-tactic "Bitter Captor" "Recruit an X-Men Hero from the HQ for free." @(noop))
+    (add-tactic "Bitter Captor" "Recruit an X-Men Hero from the HQ for free."
+      @(choose-card
+         "Choose an |x-men| Hero from HQ to recruit."
+         (filter (is-team "X-Men") (cards-at (location "HQ")))
+         gain
+         noop
+        ))
     (add-tactic "Crushing Shockwave" "Each other player reveals an X-Men Hero or gains two Wounds."
       @(let [
           ps (filter (. not (== current-player)) all-players)
