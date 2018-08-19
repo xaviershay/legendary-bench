@@ -48,8 +48,16 @@
          gain
          noop
         ))
-    ; TODO
-    (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card." @(noop))
+
+    (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card."
+      @(let [ps (filter (. not (== current-player)) all-players)]
+        (must-choose [
+          (choice "Each other player draws a card"
+            (concurrently (map (fn [pid] (draw-player pid 1)) ps)))
+          (choice "Each other player discards a card"
+            (concurrently (map player-must-discard ps)))
+        ])))
+
     (add-tactic "Secrets of Time Travel" "Take another turn after this one."
       @(add-turn current-player))
     (add-tactic "Treasures of Latveria" "When you draw a new hand of cards at the end of this turn, draw three extra cards."

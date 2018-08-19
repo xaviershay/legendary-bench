@@ -259,6 +259,16 @@ chooseYesNo mPid mDesc mYes mNo = do
 
   return . toUConst $ ActionChooseYesNo pid desc onYes onNo
 
+mustChoose mPid mChoices = do
+  pid <- mPid
+  choices :: [UExpr] <- mChoices
+  -- TODO: DRY up this array traversal with mkChooseCard
+  from :: [UValue] <- traverse eval choices
+
+  case traverse fromU from of
+    Right from' -> return . toUConst $ ActionChoose pid (S.fromList from')
+    Left y      -> throwError y
+
 compose = do
   f1 <- argAt 0
   f2 <- argAt 1

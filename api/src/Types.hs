@@ -364,6 +364,7 @@ showTerms3 t (x, y, z) = showTerms t [show x, show y, show z]
 data PlayerChoice =
   ChooseCard SpecificCard |
   ChooseBool Bool |
+  ChooseOption Int |
   ChoosePass |
   ChooseEndTurn
   deriving (Show, Generic, Eq)
@@ -386,7 +387,11 @@ data Action =
   ActionTrace T.Text |
   ActionConcurrent [Action] |
   ActionChooseCard PlayerId T.Text [SpecificCard] UExpr (Maybe Action) |
+  -- Yes/no could technically be done using ActionChoose. Might do that in the
+  -- future, for now keeping separate in case we want to use different UIs for
+  -- them.
   ActionChooseYesNo PlayerId T.Text Action Action |
+  ActionChoose PlayerId (S.Seq (T.Text, Action)) |
   ActionEndStep Action |
 
   ActionAttack PlayerId SummableInt |
@@ -410,6 +415,8 @@ data Action =
 
   -- TODO: Think through these cases more
   ActionKOHero |
+  -- Can probably be replaced by some pre-existing CardLang? Only used for
+  -- moveCity currently.
   ActionDiscard PlayerId |
   ActionEval Bindings UExpr
 

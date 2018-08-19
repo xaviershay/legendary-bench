@@ -94,6 +94,7 @@ instance FromJSON PlayerChoice where
     case action of
       "ChooseCard"    -> ChooseCard <$> v .: "card"
       "ChooseBool"    -> ChooseBool <$> v .: "choice"
+      "ChooseOption"  -> ChooseOption <$> v .: "choice"
       "ChoosePass"    -> return ChoosePass
       "ChooseEndTurn" -> return ChooseEndTurn
       _ -> fail $ "Unknown choice: " <> action

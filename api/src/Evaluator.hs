@@ -371,6 +371,24 @@ apply a@(ActionChooseYesNo pid desc onYes onNo) = applyChoicesFor pid f
     f (ChooseBool False :<| _) = return onNo
     f _ = wait a $ playerDesc pid <> ": " <> desc
 
+apply a@(ActionChoose pid choices) = applyChoicesFor pid f
+  where
+    description = playerDesc pid <> " choose one: " <>
+      ( T.intercalate " "
+      . map (\(n, x) -> showT n <> ") " <> x)
+      . zip [1..]
+      . map fst
+      . toList
+      $ choices
+      ) <> "."
+
+    f (ChooseOption n :<| _) =
+      case S.lookup (n - 1) choices of
+        Nothing          -> f mempty
+        Just (_, action) -> return action
+
+    f _ = wait a description
+
 apply a@(ActionPlayerTurn _) = applyChoicesBoard f
   where
     isTactic MastermindTacticCard{} = True

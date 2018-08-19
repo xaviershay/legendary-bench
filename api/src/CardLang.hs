@@ -157,6 +157,11 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> "Action"
       )
       $ B.chooseYesNo (argAt 0) (argAt 1) (argAt 2) (argAt 3)
+  , mkBuiltIn "must-choose"
+      (  (WList (WTuple "String" "Action"))
+      ~> "Action"
+      )
+      $ B.mustChoose B.currentPlayer (argAt 0)
 
   -- Misc
   , mkBuiltIn "tuple" ("a" ~> "b" ~> WTuple "a" "b") $ uliftA2 (,) (argAt 0 :: EvalMonad UExpr) (argAt 1 :: EvalMonad UExpr)

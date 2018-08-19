@@ -231,6 +231,8 @@ class Board extends Component {
             <a href='#end' onClick={pass(currentPlayer)}>Pass</a>
             <br />
             <a href='#end' onClick={chooseBool(currentPlayer, false)}>No</a> | <a href='#end' onClick={chooseBool(currentPlayer, true)}>Yes</a>
+            <br />
+            <a href='#end' onClick={chooseN(currentPlayer, 1)}>1</a> | <a href='#end' onClick={chooseN(currentPlayer, 2)}>2</a>
             <form>
               {board.players.map((p) => <div key={p.id}>
                 <label>
@@ -364,6 +366,18 @@ function chooseBool(playerId, choice) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({type: "ChooseBool", choice: choice})
+    })
+  }
+}
+
+function chooseN(playerId, choice) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({type: "ChooseOption", choice: choice})
     })
   }
 }

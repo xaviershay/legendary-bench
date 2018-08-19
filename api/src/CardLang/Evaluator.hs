@@ -277,6 +277,13 @@ instance ToU Int where
 
 instance ToU (UExpr, UExpr) where
   toU (x, y) = UTuple x y
+instance (FromU a, FromU b) => FromU (a, b) where
+  -- TODO: Requiring UConst here might screw us later? Unsure.
+  fromU (UTuple (UConst mx) (UConst my)) = do
+    x <- fromU mx
+    y <- fromU my
+
+    return (x, y)
 
 instance FromU T.Text where
   fromU (UString x) = return x
