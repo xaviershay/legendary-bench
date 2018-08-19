@@ -73,6 +73,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
 
   --- Action generators
   , mkBuiltIn "noop" "Action" $ upure ActionNone
+  , mkBuiltIn "add-turn" ("PlayerId" ~> "Action")    $ uliftA1 ActionAddTurn (argAt 0)
   , mkBuiltIn "attack" ("Int" ~> "Action")           $ uliftA2 ActionAttack B.currentPlayer (argAt 0)
   , mkBuiltIn "recruit" ("Int" ~> "Action")          $ uliftA2 ActionRecruit B.currentPlayer (argAt 0)
   , mkBuiltIn "rescue-bystander" ("Int" ~> "Action") $ uliftA2 ActionRescueBystander B.currentPlayer (argAt 0)
@@ -82,6 +83,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "reveal-to-owner" ("SpecificCard" ~> "Action")  $ uliftA2 ActionVisibility (argAt 0) (pure Owner)
   , mkBuiltIn "hide" ("SpecificCard" ~> "Action")             $ uliftA2 ActionVisibility (argAt 0) (pure Hidden)
   , mkBuiltIn "ko" ("SpecificCard" ~> "Action")      $ uliftA1 ActionKO (argAt 0)
+  , mkBuiltIn "gain" ("SpecificCard" ~> "Action")    $ uliftA2 ActionGain B.currentPlayer (argAt 0)
   , mkBuiltIn "gain-wound-to" ("Location" ~> "Int" ~> "Action") $ uliftA3 ActionGainWound B.currentPlayer (argAt 0) (argAt 1)
   , mkBuiltIn "player-gain-wound" ("PlayerId" ~> "Int" ~> "Action") $ uliftA3 ActionGainWound (argAt 0) (PlayerLocation <$> argAt 0 <*> pure Discard) (argAt 1)
   , mkBuiltIn "discard" ("SpecificCard" ~> "Action") $ uliftA1 ActionDiscardCard (argAt 0)
@@ -100,6 +102,7 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
   , mkBuiltIn "card-type" ("SpecificCard" ~> "String")    $ B.cardAttr heroType
   , mkBuiltIn "card-team" ("SpecificCard" ~> "String")    $ B.cardAttr heroTeam
   , mkBuiltIn "card-owner" ("SpecificCard" ~> "PlayerId") B.cardOwner
+  , mkBuiltIn "location" ("String" ~> "Location") $ argAt 0
   , mkBuiltIn "card-location" ("Location" ~> "Int" ~> "SpecificCard") $ uliftA2 specificCard (argAt 0) (argAt 1)
   , mkBuiltIn "cards-at" ("Location" ~> WList "SpecificCard") B.cardsAt
   , mkBuiltIn "city-locations" (WList "Location") (pure . UConst . UList $ fmap toUConst allCityLocations)
@@ -154,8 +157,14 @@ defaultBuiltIns = M.fromList . fmap (\x -> (view builtInName x, x)) $
       ~> "Action"
       )
       $ B.chooseYesNo (argAt 0) (argAt 1) (argAt 2) (argAt 3)
+  , mkBuiltIn "must-choose"
+      (  (WList (WTuple "String" "Action"))
+      ~> "Action"
+      )
+      $ B.mustChoose B.currentPlayer (argAt 0)
 
   -- Misc
+  , mkBuiltIn "tuple" ("a" ~> "b" ~> WTuple "a" "b") $ uliftA2 (,) (argAt 0 :: EvalMonad UExpr) (argAt 1 :: EvalMonad UExpr)
   , mkBuiltIn "current-player" "PlayerId" $ toUConst <$> B.currentPlayer
   , mkBuiltIn "current-card" "SpecificCard" (error "current-card called when not in context")
   , mkBuiltIn "trace" ("a" ~> "a") B.trace

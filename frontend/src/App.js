@@ -42,6 +42,8 @@ class App extends Component {
 
     if (board) {
       log = board.log
+      const ts = board.turnStack;
+      board.currentPlayer = ts[ts.length-1];
     }
     return (
       <CardsContext.Provider value={this.state.cards}>
@@ -169,6 +171,8 @@ class Log extends Component {
 function statusMessage(board) {
   if (board.state.tag === "lost") {
     return <p className="status lost">Game Lost: {formatDescription(board.state.status)}</p>
+  } else if (board.state.tag === "won") {
+    return <p className="status won">Game Won: {formatDescription(board.state.status)}</p>
   } else if (board.state.tag === "waiting") {
     return <p className="status waiting">{board.state.description}</p>
   } else {
@@ -197,11 +201,10 @@ class Board extends Component {
 
   handleTrackingChange(e) {
     const board = this.props.board;
-    const currentPlayer = board.players[0].id
 
     this.setState({
       tracking: !this.state.tracking,
-      actingAs: currentPlayer
+      actingAs: board.currentPlayer
     })
   }
 
@@ -210,7 +213,7 @@ class Board extends Component {
     let currentPlayer;
 
     if (board && this.state.tracking) {
-      currentPlayer = board.players[0].id
+      currentPlayer = board.currentPlayer
     } else {
       currentPlayer = this.state.actingAs
     }
@@ -228,6 +231,8 @@ class Board extends Component {
             <a href='#end' onClick={pass(currentPlayer)}>Pass</a>
             <br />
             <a href='#end' onClick={chooseBool(currentPlayer, false)}>No</a> | <a href='#end' onClick={chooseBool(currentPlayer, true)}>Yes</a>
+            <br />
+            <a href='#end' onClick={chooseN(currentPlayer, 1)}>1</a> | <a href='#end' onClick={chooseN(currentPlayer, 2)}>2</a>
             <form>
               {board.players.map((p) => <div key={p.id}>
                 <label>
@@ -258,7 +263,9 @@ class Board extends Component {
         <div className='board'>
           <div className='boardRow'>
             <Location cards={board.cards["mastermind"]} title="Mastermind"
-              layout="stacked" />
+              layout="stacked"
+              actions={chooseCardActions("mastermind", currentPlayer)} />
+             />
             <div className='city'>
               <Location cards={board.cards["city-4"]} title="Bridge"
                 layout="stacked"
@@ -359,6 +366,18 @@ function chooseBool(playerId, choice) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({type: "ChooseBool", choice: choice})
+    })
+  }
+}
+
+function chooseN(playerId, choice) {
+  return () => {
+    fetch('http://localhost:8080/games/1/players/' + playerId + '/choose', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({type: "ChooseOption", choice: choice})
     })
   }
 }

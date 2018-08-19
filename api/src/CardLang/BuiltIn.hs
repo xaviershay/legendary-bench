@@ -8,7 +8,7 @@ import           Control.Lens         (element, Traversal')
 import           Control.Monad.Except (throwError)
 import           Control.Monad.State  (get, gets, modify)
 import           Data.List            (nub)
-import           Data.Sequence ((<|))
+import           Data.Sequence ((<|), Seq(..))
 import qualified Data.Sequence        as S
 
 import CardLang.Parser (parseUnsafe)
@@ -94,7 +94,7 @@ addTactic = do
 
   ability    <- argAt 0
   label      <- argAt 1
-  effect     <- argAt 2
+  effect     <- ActionEval mempty <$> argAt 2
   mmTemplate <- argAt 3
 
   let template = MastermindTacticCard
@@ -102,7 +102,7 @@ addTactic = do
                    , _mmtAbilityName = ability
                    , _mmtAttack = view mmAttack mmTemplate
                    , _mmtVP = view mmVP mmTemplate
-                   , _mmtFightCode = S.singleton (mkLabeledExpr label effect)
+                   , _mmtFightCode = (label, effect)
                    }
 
   modify (over envCards (template <|))
@@ -112,14 +112,10 @@ addMasterStrike = do
   env <- get
 
   label    <- argAt 0
-  effect   <- argAt 1
+  effect   <- ActionEval mempty <$> argAt 1
   template <- argAt 2
 
-  action <- eval effect
-
-  case fromU action of
-    Right action' -> return . toUConst $ set mmStrikeCode (mkLabeledExpr label action') template
-    Left x        -> throwError x
+  return . toUConst $ over mmStrikeCode ((label, effect) <>) template
 
 atEndStep = do
   effect <- argAt 0
@@ -259,6 +255,16 @@ chooseYesNo mPid mDesc mYes mNo = do
 
   return . toUConst $ ActionChooseYesNo pid desc onYes onNo
 
+mustChoose mPid mChoices = do
+  pid <- mPid
+  choices :: [UExpr] <- mChoices
+  -- TODO: DRY up this array traversal with mkChooseCard
+  from :: [UValue] <- traverse eval choices
+
+  case traverse fromU from of
+    Right from' -> return . toUConst $ ActionChoose pid (S.fromList from')
+    Left y      -> throwError y
+
 compose = do
   f1 <- argAt 0
   f2 <- argAt 1
@@ -280,9 +286,9 @@ currentPlayer = do
   case board of
     Nothing -> throwError "Board function called outside of context"
     Just b ->
-      case preview (players . element 0 . playerId) b of
-        Nothing -> throwError "No current player"
-        Just p -> return p
+      case view turnStack b of
+        _ :|> x -> return x
+        _ -> throwError "No current player"
 
 allPlayers = do
   board <- currentBoard
@@ -303,8 +309,6 @@ playerDirection dir = do
       let ni = (i + dir + length ps) `mod` length ps
 
       return . toUConst . view playerId . S.index ps $ ni
-
-
 
 makeHero = do
   name     <- argAt 0

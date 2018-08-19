@@ -48,10 +48,12 @@ instance Substitutable MType where
   applySubst s (WFun f x) = WFun (applySubst s f) (applySubst s x)
   applySubst s (WBoardF x) = WBoardF (applySubst s x)
   applySubst s (WList x) = WList (applySubst s x)
+  applySubst s (WTuple x y) = WTuple (applySubst s x) (applySubst s y)
 
 freeMType :: MType -> Set.Set Name
 freeMType (WBoardF x) = freeMType x
 freeMType (WList x) = freeMType x
+freeMType (WTuple x y) = freeMType x <> freeMType y
 freeMType (WConst _) = mempty
 freeMType (WVar x) = Set.singleton x
 freeMType (WFun x y) = freeMType x <> freeMType y
@@ -133,6 +135,7 @@ unify' (WVar v, x) = v `bindVariableTo` x
 unify' (x, WVar v) = v `bindVariableTo` x
 unify' (WConst a, WConst b) | a == b = return mempty
 unify' (WList a, WList b) = unify (a, b)
+unify' (WTuple a b, WTuple c d) = unifyBinary (a, b) (c, d)
 unify' (a, b) = throw (CannotUnify a b)
 
 -- Since board functions are transparent (e.g. they simply pass through to
@@ -171,6 +174,7 @@ recode x =
     relabel names (WVar x) = WVar (fromJust $ M.lookup x names)
     relabel names (WFun x y) = WFun (relabel names x) (relabel names y)
     relabel names (WList x) = WList (relabel names x)
+    relabel names (WTuple x y) = WTuple (relabel names x) (relabel names y)
     relabel _ x = x
 
     extractVarNames :: MType -> [Name]
@@ -178,6 +182,7 @@ recode x =
     extractVarNames (WFun x y) = extractVarNames x <> extractVarNames y
     extractVarNames (WConst _) = []
     extractVarNames (WList x) = extractVarNames x
+    extractVarNames (WTuple x y) = extractVarNames x <> extractVarNames y
 
 fresh :: Infer MType
 fresh = drawFromSupply >>= \case

@@ -119,6 +119,7 @@ data UValue =
  | UInt SummableInt
  | UString T.Text
  | UBool Bool
+ | UTuple UExpr UExpr
  | UFunc UFuncData
  | UBoardFunc Bindings UExpr
  | UAction Action
@@ -138,6 +139,7 @@ data MType =
   | WFun MType MType
   | WBoardF MType
   | WList MType
+  | WTuple MType MType
 
   deriving (Eq, Show)
 
@@ -172,6 +174,7 @@ showType (WFun x y) = maybeBracket (isFun x) (showType x) <> " -> " <> showType 
     isFun _ = False
     maybeBracket cond x = if cond then "(" <> x <> ")" else x
 showType (WList x) = "[" <> showType x <> "]"
+showType (WTuple x y) = "(" <> showType x <> ", " <> showType y <> ")"
 showType (WBoardF x) = "@:" <> showType x
 
 
@@ -190,13 +193,10 @@ instance Monoid JoinableText where
   mempty = JoinableText mempty
   mappend (JoinableText a) (JoinableText b) = JoinableText (a <> " " <> b)
 
-type LabeledExpr = (T.Text, UExpr)
 type LabeledAction = (JoinableText, Action)
 
 extractLabel = fst
 extractCode = snd
-
-mkLabeledExpr = (,)
 
 -- A SummableInt that has a base value, and potentially an expression that can
 -- be dynamically evaluated to modify that value. The expression is stored as a
@@ -239,13 +239,13 @@ data Card = HeroCard
   }
   | MastermindCard
   { _mmName :: T.Text
-  , _mmStrikeCode :: LabeledExpr
+  , _mmStrikeCode :: LabeledAction
   , _mmAlwaysLeads :: T.Text
   , _mmAttack :: ModifiableInt
   , _mmVP :: ModifiableInt
   }
   | MastermindTacticCard
-  { _mmtFightCode :: S.Seq LabeledExpr
+  { _mmtFightCode :: LabeledAction
   , _mmtName :: T.Text
   , _mmtAbilityName :: T.Text
   -- Will just be copied from MM, but denormalized to avoid having to reference
@@ -293,12 +293,12 @@ instance Hashable Location
 
 type CardMap = M.HashMap Location (S.Seq CardInPlay)
 
-data GameState = WaitingForChoice T.Text | Preparing | Won | Lost T.Text deriving (Show, Generic, Eq)
+data GameState = WaitingForChoice T.Text | Preparing | Won T.Text | Lost T.Text deriving (Show, Generic, Eq)
 
 instance Monoid GameState where
   mempty = Preparing
-  mappend _ Won = Won
-  mappend Won _ = Won
+  mappend _ (Won x) = Won x
+  mappend (Won x) _ = Won x
   mappend (Lost x) _ = Lost x
   mappend _ (Lost x) = Lost x
   mappend a Preparing = a
@@ -311,24 +311,6 @@ data Player = Player
   }
   deriving (Show, Generic, Eq)
 
-data Effect =
-  EffectNone |
-  EffectMoney SummableInt |
-  EffectAttack SummableInt |
-  EffectCustom T.Text Action |
-  EffectCombine Effect Effect
-  deriving (Generic)
-
-instance Show Effect where
-  show EffectNone = ""
-  show (EffectMoney n) = "Money +" <> show n
-  show (EffectAttack n) = "Attack +" <> show n
-  show (EffectCombine EffectNone EffectNone) = show ""
-  show (EffectCombine EffectNone b) = show b
-  show (EffectCombine a EffectNone) = show a
-  show (EffectCombine a b) = show a <> ", " <> show b
-  show (EffectCustom a _) = T.unpack a
-
 data Board = Board
   { _players       :: S.Seq Player
   , _cards         :: CardMap
@@ -339,6 +321,7 @@ data Board = Board
   , _postDrawActions :: M.HashMap PlayerId Action
   , _actionLog     :: S.Seq Action
   , _playerChoices :: M.HashMap PlayerId (S.Seq PlayerChoice)
+  , _turnStack     :: S.Seq PlayerId
   }
   deriving (Show, Generic)
 
@@ -346,10 +329,6 @@ newtype Game = Game
   { _gameState :: Board
   }
   deriving (Show, Generic)
-
-instance Monoid Effect where
-  mempty = EffectNone
-  mappend = EffectCombine
 
 showTerms :: Show a => T.Text -> [a] -> String
 showTerms t args = T.unpack $ t <> " (" <> (T.intercalate ", " . map showT $ args) <> ")"
@@ -360,6 +339,7 @@ showTerms3 t (x, y, z) = showTerms t [show x, show y, show z]
 data PlayerChoice =
   ChooseCard SpecificCard |
   ChooseBool Bool |
+  ChooseOption Int |
   ChoosePass |
   ChooseEndTurn
   deriving (Show, Generic, Eq)
@@ -382,7 +362,11 @@ data Action =
   ActionTrace T.Text |
   ActionConcurrent [Action] |
   ActionChooseCard PlayerId T.Text [SpecificCard] UExpr (Maybe Action) |
+  -- Yes/no could technically be done using ActionChoose. Might do that in the
+  -- future, for now keeping separate in case we want to use different UIs for
+  -- them.
   ActionChooseYesNo PlayerId T.Text Action Action |
+  ActionChoose PlayerId (S.Seq (T.Text, Action)) |
   ActionEndStep Action |
 
   ActionAttack PlayerId SummableInt |
@@ -394,8 +378,11 @@ data Action =
   ActionDiscardCard SpecificCard |
   ActionDefeat PlayerId SpecificCard |
   ActionGainWound PlayerId Location SummableInt |
+  ActionGain PlayerId SpecificCard |
+  ActionAddTurn PlayerId |
 
   ActionLose T.Text |
+  ActionWin T.Text |
   ActionPlayerTurn PlayerId |
   ActionStartTurn |
   ActionPrepareGame |
@@ -403,6 +390,8 @@ data Action =
 
   -- TODO: Think through these cases more
   ActionKOHero |
+  -- Can probably be replaced by some pre-existing CardLang? Only used for
+  -- moveCity currently.
   ActionDiscard PlayerId |
   ActionEval Bindings UExpr
 
@@ -446,6 +435,7 @@ mkBoard = Board
   , _actionLog = mempty
   , _playerChoices = mempty
   , _postDrawActions = mempty
+  , _turnStack = mempty
   }
 
 mkPlayer :: PlayerId -> Player

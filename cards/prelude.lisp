@@ -1,3 +1,4 @@
+(def choice tuple)
 (defn id [x] x)
 (defn is-odd [x] (== 1 (mod x 2)))
 
@@ -33,3 +34,10 @@
   (concat-map (. cards-at (player-location p)) ["Played" "Hand"]))
 (defn heroes-player-has [p]
   (concat-map (. heroes-at (player-location p)) ["Played" "Hand"]))
+
+(def player-must-discard @(fn [player]
+  (player-choose-card player
+    "Choose a card in hand to discard"
+    (cards-at (player-location player "Hand"))
+    discard
+    noop)))

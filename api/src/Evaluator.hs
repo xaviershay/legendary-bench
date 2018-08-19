@@ -10,7 +10,7 @@ module Evaluator
   where
 
 import           Control.Lens         (Lens', at, ix, non, over, preview, set,
-                                       view)
+                                       view, element)
 import           Control.Monad        (foldM, forM)
 import           Control.Monad.Except (catchError, throwError)
 import           Control.Monad.Writer (tell)
@@ -161,6 +161,8 @@ apply (ActionRescueBystander pid n) =
             Front
        <> ActionRescueBystander pid (n - 1)
 
+apply (ActionGain pid address) = gainAction pid address >>= apply
+
 -- TODO: Handle not having any wounds left. Verify what happens for replacement
 -- effects.
 apply (ActionGainWound _ _ 0) = apply mempty
@@ -248,16 +250,23 @@ apply a@(ActionShuffle location) = do
 
 apply ActionPrepareGame =
   tag "Prepare game" $ do
-    preparePlayers <-   mconcat . toList
-                      . fmap (preparePlayer . view playerId)
-                      . view players
-                      <$> currentBoard
+    board <- currentBoard
+    let ps = view players board
+    let preparePlayers = mconcat . toList
+                           . fmap (preparePlayer . view playerId)
+                           $ ps
 
-    apply $
-               preparePlayers
-            <> mconcat (fmap ActionShuffle [HeroDeck, VillainDeck])
-            <> mconcat (fmap replaceHeroInHQ [0..4])
-            <> ActionStartTurn
+
+    -- TODO: Randomize first player
+    case preview (element 0 . playerId) ps of
+      Nothing -> lose "Can't start game with no players"
+      Just firstPlayer ->
+        withBoard (over turnStack (|> firstPlayer) board) $
+          (apply $
+                     preparePlayers
+                  <> mconcat (fmap ActionShuffle [HeroDeck, VillainDeck])
+                  <> mconcat (fmap replaceHeroInHQ [0..4])
+                  <> ActionStartTurn)
 
   where
     preparePlayer pid =    ActionShuffle (PlayerLocation pid PlayerDeck)
@@ -282,8 +291,18 @@ apply ActionEndTurn = do
                   (cardsAtLocation $ PlayerLocation player Discard)
               <$> currentBoard
 
+    let ids = view playerId <$> view players board
+    let currentIndex = fromJust $ S.elemIndexL player ids
+    let nextPlayer = PlayerId $ (currentIndex + 1) `mod` length ids
     withBoard board $
-      over players moveHeadToTail <$> apply (ActionDraw player 6 <> postAction)
+      over turnStack (f nextPlayer) <$> apply (ActionDraw player 6 <> postAction)
+
+
+  where
+    -- If turn stack would be empty, replace with next player
+    f nextPlayer (S.Empty S.:|> x) = S.singleton nextPlayer
+    -- ... otherwise pop the stack
+    f _ (xs S.:|> _) = xs
 
 apply ActionStartTurn = do
   pid <- currentPlayer
@@ -352,8 +371,29 @@ apply a@(ActionChooseYesNo pid desc onYes onNo) = applyChoicesFor pid f
     f (ChooseBool False :<| _) = return onNo
     f _ = wait a $ playerDesc pid <> ": " <> desc
 
+apply a@(ActionChoose pid choices) = applyChoicesFor pid f
+  where
+    description = playerDesc pid <> " choose one: " <>
+      ( T.intercalate " "
+      . map (\(n, x) -> showT n <> ") " <> x)
+      . zip [1..]
+      . map fst
+      . toList
+      $ choices
+      ) <> "."
+
+    f (ChooseOption n :<| _) =
+      case S.lookup (n - 1) choices of
+        Nothing          -> f mempty
+        Just (_, action) -> return action
+
+    f _ = wait a description
+
 apply a@(ActionPlayerTurn _) = applyChoicesBoard f
   where
+    isTactic MastermindTacticCard{} = True
+    isTactic _ = False
+
     clearAndApply action = do
       pid <- currentPlayer
       board' <- clearChoices <$> currentBoard
@@ -393,14 +433,12 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
       HQ -> do
         card <- requireCard address
         pid <- currentPlayer
-        index <- cardLocationIndex address
 
         let template = view cardTemplate card
 
-        apply $ ActionTagged (playerDesc pid <> " purchases " <> view cardName template) $
-             ActionMove address (PlayerLocation pid Discard) Front
-          <> ActionRecruit pid (-(view heroCost template))
-          <> replaceHeroInHQ index
+        apply $ ActionTagged (playerDesc pid <> " recruits " <> view cardName template) $
+             ActionRecruit pid (-(view heroCost template))
+          <> ActionGain pid address
 
       City n -> do
         card <- requireCard address
@@ -417,6 +455,41 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
                         <> ActionAttack pid (negate requiredAttack)
                         <> action
                         <> a
+      MastermindDeck -> do
+        board <- currentBoard
+
+        let cs = S.filter (isTactic . view cardTemplate)
+                   . view (cardsAtLocation MastermindDeck)
+                   $ board
+
+        let g = view rng board
+        let (shuffled, g') = shuffleSeq g cs
+        let board' = set rng g' board
+
+        case shuffled of
+          (x :<| xs) -> do
+            let address = cardById MastermindDeck (view cardId x)
+
+            tactic <- requireCard address
+            pid    <- currentPlayer
+
+            let template = view cardTemplate tactic
+            let action = extractCode . fromJust $ preview mmtFightCode template
+
+            let next = if null xs then
+                         ActionWin "You defeated the mastermind!"
+                       else
+                         a
+
+            requiredAttack <- evalInt $ view mmtAttack template
+
+            withBoard board' .  apply $
+              ActionTagged (playerDesc pid <> " attacks Mastermind")
+                $  ActionMove address (PlayerLocation pid Victory) Front
+                <> ActionAttack pid (negate requiredAttack)
+                <> action
+                <> next
+          _ -> lose "No tactic cards left, shouldn't be possible."
       _ -> f mempty
 
     f (ChooseEndTurn :<| _) = do
@@ -429,6 +502,10 @@ apply a@(ActionPlayerTurn _) = applyChoicesBoard f
       pid <- currentPlayer
 
       wait a $ playerDesc pid <> "'s turn"
+
+-- TODO: This probably doesn't stack right for multiple bonus turns, but would
+-- want a combination of cards to test with before nailing it down.
+apply (ActionAddTurn pid) = over turnStack (pid <|) <$> currentBoard
 
 apply a@(ActionEval bindings expr) = do
   board <- currentBoard
@@ -443,6 +520,7 @@ apply a@(ActionEval bindings expr) = do
   apply action
 
 apply a@(ActionLose reason) = lose reason
+apply a@(ActionWin reason) = win reason
 apply (ActionHalt a reason) = wait a reason
 
 apply (ActionConcurrent as) = do
@@ -713,16 +791,6 @@ tag message m = do
     foldedAction -> logAction (ActionTagged message foldedAction)
 
   return board'
-
-cardLocationIndex :: SpecificCard -> GameMonad Int
-cardLocationIndex (CardByIndex (_, i)) = return i
--- TODO: To fix this, this function needs to be moved into board monad
-cardLocationIndex address@(CardById (location, cid)) = do
-  board <- currentBoard
-
-  case S.findIndexL (\c -> cid == view cardId c) (view (cardsAtLocation location) board) of
-    Nothing -> lose $ "No such card: " <> showT address
-    Just i -> return i
 
 evalInt (ModifiableInt base modifier) = do
   board <- currentBoard

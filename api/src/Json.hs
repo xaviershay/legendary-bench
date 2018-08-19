@@ -60,6 +60,7 @@ instance FromJSON Location where
     let tokens = T.splitOn "-" v in
 
     case tokens of
+      ["mastermind"] -> return MastermindDeck
       ["hq"] -> return HQ
       ["city", i] -> City <$> readError i
 
@@ -93,6 +94,7 @@ instance FromJSON PlayerChoice where
     case action of
       "ChooseCard"    -> ChooseCard <$> v .: "card"
       "ChooseBool"    -> ChooseBool <$> v .: "choice"
+      "ChooseOption"  -> ChooseOption <$> v .: "choice"
       "ChoosePass"    -> return ChoosePass
       "ChooseEndTurn" -> return ChooseEndTurn
       _ -> fail $ "Unknown choice: " <> action
@@ -104,7 +106,7 @@ instance ToJSON GameState where
     ]
 
   toJSON Preparing = object ["tag" .= ("preparing" :: String)]
-  toJSON Won = object ["tag" .= ("won" :: String)]
+  toJSON (Won reason) = object ["tag" .= ("won" :: String), "status" .= reason]
   toJSON (Lost reason) = object ["tag" .= ("lost" :: String), "status" .= reason]
 
 instance ToJSON SummableInt
@@ -145,7 +147,7 @@ instance ToJSON Card where
     , "name" .= view cardName c
     , "ability" .= view mmtAbilityName c
     , "attack" .= view mmtAttack c
-    , "fight" .= T.intercalate " " (map extractLabel . toList $ view mmtFightCode c)
+    , "fight" .= (extractLabel $ view mmtFightCode c)
     , "vp" .= view mmtVP c
     ]
   toJSON c = object [ "type" .= view cardType c ]
@@ -179,9 +181,6 @@ instance ToJSON PlayerId where
 instance ToJSON CardId where
   toJSON (CardId id) = toJSON id
 
-instance ToJSON Effect where
-  toJSON = toJSON . show
-
 instance ToJSON CardInPlay where
   toJSON card =
     let template = view cardTemplate card in
@@ -206,6 +205,7 @@ instance ToJSON Board where
   toJSON b = object
     [ "cards"   .= view cards b
     , "players" .= view players b
+    , "turnStack" .= view turnStack b
     , "state"   .= view boardState b
     , "version" .= view version b
     , "log"     .= view actionLog b

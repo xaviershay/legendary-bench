@@ -36,7 +36,7 @@ import           Control.Monad.State  (evalState, runState, get, modify,
 import qualified Data.HashMap.Strict  as M
 import           Data.List            (sortOn)
 import           Data.Maybe           (fromJust, catMaybes)
-import           Data.Sequence        (Seq)
+import           Data.Sequence        (Seq(..))
 import qualified Data.Text            as T
 import qualified Data.Set                as Set
 
@@ -246,9 +246,9 @@ currentPlayer = do
   case board of
     Nothing -> throwError "Board function called outside of context"
     Just b ->
-      case preview (players . element 0 . playerId) b of
-        Nothing -> throwError "No current player"
-        Just p -> return p
+      case view turnStack b of
+        _ :|> x -> traceM (show x) >> return x
+        _ -> throwError "No current player"
 
 currentBoard = do
   board <- gets $ view envBoard
@@ -274,6 +274,16 @@ instance FromU Int where
   fromU x        = throwError ("Expected UInt, got " <> showT x)
 instance ToU Int where
   toU = UInt . Sum
+
+instance ToU (UExpr, UExpr) where
+  toU (x, y) = UTuple x y
+instance (FromU a, FromU b) => FromU (a, b) where
+  -- TODO: Requiring UConst here might screw us later? Unsure.
+  fromU (UTuple (UConst mx) (UConst my)) = do
+    x <- fromU mx
+    y <- fromU my
+
+    return (x, y)
 
 instance FromU T.Text where
   fromU (UString x) = return x
@@ -309,6 +319,10 @@ instance ToU SpecificCard where
 
 instance FromU Location where
   fromU (ULocation x) = return x
+  fromU (UString x) =
+    case x of
+      "HQ" -> return HQ
+      _    -> throwError $ "Unknown location: " <> x
   fromU x        = throwError ("Expected ULocation, got " <> showT x)
 instance ToU Location where
   toU = ULocation

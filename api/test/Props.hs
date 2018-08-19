@@ -76,20 +76,6 @@ instance Arbitrary ScopedLocation where
   shrink = genericShrink
   arbitrary = elements [(minBound :: ScopedLocation)..]
 
-instance Arbitrary Effect where
-  shrink EffectNone = []
-  shrink _ = [EffectNone]
-
-  arbitrary = sized f
-    where
-      f 0 = oneof [ pure EffectNone
-                  , EffectMoney . Sum <$> elements [0..10]
-                  , EffectAttack . Sum <$> elements [0..10]
-                  ]
-      f n = oneof [f 0, liftM2 EffectCombine sub sub]
-        where
-          sub = f (n `div` 2)
-
 instance Arbitrary Location where
   shrink = genericShrink
   arbitrary = oneof

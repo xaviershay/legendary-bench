@@ -90,5 +90,6 @@ test_TypeInference = testGroup "CardLang Type Inference"
   , testInfer "@:Int" "@(@(1))"
   , testInfer "@:Bool" "(def x @(1)) @(== 2 x)"
   , testInfer "@:Int" "(def x @(1)) @(x)"
+  , testInfer "(Int, Bool)" "(tuple 1 true)"
+  , testInfer "((Int, Int), (Bool, Int))" "(tuple (tuple 1 1) (tuple true 1))"
   ]
-

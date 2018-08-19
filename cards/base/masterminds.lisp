@@ -36,9 +36,30 @@
         ]
         (concurrently (map action ps))))
 
-    (add-tactic "Dark Technology" "You may recruit a |tech| or |ranged| Hero from the HQ for free." @(noop))
-    (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card." @(noop))
-    (add-tactic "Secrets of Time Travel" "Take another turn after this one." @(noop))
+    (add-tactic "Dark Technology" "You may recruit a |tech| or |ranged| Hero from the HQ for free."
+      @(choose-card
+         "Choose a |tech| or |ranged| Hero from HQ to recruit."
+         (let
+           [hq (cards-at (location "HQ"))]
+           (concat [
+             (filter (is-type "Ranged") hq)
+             (filter (is-type "Tech") hq)
+           ]))
+         gain
+         noop
+        ))
+
+    (add-tactic "Monarch's Decree" "Choose one: each other player draws a card or each other player discards a card."
+      @(let [ps (filter (. not (== current-player)) all-players)]
+        (must-choose [
+          (choice "Each other player draws a card"
+            (concurrently (map (fn [pid] (draw-player pid 1)) ps)))
+          (choice "Each other player discards a card"
+            (concurrently (map player-must-discard ps)))
+        ])))
+
+    (add-tactic "Secrets of Time Travel" "Take another turn after this one."
+      @(add-turn current-player))
     (add-tactic "Treasures of Latveria" "When you draw a new hand of cards at the end of this turn, draw three extra cards."
       @(at-end-step (draw 3)))
   )
@@ -61,7 +82,9 @@
 
        (concurrently (map action all-players))))
 
+    ; TODO
     (add-tactic "Cruel Ruler" "Defeat a Villain in the City for free." @(noop))
+    ; TODO
     (add-tactic "Maniacal Tyrant" "KO up to four cards from your discard pile." @(noop))
     (add-tactic "Vanishing Illusions" "Each other player KOs a Villain from their Victory Pile."
       @(let [
@@ -74,14 +97,15 @@
           ]
 
          (concurrently (map action ps))))
-    (add-tactic "Whispers and Lies" "Each other player KOs two Bystanders from their Victory Pile."
-      @(let [
-          ps (filter (. not (== current-player)) all-players)
-          action (fn [player]
-                     (apply-with combine noop (map ko (take 2 (filter is-bystander (cards-at (player-location player "Victory")))))))
-          ]
+    ;(add-tactic "Whispers and Lies" "Each other player KOs two Bystanders from their Victory Pile."
+    ;  @(let [
+    ;      ps (filter (. not (== current-player)) all-players)
+    ;      action (fn [player]
+    ;                 (apply-with combine noop
+    ;                   (map ko (take 2 (filter is-bystander (cards-at (player-location player "Victory")))))))
+    ;      ]
 
-         (apply combine (map action ps))))
+    ;     (apply-with combine noop (map action ps))))
   ))
 
 (make-mastermind
@@ -89,10 +113,17 @@
   "Brotherhood" 8 5
   (.
     (add-master-strike
+    ; TODO
       "Each player reveals an X-Men Hero or discards down to four cards."
       @(noop))
 
-    (add-tactic "Bitter Captor" "Recruit an X-Men Hero from the HQ for free." @(noop))
+    (add-tactic "Bitter Captor" "Recruit an X-Men Hero from the HQ for free."
+      @(choose-card
+         "Choose an |x-men| Hero from HQ to recruit."
+         (filter (is-team "X-Men") (cards-at (location "HQ")))
+         gain
+         noop
+        ))
     (add-tactic "Crushing Shockwave" "Each other player reveals an X-Men Hero or gains two Wounds."
       @(let [
           ps (filter (. not (== current-player)) all-players)
@@ -105,6 +136,7 @@
            ]
 
        (concurrently (map action ps))))
+    ; TODO
     (add-tactic "Electromagnetic Bubble" "Choose one of your X-Men Heroes. When you draw a new hand of cards at the end of this turn, add that Hero to your hand as a seventh card." @(noop))
     (add-tactic "Xavier's Nemesis" "For each of your X-Men Heroes, rescue a Bystander."
       @((. rescue-bystander length (filter (is-team "X-Men")) (concat-map cards-at-current-player-location)) ["Hand" "Played"]))
@@ -129,9 +161,11 @@
     (add-tactic "Endless Resources" "You get +4 Recruit"
       @(recruit 4))
     (add-tactic "HYDRA Conspiracy" "Draw two cards. Then draw another card for each HYDRA Villain in your Victory Pile."
+      ; TODO
       @(combine (draw 2) noop))
 
     (add-tactic "Negablast Grenades" "You get +3 Attack."
       @(attack 3))
+    ; TODO
     (add-tactic "Ruthless Dictator" "Look at the top three cards of your deck. KO one, discard one and put one back on top of your deck." @(noop))
   ))
