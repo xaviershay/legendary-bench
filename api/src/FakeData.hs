@@ -60,7 +60,7 @@ mkMastermindDeck cards =
     isTacticFor name = (==) name . view mmtName
 
 mkHeroDeck =
-  traverse (mkCardInPlay All)
+  traverse (mkCardInPlay Hidden)
     . mconcat
     . fmap (\c -> S.replicate (toInt $ view heroStartingNumber c) c)
     . toList
