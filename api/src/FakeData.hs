@@ -8,6 +8,7 @@ import           Control.Monad.State (State, evalState, get, put)
 import           Data.Foldable       (find)
 import           Data.Maybe          (fromJust)
 import qualified Data.Sequence       as S
+import           Data.Time.Clock     (UTCTime)
 import           System.Random       (StdGen)
 
 import Types
@@ -15,9 +16,10 @@ import Evaluator
 import Utils
 import GameMonad
 
-mkGame :: StdGen -> S.Seq Card -> Game
-mkGame g cards = Game
+mkGame :: StdGen -> S.Seq Card -> UTCTime -> Game
+mkGame g cards now = Game
   { _gameState = prepareBoard $ genBoard g 2 cards
+  , _gameModified = now
   }
 
 genBoard :: StdGen -> Int -> S.Seq Card -> Board

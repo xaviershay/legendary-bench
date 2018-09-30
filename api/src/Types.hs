@@ -23,6 +23,9 @@ import qualified Data.Text            as T
 import           GHC.Generics         hiding (to, UInt)
 import           System.Random        (StdGen, mkStdGen)
 
+-- time
+import           Data.Time.Clock     (UTCTime)
+
 import Utils
 
 data GameMonadState = GameMonadState
@@ -325,8 +328,9 @@ data Board = Board
   }
   deriving (Show, Generic)
 
-newtype Game = Game
-  { _gameState :: Board
+data Game = Game
+  { _gameState    :: Board
+  , _gameModified :: UTCTime
   }
   deriving (Show, Generic)
 

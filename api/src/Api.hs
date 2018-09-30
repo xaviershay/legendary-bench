@@ -2,12 +2,13 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Api where
 
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
                                                        newTVar, readTVar)
-import           Control.Lens                         (over, view)
+import           Control.Lens                         (over, view, set)
 import           Control.Monad.IO.Class               (liftIO)
 import           Control.Monad.STM                    (atomically, check)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
@@ -22,11 +23,27 @@ import           Servant
 import           System.Random                        (newStdGen)
 import           System.Timeout                       (timeout)
 
+-- bytestring
+import qualified Data.ByteString.Char8
+
+-- time
+import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Time.Format (defaultTimeLocale, rfc822DateFormat, formatTime, FormatTime)
+
 import FakeData
 import Types
 import GameMonad
 import Evaluator
 import Json()
+
+newtype RFC822Time = RFC822Time UTCTime
+  deriving (Show, Data.Time.Format.FormatTime)
+
+instance ToHttpApiData RFC822Time where
+  toHeader = Data.ByteString.Char8.pack . formatTime defaultTimeLocale rfc822DateFormat
+  toUrlPiece = error "Not intented to be used in URLs"
+
+type LastModifiedHeader = Header "Last-Modified" RFC822Time
 
 newtype State = State
   { games :: TVar (M.HashMap Int (TVar Game)) -- TODO: Use something like ttrie to avoid giant global TVar here.
@@ -35,7 +52,8 @@ newtype State = State
 mkState :: S.Seq Card -> IO State
 mkState cards = do
   rng <- liftIO newStdGen
-  gvar <- atomically . newTVar $ mkGame rng cards
+  now <- liftIO getCurrentTime
+  gvar <- atomically . newTVar $ mkGame rng cards now
   x <- atomically . newTVar . M.singleton 1 $ gvar
   return $ State { games = x }
 
@@ -44,7 +62,7 @@ instance FromHttpApiData PlayerId where
 
 type AppM = ReaderT State Handler
 type MyAPI =
-       "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
+       "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] (Headers '[LastModifiedHeader] Game)
   :<|> "games" :> Capture "id" Int :> "cards" :> Get '[JSON] (M.HashMap T.Text Card)
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "choose" :> ReqBody '[JSON] PlayerChoice :> Post '[JSON] ()
 
@@ -66,7 +84,7 @@ app s =   logStdoutDev
 
 server = getGame :<|> getCards :<|> handleChoice
 
-getGame :: Int -> Maybe Integer -> AppM Game
+getGame :: Int -> Maybe Integer -> AppM (Headers '[LastModifiedHeader] Game)
 getGame gameId maybeVersion = do
   let currentVersion = fromMaybe 0 maybeVersion
 
@@ -75,7 +93,7 @@ getGame gameId maybeVersion = do
   g    <- maybe (liftIO . atomically . readTVar $ gvar) pure mres
 
   -- TODO: Identify the calling player and appropriately redact.
-  return $ over gameState (redact (PlayerId 0)) g
+  return . addHeader (RFC822Time . view gameModified $ g) $ over gameState (redact (PlayerId 0)) g
 
   where
     waitForNewState :: TVar Game -> Integer -> IO Game
@@ -98,8 +116,12 @@ handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
 handleChoice gameId playerId choice = do
   gvar <- findGame gameId
 
-  liftIO . atomically . modifyTVar gvar $
-    over gameState (applyChoice playerId choice)
+  liftIO $ do
+    now  <- getCurrentTime
+
+    atomically . modifyTVar gvar $
+      over gameState (applyChoice playerId choice) .
+      set gameModified now
 
   return ()
 
