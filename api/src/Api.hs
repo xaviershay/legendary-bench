@@ -28,7 +28,7 @@ import qualified Data.ByteString.Char8
 
 -- time
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Data.Time.Format (defaultTimeLocale, rfc822DateFormat, formatTime, FormatTime)
+import Data.Time.Format (defaultTimeLocale, formatTime, FormatTime)
 
 import FakeData
 import Types
@@ -36,14 +36,16 @@ import GameMonad
 import Evaluator
 import Json()
 
-newtype RFC822Time = RFC822Time UTCTime
+newtype RFC1123Time = RFC1123Time UTCTime
   deriving (Show, Data.Time.Format.FormatTime)
 
-instance ToHttpApiData RFC822Time where
-  toHeader = Data.ByteString.Char8.pack . formatTime defaultTimeLocale rfc822DateFormat
+instance ToHttpApiData RFC1123Time where
+  toHeader =
+    let rfc1123DateFormat = "%a, %_d %b %Y %H:%M:%S GMT" in
+    Data.ByteString.Char8.pack . formatTime defaultTimeLocale rfc1123DateFormat
   toUrlPiece = error "Not intented to be used in URLs"
 
-type LastModifiedHeader = Header "Last-Modified" RFC822Time
+type LastModifiedHeader = Header "Last-Modified" RFC1123Time
 
 newtype State = State
   { games :: TVar (M.HashMap Int (TVar Game)) -- TODO: Use something like ttrie to avoid giant global TVar here.
@@ -93,7 +95,7 @@ getGame gameId maybeVersion = do
   g    <- maybe (liftIO . atomically . readTVar $ gvar) pure mres
 
   -- TODO: Identify the calling player and appropriately redact.
-  return . addHeader (RFC822Time . view gameModified $ g) $ over gameState (redact (PlayerId 0)) g
+  return . addHeader (RFC1123Time . view gameModified $ g) $ over gameState (redact (PlayerId 0)) g
 
   where
     waitForNewState :: TVar Game -> Integer -> IO Game
