@@ -6,10 +6,13 @@ module Legendary.Extras.STM
 import           Control.Concurrent.STM.TVar          (TVar, readTVar, registerDelay)
 import           Control.Monad.STM                    (atomically, check, orElse)
 
-data Timeout = TimeoutSecs Int
+data Timeout =
+    TimeoutSecs Int
+  | TimeoutDays Int
 
 toMs :: Timeout -> Int
 toMs (TimeoutSecs x) = x * 1000000
+toMs (TimeoutDays x) = toMs (TimeoutSecs 1) * 60 * 60 * 24 * x
 
 -- Like readTVar, but retries until the returned value passes the provided
 -- check. If timeout elapses, return Nothing.

@@ -5,6 +5,7 @@
 
 module Api where
 
+import           Control.Concurrent                   (forkIO)
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
                                                        newTVar, readTVar, registerDelay)
 import           Control.Lens                         (over, view, set)
@@ -32,7 +33,7 @@ import Evaluator
 import Json()
 
 import Legendary.Extras.RFC1123 (RFC1123Time(..))
-import Legendary.Extras.STM (readTVarWhen, Timeout(TimeoutSecs))
+import Legendary.Extras.STM (readTVarWhen, Timeout(..))
 
 type LastModifiedHeader = Header "Last-Modified" RFC1123Time
 
@@ -54,9 +55,27 @@ addGame State { games = stateVar } gameId g = do
   gvar <- atomically . newTVar $ g
   atomically . modifyTVar stateVar $
     -- TODO: Check not overwriting an existing
-    (M.insert gameId gvar)
+    M.insert gameId gvar
+
+  forkIO $ handleExpiry gvar
 
   return ()
+
+  where
+    -- Remove the game from state if a timeout expires without any change to
+    -- the game's modification time.
+    handleExpiry :: TVar Game -> IO ()
+    handleExpiry gvar = do
+      g <- atomically . readTVar $ gvar
+      let currentModified = view gameModified g
+      mres <- readTVarWhen
+                gvar
+                ((/=) currentModified . view gameModified)
+                (TimeoutDays 7)
+      case mres of
+        Nothing -> atomically . modifyTVar stateVar $
+                     M.delete gameId
+        Just newGame -> handleExpiry gvar
 
 instance FromHttpApiData PlayerId where
   parseUrlPiece x = PlayerId <$> parseUrlPiece x
