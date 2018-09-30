@@ -44,9 +44,19 @@ mkState :: S.Seq Card -> IO State
 mkState cards = do
   rng  <- liftIO newStdGen
   now  <- liftIO getCurrentTime
-  gvar <- atomically . newTVar $ mkGame rng cards now
-  x    <- atomically . newTVar $ M.singleton 1 gvar
-  return $ State { games = x }
+  x    <- atomically . newTVar $ mempty
+  let s = State { games = x }
+  addGame s 1 (mkGame rng cards now)
+  return s
+
+addGame :: State -> Int -> Game -> IO ()
+addGame State { games = stateVar } gameId g = do
+  gvar <- atomically . newTVar $ g
+  atomically . modifyTVar stateVar $
+    -- TODO: Check not overwriting an existing
+    (M.insert gameId gvar)
+
+  return ()
 
 instance FromHttpApiData PlayerId where
   parseUrlPiece x = PlayerId <$> parseUrlPiece x
