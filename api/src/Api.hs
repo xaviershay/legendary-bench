@@ -2,15 +2,14 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Api where
 
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
-                                                       newTVar, readTVar)
+                                                       newTVar, readTVar, registerDelay)
 import           Control.Lens                         (over, view, set)
 import           Control.Monad.IO.Class               (liftIO)
-import           Control.Monad.STM                    (atomically, check)
+import           Control.Monad.STM                    (atomically, check, orElse)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
 import           Data.Maybe                           (fromMaybe)
@@ -23,12 +22,8 @@ import           Servant
 import           System.Random                        (newStdGen)
 import           System.Timeout                       (timeout)
 
--- bytestring
-import qualified Data.ByteString.Char8
-
 -- time
 import Data.Time.Clock (UTCTime, getCurrentTime)
-import Data.Time.Format (defaultTimeLocale, formatTime, FormatTime)
 
 import FakeData
 import Types
@@ -36,14 +31,8 @@ import GameMonad
 import Evaluator
 import Json()
 
-newtype RFC1123Time = RFC1123Time UTCTime
-  deriving (Show, Data.Time.Format.FormatTime)
-
-instance ToHttpApiData RFC1123Time where
-  toHeader =
-    let rfc1123DateFormat = "%a, %_d %b %Y %H:%M:%S GMT" in
-    Data.ByteString.Char8.pack . formatTime defaultTimeLocale rfc1123DateFormat
-  toUrlPiece = error "Not intented to be used in URLs"
+import Legendary.Extras.RFC1123 (RFC1123Time(..))
+import Legendary.Extras.STM (readTVarWhen, Timeout(TimeoutSecs))
 
 type LastModifiedHeader = Header "Last-Modified" RFC1123Time
 
@@ -53,10 +42,10 @@ newtype State = State
 
 mkState :: S.Seq Card -> IO State
 mkState cards = do
-  rng <- liftIO newStdGen
-  now <- liftIO getCurrentTime
+  rng  <- liftIO newStdGen
+  now  <- liftIO getCurrentTime
   gvar <- atomically . newTVar $ mkGame rng cards now
-  x <- atomically . newTVar . M.singleton 1 $ gvar
+  x    <- atomically . newTVar $ M.singleton 1 gvar
   return $ State { games = x }
 
 instance FromHttpApiData PlayerId where
@@ -91,19 +80,17 @@ getGame gameId maybeVersion = do
   let currentVersion = fromMaybe 0 maybeVersion
 
   gvar <- findGame gameId
-  mres <- liftIO $ timeout (30 * 1000000) (waitForNewState gvar currentVersion)
-  g    <- maybe (liftIO . atomically . readTVar $ gvar) pure mres
+  g <- liftIO $ readTVarWhen
+                  gvar
+                  (\x -> view (gameState . version) x > currentVersion)
+                  (TimeoutSecs 30)
+                >>= maybe (atomically . readTVar $ gvar) return
 
   -- TODO: Identify the calling player and appropriately redact.
-  return . addHeader (RFC1123Time . view gameModified $ g) $ over gameState (redact (PlayerId 0)) g
-
-  where
-    waitForNewState :: TVar Game -> Integer -> IO Game
-    waitForNewState gvar v =
-      atomically $ do
-        x <- readTVar gvar
-        check $ view (gameState . version) x > v
-        return x
+  return
+    . addHeader (RFC1123Time . view gameModified $ g)
+    . over gameState (redact (PlayerId 0))
+    $ g
 
 getCards :: Int -> AppM (M.HashMap T.Text Card)
 getCards gameId = do
