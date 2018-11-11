@@ -88,7 +88,7 @@ mkPlayerDeck cards =
   traverse (mkCardInPlay Hidden) $
        S.replicate 8 recruitCard
     <> S.replicate 4 attackCard
-    <> S.replicate 50 (findCard "Hulk Smash")
+    -- <> S.replicate 50 (findCard "Hulk Smash")
     -- <> S.replicate 5 (findCard "Hey, Can I Get a Do-Over?")
 
   where
