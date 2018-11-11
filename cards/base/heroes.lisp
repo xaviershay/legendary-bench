@@ -93,6 +93,7 @@
     (add-play-effect @(attack
       ((. length (filter is-bystander) cards-at (player-location current-player)) "Victory")))))
 
+; TODO: Allow selection of mastermind
 (make-hero
   "Silent Sniper" "Covert" 7 1
   "Defeat a Villain or Mastermind that has a Bystander."

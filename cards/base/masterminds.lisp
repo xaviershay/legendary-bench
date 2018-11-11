@@ -83,7 +83,12 @@
        (concurrently (map action all-players))))
 
     ; TODO
-    (add-tactic "Cruel Ruler" "Defeat a Villain in the City for free." @(noop))
+    (add-tactic "Cruel Ruler" "Defeat a Villain in the City for free."
+      @(choose-card
+        "Choose a Villian"
+        (concat-map villains-at city-locations)
+        defeat
+        noop))
     ; TODO
     (add-tactic "Maniacal Tyrant" "KO up to four cards from your discard pile." @(noop))
     (add-tactic "Vanishing Illusions" "Each other player KOs a Villain from their Victory Pile."
