@@ -352,11 +352,12 @@ apply a@(ActionChooseCard pid desc options expr pass) = applyChoicesFor pid f
     f (ChooseCard location :<| _) = do
       options' <- catMaybes <$> mapM lookupCard options
       card <- requireCard location
+      address <- addressById location
 
       if card `elem` options' then
         do
           board <- currentBoard
-          case fromU $ evalWith (mkEnv $ Just board) (UApp expr (UConst $ toU location)) of
+          case fromU $ evalWith (mkEnv $ Just board) (UApp expr (UConst $ toU address)) of
              Right x -> return x
              Left y -> lose $ "Unexpected state: board function doesn't evaluate to an action. Got: " <> y
 
@@ -800,6 +801,7 @@ evalInt (ModifiableInt base modifier) = do
     Right x -> return (base <> x)
     Left y -> lose $ "Unexpected state: expr doesn't evaluate to an int. Got: " <> y
 
+addressById :: SpecificCard -> GameMonad SpecificCard
 addressById address = do
   card <- requireCard address
   return $ cardById (cardLocation address) (view cardId card)

@@ -90,7 +90,11 @@
         defeat
         noop))
     ; TODO
-    (add-tactic "Maniacal Tyrant" "KO up to four cards from your discard pile." @(noop))
+    (add-tactic "Maniacal Tyrant" "KO up to four cards from your discard pile."
+      @(choose-upto 4
+         "Choose a card to KO from discard"
+         (cards-at-current-player-location "Discard")
+         (ko)))
     (add-tactic "Vanishing Illusions" "Each other player KOs a Villain from their Victory Pile."
       @(let [
           ps (filter (. not (== current-player)) all-players)

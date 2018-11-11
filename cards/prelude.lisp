@@ -41,3 +41,15 @@
     (cards-at (player-location player "Hand"))
     discard
     noop)))
+
+(defn choose-upto [n desc cards f]
+  (if (== n 0)
+    noop
+    (choose-card
+      desc
+      cards
+      (fn [card] (combine
+        (f card)
+        (choose-upto (- n 1) desc (filter (. not (== card)) cards) f)))
+      noop
+   )))
