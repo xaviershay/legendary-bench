@@ -4,8 +4,6 @@
 
 (defn drop [n xs]
   (if (<= n 0) xs (drop (- n 1) (tail xs))))
-(defn take [n xs]
-  (if (<= n 0) [] (concat [[(head xs)] (take (- n 1) (tail xs))])))
 
 (defn map [f xs] (reduce (fn [a x] (concat [a [(f x)]])) [] xs))
 (defn filter [f xs] (reduce
@@ -13,6 +11,8 @@
                       []
                       xs))
 (defn length [xs] (reduce (fn [a x] (add 1 a)) 0 xs))
+(defn take [n xs]
+  (if (<= (length xs) n) xs (concat [[(head xs)] (take (- n 1) (tail xs))])))
 (defn any [f] (. (< 0) length (filter f)))
 (defn concat-map [f] (. concat (map f)))
 (defn empty [xs] (== 0 (length xs)))

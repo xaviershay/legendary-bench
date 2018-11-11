@@ -97,15 +97,20 @@
           ]
 
          (concurrently (map action ps))))
-    ;(add-tactic "Whispers and Lies" "Each other player KOs two Bystanders from their Victory Pile."
-    ;  @(let [
-    ;      ps (filter (. not (== current-player)) all-players)
-    ;      action (fn [player]
-    ;                 (apply-with combine noop
-    ;                   (map ko (take 2 (filter is-bystander (cards-at (player-location player "Victory")))))))
-    ;      ]
+    (add-tactic "Whispers and Lies" "Each other player KOs two Bystanders from their Victory Pile."
+      @(let [
+          ps (filter (. not (== current-player)) all-players)
+          action (fn [player]
+                     (apply-with combine noop
+                       ((.
+                         (map ko)
+                         (take 2)
+                         (filter is-bystander)
+                         cards-at
+                       ) (player-location player "Victory"))))
+          ]
 
-    ;     (apply-with combine noop (map action ps))))
+         (apply-with combine noop (map action ps))))
   ))
 
 (make-mastermind

@@ -96,6 +96,7 @@ test_Eval =
   , testEval (UInt 7) "((. (add 1) (add 2) (add 3)) 1)"
   , testEvalWithPrelude (UList [UConst (UInt (Sum 3))]) "(drop 2 [1 2 3])"
   , testEvalWithPrelude (UList []) "(drop 1 [])"
+  , testEvalWithPrelude (UList []) "(take 2 [])"
   , testEvalWithPrelude (UBool False) "(any (fn [x] false) [0])"
   , testEvalWithPrelude (UBool True) "(any (fn [x] true) [0])"
   , testEvalWithPrelude (UBool False) "(any (fn [x] true) [])"
