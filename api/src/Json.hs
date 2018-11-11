@@ -188,13 +188,13 @@ instance ToJSON CardInPlay where
     case view cardVisibility card of
       Owner -> error "Trying to convert Owner visibilty, should be redacted"
       visible -> object $
-        [ "type"    .= view cardType template
-        , "visible" .= visible
-        , "id"      .= view cardId card
+        [ "visible" .= visible
         ] <>
         if visible == All then
           [ "name"       .= view cardName template
           , "templateId" .= view (cardTemplate . templateId) card
+          , "type"    .= view cardType template
+          , "id"      .= view cardId card
           ]
         else
           []

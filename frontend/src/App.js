@@ -265,7 +265,6 @@ class Board extends Component {
             <Location cards={board.cards["mastermind"]} title="Mastermind"
               layout="stacked"
               actions={chooseCardActions("mastermind", currentPlayer)} />
-             />
             <div className='city'>
               <Location cards={board.cards["city-4"]} title="Bridge"
                 layout="stacked"
@@ -284,7 +283,7 @@ class Board extends Component {
                 layout="stacked"
                 actions={attackActions(currentPlayer, 0)} />
             </div>
-            <Location cards={board.cards["villian-deck"]} title="Villian Deck"
+            <Location cards={board.cards["villain-deck"]} title="Villian Deck"
               layout="stacked" />
             <div className="spacer"></div>
             <Location cards={board.cards["escaped"]} title="Escaped"

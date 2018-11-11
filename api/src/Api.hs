@@ -5,11 +5,12 @@
 
 module Api where
 
+import           Control.Concurrent                   (forkIO)
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
-                                                       newTVar, readTVar)
-import           Control.Lens                         (over, view)
+                                                       newTVar, readTVar, registerDelay)
+import           Control.Lens                         (over, view, set)
 import           Control.Monad.IO.Class               (liftIO)
-import           Control.Monad.STM                    (atomically, check)
+import           Control.Monad.STM                    (atomically, check, orElse)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
 import           Data.Maybe                           (fromMaybe)
@@ -22,28 +23,66 @@ import           Servant
 import           System.Random                        (newStdGen)
 import           System.Timeout                       (timeout)
 
+-- time
+import Data.Time.Clock (UTCTime, getCurrentTime)
+
 import FakeData
 import Types
 import GameMonad
 import Evaluator
 import Json()
 
+import Legendary.Extras.RFC1123 (RFC1123Time(..))
+import Legendary.Extras.STM (readTVarWhen, Timeout(..))
+
+type LastModifiedHeader = Header "Last-Modified" RFC1123Time
+
 newtype State = State
-  { game :: TVar Game -- TODO: Handle multiple games at once
+  { games :: TVar (M.HashMap Int (TVar Game)) -- TODO: Use something like ttrie to avoid giant global TVar here.
   }
 
 mkState :: S.Seq Card -> IO State
 mkState cards = do
-  rng <- liftIO newStdGen
-  x <- atomically . newTVar $ mkGame rng cards
-  return $ State { game = x }
+  rng  <- liftIO newStdGen
+  now  <- liftIO getCurrentTime
+  x    <- atomically . newTVar $ mempty
+  let s = State { games = x }
+  addGame s 1 (mkGame rng cards now)
+  return s
+
+addGame :: State -> Int -> Game -> IO ()
+addGame State { games = stateVar } gameId g = do
+  gvar <- atomically . newTVar $ g
+  atomically . modifyTVar stateVar $
+    -- TODO: Check not overwriting an existing
+    M.insert gameId gvar
+
+  forkIO $ handleExpiry gvar
+
+  return ()
+
+  where
+    -- Remove the game from state if a timeout expires without any change to
+    -- the game's modification time.
+    handleExpiry :: TVar Game -> IO ()
+    handleExpiry gvar = do
+      g <- atomically . readTVar $ gvar
+      let currentModified = view gameModified g
+      mres <- readTVarWhen
+                gvar
+                ((/=) currentModified . view gameModified)
+                (TimeoutDays 7)
+      case mres of
+        Nothing -> atomically . modifyTVar stateVar $
+                     M.delete gameId
+        Just newGame -> handleExpiry gvar
 
 instance FromHttpApiData PlayerId where
   parseUrlPiece x = PlayerId <$> parseUrlPiece x
 
 type AppM = ReaderT State Handler
 type MyAPI =
-       "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] Game
+       "games" :> Capture "id" Int :> QueryParam "version" Integer :> Get '[JSON] (Headers '[LastModifiedHeader] Game)
   :<|> "games" :> Capture "id" Int :> "cards" :> Get '[JSON] (M.HashMap T.Text Card)
   :<|> "games" :> Capture "id" Int :> "players" :> Capture "playerId" PlayerId :> "choose" :> ReqBody '[JSON] PlayerChoice :> Post '[JSON] ()
 
@@ -65,59 +104,62 @@ app s =   logStdoutDev
 
 server = getGame :<|> getCards :<|> handleChoice
 
-getGame :: Int -> Maybe Integer -> AppM Game
+getGame :: Int -> Maybe Integer -> AppM (Headers '[LastModifiedHeader] Game)
 getGame gameId maybeVersion = do
   let currentVersion = fromMaybe 0 maybeVersion
-  State{game = gvar} <- ask
 
-  mres <- liftIO $ timeout (30 * 1000000) (waitForNewState gvar currentVersion)
+  gvar <- findGame gameId
+  g <- liftIO $ readTVarWhen
+                  gvar
+                  (\x -> view (gameState . version) x > currentVersion)
+                  (TimeoutSecs 30)
+                >>= maybe (atomically . readTVar $ gvar) return
 
-  g' <- case mres of
-          Nothing -> liftIO . atomically . readTVar $ gvar
-          Just g  -> return g
-
-  return $ over gameState (redact (PlayerId 0)) g'
-
-  where
-    waitForNewState :: TVar Game -> Integer -> IO Game
-    waitForNewState gvar v =
-      atomically $ do
-        x <- readTVar gvar
-        check $ view (gameState . version) x > v
-        return x
+  -- TODO: Identify the calling player and appropriately redact.
+  return
+    . addHeader (RFC1123Time . view gameModified $ g)
+    . over gameState (redact (PlayerId 0))
+    $ g
 
 getCards :: Int -> AppM (M.HashMap T.Text Card)
 getCards gameId = do
-    State{game = gvar} <- ask
-    g <- liftIO . atomically . readTVar $ gvar
+  gvar <- findGame gameId
+  g    <- liftIO . atomically . readTVar $ gvar
 
-    return . M.fromList . fmap
-      (\c -> (view templateId c, c)) $
-      (cardDictionary . view gameState $ g)
+  return . M.fromList . fmap
+    (\c -> (view templateId c, c)) $
+    (cardDictionary . view gameState $ g)
 
 handleChoice :: Int -> PlayerId -> PlayerChoice -> AppM ()
 handleChoice gameId playerId choice = do
-  State{game = gvar} <- ask
+  gvar <- findGame gameId
 
-  g <- liftIO . atomically . readTVar $ gvar
-  --liftIO . putStrLn . show $ view (gameState . currentAction) g
-  liftIO . atomically . modifyTVar gvar $
-    over gameState (applyChoice playerId choice)
+  liftIO $ do
+    now  <- getCurrentTime
 
-  g <- liftIO . atomically . readTVar $ gvar
-
-  --liftIO $ sequence (fmap (putStrLn . show) $ view (gameState . actionLog) g)
-  --liftIO . putStrLn . show $ view (gameState . currentAction) g
+    atomically . modifyTVar gvar $
+      over gameState (applyChoice playerId choice) .
+      set gameModified now
 
   return ()
 
   where
-    incrementVersion = over version (+ 1)
     applyChoice playerId choice board =
       let board' = addChoice playerId choice board in
+      let incrementVersion = over version (+ 1) in
 
       incrementVersion . runGameMonad (mkGameMonadState board' Nothing) $
         apply (view currentAction board')
+
+findGame :: Int -> AppM (TVar Game)
+findGame gameId = do
+  State{games = stateVar} <- ask
+
+  gameMap <- liftIO . atomically . readTVar $ stateVar
+
+  case M.lookup gameId gameMap of
+    Nothing -> throwError err404
+    Just gvar -> return gvar
 
 redact :: PlayerId -> Board -> Board
 redact id = over cards (M.mapWithKey f)
