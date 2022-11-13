@@ -9,13 +9,14 @@ import qualified Data.Text     as T
 import qualified Data.Text.IO  as T
 
 import Types
+import Utils
 import CardLang
 
 testEval = testEvalWith mempty
 testEvalWith bindings = testEvalFull Nothing bindings mempty
 testBoardEval = testEvalFull (Just mkBoard) mempty mempty
 testEvalWithPrelude expected input = do
-  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
+  prelude <- cardsPath "prelude.lisp"
   prelude <- T.readFile prelude
 
   testEvalFull Nothing mempty (prelude <> "\n") expected input

@@ -7,10 +7,10 @@ module Api where
 
 import           Control.Concurrent                   (forkIO)
 import           Control.Concurrent.STM.TVar          (TVar, modifyTVar,
-                                                       newTVar, readTVar, registerDelay)
+                                                       newTVar, readTVar)
 import           Control.Lens                         (over, view, set)
 import           Control.Monad.IO.Class               (liftIO)
-import           Control.Monad.STM                    (atomically, check, orElse)
+import           Control.Monad.STM                    (atomically)
 import           Control.Monad.Trans.Reader           (ReaderT, ask, runReaderT)
 import qualified Data.HashMap.Strict                  as M
 import           Data.Maybe                           (fromMaybe)
@@ -21,10 +21,9 @@ import           Network.Wai.Middleware.Cors          (cors, corsRequestHeaders,
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant
 import           System.Random                        (newStdGen)
-import           System.Timeout                       (timeout)
 
 -- time
-import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Time.Clock (getCurrentTime)
 
 import FakeData
 import Types

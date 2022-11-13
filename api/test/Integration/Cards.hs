@@ -13,6 +13,7 @@ import qualified Data.Text.IO        as T
 import System.Random (mkStdGen)
 
 import Types
+import Utils
 import CardLang
 import GameMonad
 import Evaluator (apply)
@@ -38,8 +39,8 @@ fakeBoard cards = let b = genBoard (mkStdGen 0) 2 cards in
 
 
 test_CardsIntegration = do
-  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
-  let path = "/home/xavier/Code/legendary-bench/cards/base/heroes.lisp"
+  prelude <- cardsPath "prelude.lisp"
+  path <- cardsPath "base/heroes.lisp"
 
   prelude <- T.readFile prelude
   contents <- T.readFile path
@@ -65,8 +66,8 @@ test_CardsIntegration = do
                        _ -> True @=? True
 
 test_HenchmenIntegration = do
-  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
-  let path = "/home/xavier/Code/legendary-bench/cards/base/henchmen.lisp"
+  prelude <- cardsPath "prelude.lisp"
+  path <- cardsPath "base/henchmen.lisp"
 
   prelude <- T.readFile prelude
   contents <- T.readFile path
@@ -92,8 +93,8 @@ test_HenchmenIntegration = do
                        _ -> True @=? True
 
 test_MastermindIntegration = do
-  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
-  let path = "/home/xavier/Code/legendary-bench/cards/base/masterminds.lisp"
+  prelude <- cardsPath "prelude.lisp"
+  path <- cardsPath "base/masterminds.lisp"
 
   prelude <- T.readFile prelude
   contents <- T.readFile path

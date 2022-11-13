@@ -8,6 +8,7 @@ import qualified Data.Text     as T
 import qualified Data.Text.IO  as T
 
 import Types
+import Utils
 import CardLang
 
 testInfer expected input =
@@ -24,7 +25,7 @@ testInfer expected input =
 
 testInferWithPrelude :: T.Text -> T.Text -> IO TestTree
 testInferWithPrelude expected input = do
-  let prelude = "/home/xavier/Code/legendary-bench/cards/prelude.lisp"
+  prelude <- cardsPath "prelude.lisp"
   prelude <- T.readFile prelude
 
   return $ testCase (T.unpack $ input <> " :: " <> expected) $ expected @=? inferType (prelude <> "\n" <> input)

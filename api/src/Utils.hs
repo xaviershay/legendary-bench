@@ -18,6 +18,8 @@ import           Debug.Trace      (trace, traceM)
 import           Text.Show.Pretty (ppShow)
 import Control.Monad (foldM)
 import           Data.Sequence        (Seq, (<|))
+import System.Environment (lookupEnv)
+import Data.Maybe (fromMaybe)
 
 showT :: Show a => a -> T.Text
 showT = T.pack . show
@@ -28,3 +30,8 @@ moveHeadToTail (x S.:<| xs) = xs S.|> x
 
 traceMT :: Applicative t => T.Text -> t ()
 traceMT = traceM . T.unpack
+
+cardsPath :: String -> IO String
+cardsPath x = do
+  dir <- fromMaybe "../cards/" <$> lookupEnv "CARDS_DIR"
+  return $ dir ++ x
