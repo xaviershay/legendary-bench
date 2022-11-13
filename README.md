@@ -55,6 +55,39 @@ The core engine code knows nothing about any specific cards in the game. They
 are implemented using a custom LISP-like language in the `cards` directory. For
 kicks, this language also features static type inference and checking.
 
-There's no really great reason for this I just thought it would be fun.
+    (make-hero "Unstoppable Hulk" "Instinct" 4 5
+      "You may KO a Wound from your hand or discard pile. If you do, you get +2 Attack."
+      (.
+        (add-attack-plus 2)
+        (add-play-effect
+          @(choose-card
+            "Choose a wound from hand or discard to KO"
+            (filter
+              is-wound
+              (concat-map cards-at-current-player-location ["Hand" "Discard"])
+            )
+            (fn [card] (combine (ko card) (attack 2)))
+            noop)
+          )))
+
+    (make-hero "Hey, Can I Get a Do-Over?" "Instinct" 3 3
+      "If this is the first Hero you played this turn, you may discard the rest of your hand and draw four cards."
+      (.
+        (add-attack 2)
+        (add-play-effect
+          @(if
+            (== [current-card] (cards-at-current-player-location "Played"))
+            (choose-yesno "Discard your hand?"
+              (combine
+                (discard-hand current-player)
+                (draw 4))
+              noop
+              )
+            noop
+            )
+          )))
+
+There's no really great reason for this I just thought it would be fun. Which
+it was.
 
 [1]: http://hackage.haskell.org/package/base-4.11.1.0/docs/Data-Monoid.html
