@@ -16,7 +16,7 @@ Requires standard Haskell `stack` and `npm` development environments.
 ### Backend
 
     cd api
-    stack ghci legendary-bench:exe:legendary-bench-exe
+    stack ghci # choose legendary-bench:exe:legendary-bench-exe
     main
 
 ### Frontend
