@@ -52,8 +52,9 @@ action chains can easily be constructed and will behave as expected.
 ### Cards
 
 The core engine code knows nothing about any specific cards in the game. They
-are implemented using a custom LISP-like language in the `cards` directory. For
-kicks, this language also features static type inference and checking.
+are implemented using a custom LISP-like language in the `cards` directory
+(customizable with `CARDS_LANG` env var). For kicks, this language also
+features static type inference and checking.
 
     (make-hero "Unstoppable Hulk" "Instinct" 4 5
       "You may KO a Wound from your hand or discard pile. If you do, you get +2 Attack."
